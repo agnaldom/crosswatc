@@ -31,6 +31,14 @@ type Informers interface {
 	Stop()
 }
 
+// StreamPruner is satisfied by *store.Store.
+type StreamPruner interface {
+	PruneStream(ctx context.Context, olderThan time.Duration) (int64, error)
+}
+
+// streamRetention keeps the SSE buffer comfortably longer than the 5-minute replay window.
+const streamRetention = 15 * time.Minute
+
 // Runner is the worker main loop. It must only run on the elected leader.
 type Runner struct {
 	Rec       Reconciler
@@ -42,6 +50,7 @@ type Runner struct {
 
 	Inbox         InboxStore // optional: webhook deliveries (spec §35.1)
 	InboxInterval time.Duration
+	Stream        StreamPruner // optional: trims the SSE replay buffer (spec §45)
 
 	resolver atomic.Pointer[informer.Resolver]
 	resynced atomic.Bool
@@ -161,6 +170,13 @@ func (r *Runner) fullResync(ctx context.Context) {
 	} else {
 		r.resynced.Store(true)
 		r.log().Info("resync finished", "result", res, "took", time.Since(start))
+	}
+	if r.Stream != nil {
+		if n, err := r.Stream.PruneStream(ctx, streamRetention); err != nil {
+			r.log().Warn("prune stream buffer failed", "err", err)
+		} else if n > 0 {
+			r.log().Debug("pruned stream buffer", "rows", n)
+		}
 	}
 	xrds, mrs := r.Rec.Catalog()
 	if r.Informers != nil {

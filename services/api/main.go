@@ -17,6 +17,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/logging"
 	"github.com/agnaldom/crosswatc/internal/store"
+	"github.com/agnaldom/crosswatc/internal/stream"
 	"github.com/agnaldom/crosswatc/internal/version"
 )
 
@@ -59,6 +60,13 @@ func run() error {
 
 	deps := httpapi.Deps{Store: st, Auth: authn, Log: log, Inbox: st,
 		Webhooks: httpapi.WebhookConfig{GitHubSecret: cfg.GitHub.WebhookSecret, ArgoCDToken: cfg.ArgoCDWebhookToken}}
+	hub := stream.NewHub(st, log, 0)
+	go func() {
+		if err := hub.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Error("stream hub stopped", "err", err)
+		}
+	}()
+	deps.Stream = hub
 	if cfg.GitHub.WebhookSecret == "" {
 		log.Warn("CROSSWATC_GITHUB_WEBHOOK_SECRET not set; POST /webhooks/github disabled")
 	}

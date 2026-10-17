@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -393,5 +394,102 @@ func TestListResourcesWebhookRouting(t *testing.T) {
 	got, _, _ = testStore.ListResources(ctx, ResourceFilter{Repository: "org/route-repo"}, Page{})
 	if len(got) != 2 {
 		t.Fatalf("by repository: %d", len(got))
+	}
+}
+
+func TestStreamTriggersAndListen(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	notified := make(chan string, 64)
+	listening := make(chan struct{})
+	go func() {
+		_ = testStore.Listen(ctx, StreamChannel, func() { close(listening) }, func(p string) { notified <- p })
+	}()
+	<-listening
+	start, err := testStore.LatestStreamID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	since := time.Now().Add(-time.Minute)
+
+	r, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-stream", "streamers", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-stream", "streamers", "dev")); err != nil {
+		t.Fatal(err) // only version/updated_at change: no event
+	}
+	if _, err := testStore.UpdateResourceState(ctx, r.ID, r.Version+1, "PROVISIONING", false); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	rev, err := testStore.InsertRevision(ctx, Revision{ResourceID: r.ID, Rev: 1, Kind: "CREATE", State: "CREATED", StartedAt: &now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rev.State = "VALIDATING"
+	if err := testStore.UpdateRevision(ctx, rev); err != nil {
+		t.Fatal(err)
+	}
+	if err := testStore.UpdateRevision(ctx, rev); err != nil {
+		t.Fatal(err) // unchanged: no event
+	}
+	if _, err := testStore.InsertOperation(ctx, Operation{ResourceID: r.ID, RevisionID: &rev.ID, CorrelationID: r.CorrelationID,
+		Type: "CREATE", Status: "QUEUED", RequestedBy: "ana"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testStore.InsertEvent(ctx, Event{DedupeKey: "stream-" + r.ID.String(), ResourceID: &r.ID, Source: "crosswatc",
+		Type: "REQUEST.CREATED", Level: "info", Message: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	topo := Topology{ResourceID: r.ID, Nodes: []byte(`[{"id":"a"}]`), Edges: []byte(`[]`)}
+	_ = testStore.UpsertTopology(ctx, topo)
+	_ = testStore.UpsertTopology(ctx, topo) // unchanged: no event
+	proj := Projection{ResourceID: r.ID, Stages: []byte(`[]`), DriftState: []byte(`{"detected":false}`)}
+	_ = testStore.UpsertProjection(ctx, proj)
+	proj.DriftState = []byte(`{"detected":true}`)
+	_ = testStore.UpsertProjection(ctx, proj)
+	_ = testStore.UpsertProjection(ctx, proj) // still drifted: no second drift.detected
+
+	evs, err := testStore.StreamEventsAfter(ctx, start, since, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range evs {
+		if e.ResourceID == nil || *e.ResourceID != r.ID {
+			continue
+		}
+		got = append(got, e.Type)
+		if e.Owner != "streamers" {
+			t.Fatalf("owner %q on %s", e.Owner, e.Type)
+		}
+	}
+	want := []string{"resource.updated", "resource.updated", "revision.updated", "revision.updated", "operation.updated",
+		"event.created", "topology.updated", "resource.updated", "drift.detected"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("got  %v\nwant %v", got, want)
+	}
+	for i := 1; i < len(evs); i++ {
+		if evs[i].ID <= evs[i-1].ID {
+			t.Fatal("ids must be monotonic")
+		}
+	}
+	var data map[string]any
+	_ = json.Unmarshal(evs[len(evs)-1].Data, &data)
+	if data["resourceId"] != r.ID.String() {
+		t.Fatalf("data %v", data)
+	}
+	select {
+	case p := <-notified:
+		if p == "" {
+			t.Fatal("empty payload")
+		}
+	case <-ctx.Done():
+		t.Fatal("no NOTIFY received")
+	}
+
+	if n, err := testStore.PruneStream(ctx, 0); err != nil || n == 0 {
+		t.Fatalf("prune: %d %v", n, err)
 	}
 }

@@ -84,7 +84,7 @@ func run() error {
 	}
 
 	runner := &worker.Runner{
-		Rec: rec, Resync: cfg.ResyncInterval, Log: log, Inbox: st, InboxInterval: cfg.InboxPollInterval,
+		Rec: rec, Resync: cfg.ResyncInterval, Log: log, Inbox: st, InboxInterval: cfg.InboxPollInterval, Stream: st,
 		Watch: informer.Options{Secrets: cfg.Informers.Secrets, Events: cfg.Informers.Events},
 	}
 	if cfg.Informers.Enabled {

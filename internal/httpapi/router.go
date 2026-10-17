@@ -46,6 +46,9 @@ type Deps struct {
 
 	Inbox    Inbox // optional: enables /webhooks/* (spec §35.1)
 	Webhooks WebhookConfig
+
+	Stream          Streamer      // optional: GET /api/v1/stream (spec §45)
+	StreamHeartbeat time.Duration // default 20s
 }
 
 // New builds the Gin engine.
@@ -58,7 +61,7 @@ func New(d Deps) *gin.Engine {
 	r.Use(gin.Recovery(), withCorrelation(), accessLog(d.Log))
 	r.NoRoute(notFound)
 
-	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}}
+	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -66,6 +69,7 @@ func New(d Deps) *gin.Engine {
 	}
 
 	v1 := r.Group("/api/v1", authenticate(d.Auth))
+	v1.GET("/stream", h.stream)
 	v1.GET("/catalog/resource-types", h.listResourceTypes)
 	v1.GET("/catalog/resource-types/:kind", h.getResourceType)
 	v1.GET("/catalog/resource-types/:kind/schema", h.getResourceTypeSchema)
@@ -83,8 +87,10 @@ func New(d Deps) *gin.Engine {
 }
 
 type handlers struct {
-	store   ReadStore
-	catalog *catalogCache
+	store     ReadStore
+	catalog   *catalogCache
+	streamer  Streamer
+	heartbeat time.Duration
 }
 
 const resourceKey = "crosswatc.resource"
