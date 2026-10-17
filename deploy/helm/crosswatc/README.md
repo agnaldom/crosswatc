@@ -23,6 +23,21 @@ helm install crosswatc deploy/helm/crosswatc \
   stage will report the secret as unavailable).
 - The only write permission is a namespaced `Role` on `coordination.k8s.io/leases` for leader election (§35.2).
 
+## Webhooks (spec §35.1)
+
+```bash
+kubectl create secret generic crosswatc-webhooks \
+  --from-literal=github-webhook-secret=... --from-literal=argocd-webhook-token=...
+helm upgrade crosswatc deploy/helm/crosswatc --reuse-values --set webhooks.existingSecret=crosswatc-webhooks
+```
+
+- GitHub App → `POST https://<host>/webhooks/github` (events: pull request, check run, pull request review, push).
+- argocd-notifications webhook service → `POST https://<host>/webhooks/argocd` with `Authorization: Bearer <token>`
+  and the body documented in `internal/events` (`eventId`, `app`, `namespace`, `event`, `revision`, `timestamp`);
+  triggers `on-sync-running`, `on-sync-succeeded`, `on-sync-failed`, `on-health-degraded`.
+- Deliveries are queued in the `inbox` table (idempotent by delivery id) and consumed by the leader worker,
+  which re-reads GitHub / the Argo `Application` before reconciling. The periodic resync covers lost webhooks.
+
 ## Notes
 
 - `worker.replicas: 2` with leader election on the `crosswatc-worker` Lease (§35.2). Only the leader runs informers,

@@ -16,7 +16,10 @@ const Prefix = "crosswatc-req-"
 // Header is the HTTP header carrying the correlation ID.
 const Header = "X-Correlation-Id"
 
-var pattern = regexp.MustCompile(`^crosswatc-req-[0-9A-HJKMNP-TV-Z]{26}$`)
+var (
+	pattern  = regexp.MustCompile(`^crosswatc-req-[0-9A-HJKMNP-TV-Z]{26}$`)
+	anywhere = regexp.MustCompile(`crosswatc-req-[0-9A-HJKMNP-TV-Z]{26}`)
+)
 
 // New returns a fresh ID using the current time.
 func New() string { return NewAt(time.Now()) }
@@ -28,6 +31,19 @@ func NewAt(t time.Time) string {
 
 // Valid reports whether id matches the §16 format.
 func Valid(id string) bool { return pattern.MatchString(id) }
+
+// FindAll returns the distinct IDs embedded in free text (PR title/body, branch, commit message).
+func FindAll(s string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, id := range anywhere.FindAllString(s, -1) {
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
+}
 
 // Time extracts the creation time encoded in id.
 func Time(id string) (time.Time, bool) {

@@ -56,3 +56,14 @@ func TestContext(t *testing.T) {
 		t.Fatal("unexpected id")
 	}
 }
+
+func TestFindAll(t *testing.T) {
+	a, b := New(), New()
+	got := FindAll("feat: " + a + "\nbranch crosswatc/" + b + "-resize\nagain " + a + " crosswatc-req-short")
+	if len(got) != 2 || got[0] != a || got[1] != b {
+		t.Fatalf("got %v", got)
+	}
+	if FindAll("nothing here") != nil {
+		t.Fatal("expected nil")
+	}
+}

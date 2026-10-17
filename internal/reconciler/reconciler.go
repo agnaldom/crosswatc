@@ -16,6 +16,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/contract"
 	"github.com/agnaldom/crosswatc/internal/correlation"
 	"github.com/agnaldom/crosswatc/internal/domain"
+	"github.com/agnaldom/crosswatc/internal/events"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/lifecycle"
 	"github.com/agnaldom/crosswatc/internal/store"
@@ -196,11 +197,11 @@ func (r *Reconciler) reconcile(ctx context.Context, d kube.DiscoveredResource) e
 	}
 	created := tr.Version == 0
 	if created {
-		r.event(ctx, tr, nil, "claim:"+d.Claim.UID+tr.ID.String(), "kubernetes", "INFRA.CLAIM.CREATED", "info",
+		r.event(ctx, tr, nil, "claim:"+d.Claim.UID+tr.ID.String(), events.SourceKubernetes, events.InfraClaimCreated,
 			fmt.Sprintf("Recurso %s descoberto", tr.Name))
 	}
 	if len(d.MetadataErrors) > 0 {
-		r.event(ctx, tr, nil, fmt.Sprintf("meta:%s:%d", tr.ID, d.Claim.Generation), "kubernetes", "INFRA.CLAIM.INVALID_METADATA", "warning",
+		r.event(ctx, tr, nil, fmt.Sprintf("meta:%s:%d", tr.ID, d.Claim.Generation), events.SourceKubernetes, events.InfraClaimInvalidMetadata,
 			fmt.Sprintf("Claim com metadata inválida: %v", d.MetadataErrors))
 	}
 
@@ -262,7 +263,7 @@ func (r *Reconciler) reconcileAbsent(ctx context.Context, tr store.TrackedResour
 	if o := openRevision(revs); o != nil {
 		sig.OpenRevision = &lifecycle.OpenRevision{Kind: domain.RevisionKind(o.Kind), State: domain.RevisionState(o.State)}
 	}
-	r.event(ctx, tr, nil, fmt.Sprintf("claim-gone:%s:%d", tr.ID, tr.Version), "kubernetes", "INFRA.CLAIM.DELETED", "warning",
+	r.event(ctx, tr, nil, fmt.Sprintf("claim-gone:%s:%d", tr.ID, tr.Version), events.SourceKubernetes, events.InfraClaimDeleted,
 		fmt.Sprintf("Claim %s/%s não encontrado no cluster", tr.ClaimNamespace, tr.ClaimName))
 	return r.applyResourceState(ctx, &tr, sig)
 }
@@ -294,7 +295,7 @@ func (r *Reconciler) startCreateRevision(ctx context.Context, tr store.TrackedRe
 	}); err != nil && !errors.Is(err, store.ErrConflict) {
 		return store.Revision{}, fmt.Errorf("insert create operation: %w", err)
 	}
-	r.event(ctx, tr, &rev, "request:"+tr.CorrelationID, "crosswatc", "REQUEST.CREATED", "info", "Solicitação registrada")
+	r.event(ctx, tr, &rev, "request:"+tr.CorrelationID, events.SourceCrosswatc, events.RequestCreated, "Solicitação registrada")
 	return rev, nil
 }
 
@@ -365,16 +366,27 @@ func objectSignal(o kube.Object) lifecycle.ObjectSignal {
 }
 
 // transitionEvents maps the new revision state to a canonical event (spec §33).
-var transitionEvents = map[domain.RevisionState]struct{ typ, source, level string }{
-	domain.RevisionValidating:      {"GITOPS.PR.CREATED", "github", "info"},
-	domain.RevisionWaitingApproval: {"GITOPS.CHECK.SUCCEEDED", "github", "info"},
-	domain.RevisionMerged:          {"GITOPS.PR.MERGED", "github", "info"},
-	domain.RevisionSyncing:         {"GITOPS.SYNC.STARTED", "argocd", "info"},
-	domain.RevisionReconciling:     {"GITOPS.SYNC.SUCCEEDED", "argocd", "info"},
-	domain.RevisionApplying:        {"INFRA.RECONCILE.READY", "crossplane", "info"},
-	domain.RevisionSucceeded:       {"INFRA.MANAGED_RESOURCE.READY", "crossplane", "info"},
-	domain.RevisionRejected:        {"GITOPS.PR.CLOSED", "github", "warning"},
-	domain.RevisionFailed:          {"INFRA.RECONCILE.FAILED", "crossplane", "error"},
+var transitionEvents = map[domain.RevisionState]struct {
+	typ    events.Type
+	source string
+}{
+	domain.RevisionValidating:      {events.GitOpsPRCreated, events.SourceGitHub},
+	domain.RevisionWaitingApproval: {events.GitOpsCheckSucceeded, events.SourceGitHub},
+	domain.RevisionMerged:          {events.GitOpsPRMerged, events.SourceGitHub},
+	domain.RevisionSyncing:         {events.GitOpsSyncStarted, events.SourceArgoCD},
+	domain.RevisionReconciling:     {events.GitOpsSyncSucceeded, events.SourceArgoCD},
+	domain.RevisionApplying:        {events.InfraReconcileReady, events.SourceCrossplane},
+	domain.RevisionSucceeded:       {events.InfraManagedResourceReady, events.SourceCrossplane},
+	domain.RevisionRejected:        {events.GitOpsPRClosed, events.SourceGitHub},
+	domain.RevisionFailed:          {events.InfraReconcileFailed, events.SourceCrossplane},
+}
+
+// failureEvents refines the event of a FAILED revision by technical code.
+var failureEvents = map[string]struct {
+	typ    events.Type
+	source string
+}{
+	"ArgoSyncFailed": {events.GitOpsSyncFailed, events.SourceArgoCD},
 }
 
 func (r *Reconciler) advanceRevision(ctx context.Context, tr store.TrackedResource, rev *store.Revision, sig lifecycle.Signals) error {
@@ -397,8 +409,16 @@ func (r *Reconciler) advanceRevision(ctx context.Context, tr store.TrackedResour
 			rev.FailureReason, changed = b, true
 		}
 	}
+	if sig.PR.Found && !sig.PR.Merged && sig.PR.Checks == lifecycle.ChecksFailure {
+		r.event(ctx, tr, rev, fmt.Sprintf("checks-failed:%s:%d", rev.ID, sig.PR.Number), events.SourceGitHub, events.GitOpsCheckFailed,
+			fmt.Sprintf("Validações do Pull Request #%d falharam", sig.PR.Number))
+	}
+	if sig.PR.Found && sig.PR.Approved {
+		r.event(ctx, tr, rev, fmt.Sprintf("approved:%s:%d", rev.ID, sig.PR.Number), events.SourceGitHub, events.GitOpsPRApproved,
+			fmt.Sprintf("Pull Request #%d aprovado", sig.PR.Number))
+	}
 	if res.Stuck {
-		r.event(ctx, tr, rev, fmt.Sprintf("stuck:%s:%s", rev.ID, rev.State), "crosswatc", "OPERATION.STUCK", "warning",
+		r.event(ctx, tr, rev, fmt.Sprintf("stuck:%s:%s", rev.ID, rev.State), events.SourceCrosswatc, events.OperationStuck,
 			fmt.Sprintf("Revisão %d sem progresso em %s", rev.Rev, rev.State))
 	}
 	if !changed {
@@ -419,15 +439,14 @@ func (r *Reconciler) advanceRevision(ctx context.Context, tr store.TrackedResour
 	}
 	if res.State != cur {
 		if ev, ok := transitionEvents[res.State]; ok {
-			typ, source := ev.typ, ev.source
-			if res.Failure != nil && res.Failure.TechnicalCode == "ArgoSyncFailed" {
-				typ, source = "GITOPS.SYNC.FAILED", "argocd"
-			}
 			msg := fmt.Sprintf("Revisão %d: %s", rev.Rev, res.State)
 			if res.Failure != nil {
 				msg = res.Failure.UserMessage
+				if fe, ok := failureEvents[res.Failure.TechnicalCode]; ok {
+					ev = fe
+				}
 			}
-			r.event(ctx, tr, rev, fmt.Sprintf("rev:%s:%s", rev.ID, res.State), source, typ, ev.level, msg)
+			r.event(ctx, tr, rev, fmt.Sprintf("rev:%s:%s", rev.ID, res.State), ev.source, ev.typ, msg)
 		}
 	}
 	return nil
@@ -446,18 +465,19 @@ func (r *Reconciler) applyResourceState(ctx context.Context, tr *store.TrackedRe
 	tr.ResourceState, tr.Version = string(next), v
 	switch next {
 	case domain.ResourceOperational:
-		r.event(ctx, *tr, nil, fmt.Sprintf("res:%s:%s:%d", tr.ID, next, v), "crosswatc", "LIFECYCLE.OPERATIONAL", "info", "Recurso operacional")
+		r.event(ctx, *tr, nil, fmt.Sprintf("res:%s:%s:%d", tr.ID, next, v), events.SourceCrosswatc, events.LifecycleOperational, "Recurso operacional")
 	case domain.ResourceDegraded:
-		r.event(ctx, *tr, nil, fmt.Sprintf("res:%s:%s:%d", tr.ID, next, v), "crosswatc", "LIFECYCLE.DEGRADED", "warning",
+		r.event(ctx, *tr, nil, fmt.Sprintf("res:%s:%s:%d", tr.ID, next, v), events.SourceCrosswatc, events.LifecycleDegraded,
 			fmt.Sprintf("Recurso degradado (antes: %s)", prev))
 	}
 	return nil
 }
 
-func (r *Reconciler) event(ctx context.Context, tr store.TrackedResource, rev *store.Revision, key, source, typ, level, msg string) {
+// event persists a canonical event (level from the §33 catalog). Duplicate keys are ignored.
+func (r *Reconciler) event(ctx context.Context, tr store.TrackedResource, rev *store.Revision, key, source string, typ events.Type, msg string) {
 	e := store.Event{
-		DedupeKey: key, ResourceID: &tr.ID, CorrelationID: tr.CorrelationID, Source: source, Type: typ, Level: level,
-		Message: msg, CreatedAt: r.now(),
+		DedupeKey: key, ResourceID: &tr.ID, CorrelationID: tr.CorrelationID, Source: source, Type: string(typ),
+		Level: string(events.DefaultLevel(typ)), Message: msg, CreatedAt: r.now(),
 	}
 	if rev != nil {
 		e.RevisionID = &rev.ID

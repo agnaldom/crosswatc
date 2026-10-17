@@ -43,6 +43,9 @@ type Deps struct {
 	Catalog Catalog // optional
 	Auth    auth.Authenticator
 	Log     *slog.Logger
+
+	Inbox    Inbox // optional: enables /webhooks/* (spec §35.1)
+	Webhooks WebhookConfig
 }
 
 // New builds the Gin engine.
@@ -58,6 +61,9 @@ func New(d Deps) *gin.Engine {
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
+	if d.Inbox != nil {
+		(&webhooks{inbox: d.Inbox, cfg: d.Webhooks}).register(r)
+	}
 
 	v1 := r.Group("/api/v1", authenticate(d.Auth))
 	v1.GET("/catalog/resource-types", h.listResourceTypes)

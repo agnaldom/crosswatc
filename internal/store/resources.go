@@ -118,6 +118,9 @@ type ResourceFilter struct {
 	Kind        string
 	State       string
 	NamePrefix  string
+	// Webhook routing (§35.1).
+	CorrelationIDs []string
+	Repository     string
 }
 
 // ListResources returns resources ordered by (name, id) with cursor pagination.
@@ -151,6 +154,12 @@ func (s *Store) ListResources(ctx context.Context, f ResourceFilter, p Page) ([]
 	}
 	if f.State != "" {
 		add("resource_state = $%d", f.State)
+	}
+	if len(f.CorrelationIDs) > 0 {
+		add("correlation_id = ANY($%d)", f.CorrelationIDs)
+	}
+	if f.Repository != "" {
+		add("repository = $%d", f.Repository)
 	}
 	if f.NamePrefix != "" {
 		add("name LIKE $%d", escapeLike(f.NamePrefix)+"%")

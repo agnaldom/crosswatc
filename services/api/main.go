@@ -57,7 +57,14 @@ func run() error {
 		}
 	}
 
-	deps := httpapi.Deps{Store: st, Auth: authn, Log: log}
+	deps := httpapi.Deps{Store: st, Auth: authn, Log: log, Inbox: st,
+		Webhooks: httpapi.WebhookConfig{GitHubSecret: cfg.GitHub.WebhookSecret, ArgoCDToken: cfg.ArgoCDWebhookToken}}
+	if cfg.GitHub.WebhookSecret == "" {
+		log.Warn("CROSSWATC_GITHUB_WEBHOOK_SECRET not set; POST /webhooks/github disabled")
+	}
+	if cfg.ArgoCDWebhookToken == "" {
+		log.Warn("CROSSWATC_ARGOCD_WEBHOOK_TOKEN not set; POST /webhooks/argocd disabled")
+	}
 	if restCfg, err := kube.RESTConfig(cfg.Kubeconfig); err != nil {
 		log.Warn("kubernetes not configured; catalog endpoints disabled", "err", err)
 	} else if kc, err := kube.New(restCfg, cfg.K8sPageLimit); err != nil {

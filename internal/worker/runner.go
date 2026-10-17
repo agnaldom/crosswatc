@@ -40,6 +40,9 @@ type Runner struct {
 	Debounce  time.Duration // coalesces bursts of informer events (default 200ms)
 	Log       *slog.Logger
 
+	Inbox         InboxStore // optional: webhook deliveries (spec §35.1)
+	InboxInterval time.Duration
+
 	resolver atomic.Pointer[informer.Resolver]
 	resynced atomic.Bool
 	mu       sync.Mutex
@@ -119,6 +122,9 @@ func (r *Runner) Run(ctx context.Context) error {
 		}
 	}()
 
+	if r.Inbox != nil {
+		go r.consumeInbox(ctx)
+	}
 	q.Add(informer.Target{Full: true})
 	for r.processNext(ctx, q) {
 	}

@@ -56,6 +56,12 @@ backstage:
 argocd:
   namespace: argocd
 
+webhooks:
+  # Secret with keys github-webhook-secret (GitHub App webhook secret, X-Hub-Signature-256) and/or
+  # argocd-webhook-token (bearer token of the argocd-notifications webhook service). A missing key
+  # disables that endpoint. When set, the ingress routes /webhooks to the API (spec §35.1).
+  existingSecret: ""
+
 rbac:
   # API groups of platform Claims/XRs (from your XRDs) and provider Managed Resources.
   # Kubernetes RBAC has no wildcard per group suffix, so list them explicitly.

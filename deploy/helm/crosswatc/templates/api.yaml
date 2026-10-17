@@ -26,6 +26,12 @@ spec:
             - { name: CROSSWATC_OIDC_AUDIENCE, value: {{ .Values.auth.oidcAudience | quote }} }
             - { name: CROSSWATC_SQUAD_GROUP_PREFIX, value: {{ .Values.auth.squadGroupPrefix | quote }} }
             - { name: CROSSWATC_SRE_GROUP, value: {{ .Values.auth.sreGroup | quote }} }
+            {{- with .Values.webhooks.existingSecret }}
+            - name: CROSSWATC_GITHUB_WEBHOOK_SECRET
+              valueFrom: { secretKeyRef: { name: {{ . }}, key: github-webhook-secret, optional: true } }
+            - name: CROSSWATC_ARGOCD_WEBHOOK_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ . }}, key: argocd-webhook-token, optional: true } }
+            {{- end }}
           readinessProbe: { httpGet: { path: /readyz, port: http }, periodSeconds: 10 }
           livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 20 }
           resources: {{- toYaml .Values.api.resources | nindent 12 }}

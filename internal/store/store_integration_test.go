@@ -307,3 +307,91 @@ func TestCheckpoint(t *testing.T) {
 		t.Fatalf("got %q %q %v", cur, lastErr, success)
 	}
 }
+
+func TestInboxIdempotentAndSkipLocked(t *testing.T) {
+	ctx := context.Background()
+	payload := []byte(`{"action":"opened"}`)
+	ok, err := testStore.InsertInbox(ctx, "github", "d-1", "pull_request", payload)
+	if err != nil || !ok {
+		t.Fatalf("insert: %v %v", ok, err)
+	}
+	if ok, err := testStore.InsertInbox(ctx, "github", "d-1", "pull_request", payload); err != nil || ok {
+		t.Fatalf("duplicate must be ignored: %v %v", ok, err)
+	}
+	if ok, _ := testStore.InsertInbox(ctx, "argocd", "d-1", "sync-succeeded", []byte(`{}`)); !ok {
+		t.Fatal("same delivery id from another source is distinct")
+	}
+	_, _ = testStore.InsertInbox(ctx, "github", "d-fail", "push", []byte(`{}`))
+
+	// A concurrent consumer holding the rows sees nothing else to claim.
+	tx, err := testStore.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT id FROM inbox WHERE processed_at IS NULL FOR UPDATE`); err != nil {
+		t.Fatal(err)
+	}
+	n, err := testStore.ProcessInbox(ctx, 10, 3, func(InboxItem) error { t.Fatal("locked rows must be skipped"); return nil })
+	if err != nil || n != 0 {
+		t.Fatalf("n=%d err=%v", n, err)
+	}
+	_ = tx.Rollback(ctx)
+
+	var seen []string
+	n, err = testStore.ProcessInbox(ctx, 10, 2, func(it InboxItem) error {
+		seen = append(seen, it.Source+"/"+it.DeliveryID)
+		if it.DeliveryID == "d-fail" {
+			return errors.New("boom")
+		}
+		return nil
+	})
+	if err != nil || n != 3 || seen[0] != "github/d-1" {
+		t.Fatalf("n=%d err=%v seen=%v", n, err, seen)
+	}
+	// only the failed item is retried; at maxAttempts it is dead-lettered with its error kept
+	n, _ = testStore.ProcessInbox(ctx, 10, 2, func(it InboxItem) error {
+		if it.DeliveryID != "d-fail" || it.Attempts != 1 {
+			t.Fatalf("unexpected retry %+v", it)
+		}
+		return errors.New("boom again")
+	})
+	if n != 1 {
+		t.Fatalf("retry n=%d", n)
+	}
+	var lastErr string
+	if err := testStore.pool.QueryRow(ctx, `SELECT last_error FROM inbox WHERE delivery_id = 'd-fail' AND processed_at IS NOT NULL`).Scan(&lastErr); err != nil || lastErr != "boom again" {
+		t.Fatalf("dead letter: %q %v", lastErr, err)
+	}
+	if n, _ := testStore.ProcessInbox(ctx, 10, 2, func(InboxItem) error { return nil }); n != 0 {
+		t.Fatalf("queue must be empty, got %d", n)
+	}
+	// permanent failures are dead-lettered on the first attempt
+	_, _ = testStore.InsertInbox(ctx, "github", "d-bad", "push", []byte(`{}`))
+	_, _ = testStore.ProcessInbox(ctx, 10, 5, func(InboxItem) error { return fmt.Errorf("malformed: %w", ErrPermanent) })
+	if n, _ := testStore.ProcessInbox(ctx, 10, 5, func(InboxItem) error { return nil }); n != 0 {
+		t.Fatalf("permanent failure retried: %d", n)
+	}
+}
+
+func TestListResourcesWebhookRouting(t *testing.T) {
+	ctx := context.Background()
+	a := newResource("pg-route-a", "routing", "dev")
+	a.Repository = "org/route-repo"
+	ra, err := testStore.UpsertResourceByClaim(ctx, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := newResource("pg-route-b", "routing", "dev")
+	b.Repository = "org/route-repo"
+	if _, err := testStore.UpsertResourceByClaim(ctx, b); err != nil {
+		t.Fatal(err)
+	}
+	got, _, err := testStore.ListResources(ctx, ResourceFilter{CorrelationIDs: []string{ra.CorrelationID}}, Page{})
+	if err != nil || len(got) != 1 || got[0].ID != ra.ID {
+		t.Fatalf("by correlation: %v %v", len(got), err)
+	}
+	got, _, _ = testStore.ListResources(ctx, ResourceFilter{Repository: "org/route-repo"}, Page{})
+	if len(got) != 2 {
+		t.Fatalf("by repository: %d", len(got))
+	}
+}

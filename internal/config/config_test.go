@@ -32,6 +32,9 @@ func TestLeaderElectionAndInformerDefaults(t *testing.T) {
 	if !le.Enabled || le.LeaseDuration != 15*time.Second || le.RenewDeadline != 10*time.Second || le.RetryPeriod != 2*time.Second {
 		t.Fatalf("leader election: %+v", le)
 	}
+	if c.InboxPollInterval != time.Second || c.ArgoCDWebhookToken != "" {
+		t.Fatalf("inbox/webhook defaults: %+v", c)
+	}
 	if !c.Informers.Enabled || !c.Informers.Secrets || !c.Informers.Events {
 		t.Fatalf("informers: %+v", c.Informers)
 	}

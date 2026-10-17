@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/informer"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/reconciler"
+	"github.com/agnaldom/crosswatc/internal/store"
 )
 
 type fakeRec struct {
@@ -153,4 +155,102 @@ func TestRunnerResyncInformersAndTargetedReconcile(t *testing.T) {
 		t.Fatal("informers must stop and readiness drop when leadership ends")
 	}
 	r.Enqueue(informer.Target{Full: true}) // after Run: no-op
+}
+
+type fakeInbox struct {
+	mu        sync.Mutex
+	items     []store.InboxItem
+	results   map[string]error
+	resources []store.TrackedResource
+	listErr   error
+}
+
+func (f *fakeInbox) ProcessInbox(_ context.Context, limit, _ int, fn func(store.InboxItem) error) (int, error) {
+	f.mu.Lock()
+	items := f.items
+	f.items = nil
+	f.mu.Unlock()
+	for _, it := range items {
+		err := fn(it)
+		f.mu.Lock()
+		f.results[it.DeliveryID] = err
+		f.mu.Unlock()
+	}
+	return len(items), nil
+}
+
+func (f *fakeInbox) ListResources(_ context.Context, flt store.ResourceFilter, _ store.Page) ([]store.TrackedResource, string, error) {
+	if f.listErr != nil {
+		return nil, "", f.listErr
+	}
+	var out []store.TrackedResource
+	for _, r := range f.resources {
+		if (len(flt.CorrelationIDs) > 0 && slices.Contains(flt.CorrelationIDs, r.CorrelationID)) ||
+			(flt.Repository != "" && flt.Repository == r.Repository) {
+			out = append(out, r)
+		}
+	}
+	return out, "", nil
+}
+
+func (f *fakeInbox) result(id string) (error, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	err, ok := f.results[id]
+	return err, ok
+}
+
+func TestRunnerRoutesWebhooksToClaims(t *testing.T) {
+	const reqA = "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T"
+	res := func(name, corr string) store.TrackedResource {
+		return store.TrackedResource{Name: name, CorrelationID: corr, Repository: "org/gitops", ClaimAPIVersion: "database.crosswatc.io/v1",
+			ClaimKind: "PostgreSQLInstance", ClaimNamespace: "team-a", ClaimName: name}
+	}
+	inbox := &fakeInbox{results: map[string]error{}, resources: []store.TrackedResource{res("pg-a", reqA), res("pg-b", "other")}}
+	inbox.items = []store.InboxItem{
+		{Source: "github", DeliveryID: "by-corr", EventType: "pull_request", ReceivedAt: time.Now(),
+			Payload: []byte(`{"action":"opened","repository":{"full_name":"org/gitops"},"pull_request":{"number":1,"body":"` + reqA + `"}}`)},
+		{Source: "github", DeliveryID: "by-repo", EventType: "push", ReceivedAt: time.Now(),
+			Payload: []byte(`{"ref":"refs/heads/main","repository":{"full_name":"org/gitops"}}`)},
+		{Source: "argocd", DeliveryID: "argo", EventType: "sync-succeeded", ReceivedAt: time.Now(),
+			Payload: []byte(`{"eventId":"e","app":"claims","event":"sync-succeeded"}`)},
+		{Source: "github", DeliveryID: "malformed", EventType: "push", Payload: []byte(`nope`)},
+		{Source: "gitlab", DeliveryID: "unknown-source", EventType: "push", Payload: []byte(`{}`)},
+	}
+	rec := &fakeRec{failOnce: map[string]bool{}}
+	r := &Runner{Rec: rec, Resync: time.Hour, Debounce: 5 * time.Millisecond, Inbox: inbox, InboxInterval: 10 * time.Millisecond}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = r.Run(ctx) }()
+
+	eventually(t, func() bool { _, ok := inbox.result("unknown-source"); return ok })
+	for _, id := range []string{"malformed", "unknown-source"} {
+		if err, _ := inbox.result(id); !errors.Is(err, store.ErrPermanent) {
+			t.Fatalf("%s must be dead-lettered, got %v", id, err)
+		}
+	}
+	for _, id := range []string{"by-corr", "by-repo", "argo"} {
+		if err, _ := inbox.result(id); err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+	}
+	// pg-a via correlation id, pg-a + pg-b via repository, and a full resync for Argo
+	eventually(t, func() bool {
+		full, claims := rec.snapshot()
+		names := map[string]bool{}
+		for _, c := range claims {
+			names[c.Name] = true
+		}
+		return names["pg-a"] && names["pg-b"] && full >= 2
+	})
+
+	// lookup failures are returned so the delivery is retried
+	inbox.listErr = errors.New("db down")
+	if err := r.handleDelivery(ctx, inbox.resourcesItem()); err == nil || errors.Is(err, store.ErrPermanent) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func (f *fakeInbox) resourcesItem() store.InboxItem {
+	return store.InboxItem{Source: "github", DeliveryID: "x", EventType: "push", Payload: []byte(`{"repository":{"full_name":"org/gitops"}}`)}
 }

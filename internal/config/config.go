@@ -37,7 +37,9 @@ type Config struct {
 	GitHub    GitHubConfig
 	Backstage BackstageConfig
 
-	ArgoCDNamespace string
+	ArgoCDNamespace    string
+	ArgoCDWebhookToken string // bearer token of POST /webhooks/argocd (§35.1)
+	InboxPollInterval  time.Duration
 
 	ResyncInterval time.Duration
 	StuckTimeout   time.Duration
@@ -118,10 +120,12 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 			Token:        r.str("CROSSWATC_BACKSTAGE_TOKEN", ""),
 			PollInterval: r.duration("CROSSWATC_BACKSTAGE_POLL_INTERVAL", 30*time.Second),
 		},
-		ArgoCDNamespace: r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
-		ResyncInterval:  r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
-		StuckTimeout:    r.duration("CROSSWATC_STUCK_TIMEOUT", 30*time.Minute),
-		K8sPageLimit:    r.int64("CROSSWATC_K8S_PAGE_LIMIT", 500),
+		ArgoCDNamespace:    r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
+		ArgoCDWebhookToken: r.str("CROSSWATC_ARGOCD_WEBHOOK_TOKEN", ""),
+		InboxPollInterval:  r.duration("CROSSWATC_INBOX_POLL_INTERVAL", time.Second),
+		ResyncInterval:     r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
+		StuckTimeout:       r.duration("CROSSWATC_STUCK_TIMEOUT", 30*time.Minute),
+		K8sPageLimit:       r.int64("CROSSWATC_K8S_PAGE_LIMIT", 500),
 		LeaderElection: LeaderElectionConfig{
 			Enabled:       r.bool("CROSSWATC_LEADER_ELECTION", true),
 			Namespace:     r.str("CROSSWATC_LEADER_ELECTION_NAMESPACE", ""),

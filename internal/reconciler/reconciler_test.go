@@ -12,6 +12,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/contract"
 	"github.com/agnaldom/crosswatc/internal/correlation"
 	"github.com/agnaldom/crosswatc/internal/domain"
+	"github.com/agnaldom/crosswatc/internal/events"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/lifecycle"
 	"github.com/agnaldom/crosswatc/internal/store"
@@ -129,6 +130,9 @@ func TestPortalJourney(t *testing.T) {
 	}
 	if pr.lookups[1].PRNumber != 173 {
 		t.Fatal("known PR number must be reused")
+	}
+	if !slices.Contains(st.eventTypes(), "GITOPS.PR.APPROVED") {
+		t.Fatalf("approval must emit GITOPS.PR.APPROVED: %v", st.eventTypes())
 	}
 	for _, s := range stagesOf(t, st.projections[tr.ID]) {
 		if s.Status != domain.StageSucceeded {
@@ -278,5 +282,30 @@ func TestReconcileClaim(t *testing.T) {
 	// unknown Claim gone: nothing to do
 	if err := r.ReconcileClaim(ctx, kube.Ref{APIVersion: ref.APIVersion, Kind: ref.Kind, Namespace: "nope", Name: "nope"}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestChecksFailedEmitsCanonicalEvent(t *testing.T) {
+	st := newMemStore()
+	r := &Reconciler{Discovery: &fakeDiscovery{resources: []kube.DiscoveredResource{discovered(creating, "")}},
+		PullRequests: &fakePR{sig: lifecycle.PRSignal{Found: true, Number: 9, Open: true, Checks: lifecycle.ChecksFailure}},
+		Store:        st, StuckTimeout: time.Hour}
+	if _, err := r.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, rev := st.only(); rev.State != "VALIDATING" || !strings.Contains(string(rev.FailureReason), "ChecksFailed") {
+		t.Fatalf("got %s", rev.State)
+	}
+	var found bool
+	for _, e := range st.events {
+		if e.Type == "GITOPS.CHECK.FAILED" {
+			found = e.Source == "github" && e.Level == "error"
+		}
+		if !events.Known(events.Type(e.Type)) {
+			t.Fatalf("non-canonical event type %s", e.Type)
+		}
+	}
+	if !found {
+		t.Fatalf("events %v", st.eventTypes())
 	}
 }
