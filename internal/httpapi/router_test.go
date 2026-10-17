@@ -21,14 +21,15 @@ import (
 )
 
 type fakeStore struct {
-	resources  map[uuid.UUID]store.TrackedResource
-	projection map[uuid.UUID]store.Projection
-	topology   map[uuid.UUID]store.Topology
-	events     []store.Event
-	revisions  []store.Revision
-	operations []store.Operation
-	lastFilter store.ResourceFilter
-	pingErr    error
+	resources    map[uuid.UUID]store.TrackedResource
+	projection   map[uuid.UUID]store.Projection
+	topology     map[uuid.UUID]store.Topology
+	events       []store.Event
+	revisions    []store.Revision
+	operations   []store.Operation
+	lastFilter   store.ResourceFilter
+	lastOpFilter store.OperationFilter
+	pingErr      error
 }
 
 func (f *fakeStore) Ping(context.Context) error { return f.pingErr }
@@ -80,8 +81,51 @@ func (f *fakeStore) ListEvents(context.Context, uuid.UUID, store.Page) ([]store.
 func (f *fakeStore) ListRevisions(context.Context, uuid.UUID) ([]store.Revision, error) {
 	return f.revisions, nil
 }
-func (f *fakeStore) ListOperations(context.Context, uuid.UUID) ([]store.Operation, error) {
-	return f.operations, nil
+func (f *fakeStore) ListRevisionsPage(_ context.Context, _ uuid.UUID, p store.Page) ([]store.Revision, string, error) {
+	if p.Cursor == "bad" {
+		return nil, "", store.ErrBadCursor
+	}
+	return f.revisions, "", nil
+}
+func (f *fakeStore) GetRevision(_ context.Context, id uuid.UUID, rev int) (store.Revision, error) {
+	for _, r := range f.revisions {
+		if r.ResourceID == id && r.Rev == rev {
+			return r, nil
+		}
+	}
+	return store.Revision{}, store.ErrNotFound
+}
+func (f *fakeStore) ListOperationsPage(_ context.Context, flt store.OperationFilter, p store.Page) ([]store.Operation, string, error) {
+	f.lastOpFilter = flt
+	if p.Cursor == "bad" {
+		return nil, "", store.ErrBadCursor
+	}
+	var out []store.Operation
+	for _, o := range f.operations {
+		if (flt.ResourceID == nil || o.ResourceID == *flt.ResourceID) && (flt.RevisionID == nil || (o.RevisionID != nil && *o.RevisionID == *flt.RevisionID)) &&
+			(flt.Owners == nil || contains(flt.Owners, f.resources[o.ResourceID].Owner)) {
+			out = append(out, o)
+		}
+	}
+	return out, "", nil
+}
+func (f *fakeStore) GetOperation(_ context.Context, id uuid.UUID) (store.Operation, error) {
+	for _, o := range f.operations {
+		if o.ID == id {
+			o.Owner = f.resources[o.ResourceID].Owner
+			return o, nil
+		}
+	}
+	return store.Operation{}, store.ErrNotFound
+}
+func (f *fakeStore) ListEventsByRevision(_ context.Context, rev uuid.UUID, _ int) ([]store.Event, error) {
+	var out []store.Event
+	for _, e := range f.events {
+		if e.RevisionID != nil && *e.RevisionID == rev {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }
 
 type fakeCatalog struct {
@@ -301,5 +345,80 @@ func TestReadyAndNotFound(t *testing.T) {
 	}
 	if w := do(h, "/nope", nil); w.Code != 404 || w.Header().Get("Content-Type") != "application/problem+json" {
 		t.Fatal("no route")
+	}
+}
+
+func TestRevisionHistory(t *testing.T) {
+	fs, _, h := setup()
+	rev1 := fs.revisions[1]
+	fs.events = append(fs.events, store.Event{ID: uuid.New(), ResourceID: &payID, RevisionID: &rev1.ID, Type: "GITOPS.PR.MERGED",
+		Source: "github", Level: "info", CreatedAt: time.Now()})
+	base := "/api/v1/resources/" + payID.String()
+
+	w := do(h, base+"/revisions/1", payments)
+	var d revisionDetailDTO
+	decode(t, w, &d)
+	if d.Rev != 1 || len(d.Operations) != 1 || d.Operations[0].RequestedBy != "agnaldo" || len(d.Events) != 1 || d.Events[0].Type != "GITOPS.PR.MERGED" {
+		t.Fatalf("detail %s", w.Body)
+	}
+	for _, p := range []string{"/revisions/9", "/revisions/0", "/revisions/abc"} {
+		if w := do(h, base+p, payments); w.Code != http.StatusNotFound {
+			t.Fatalf("%s: %d", p, w.Code)
+		}
+	}
+	if w := do(h, "/api/v1/resources/"+cardID.String()+"/revisions/1", payments); w.Code != http.StatusNotFound {
+		t.Fatalf("foreign resource revision: %d", w.Code)
+	}
+	if w := do(h, base+"/revisions?cursor=bad", payments); w.Code != http.StatusBadRequest {
+		t.Fatalf("bad cursor: %d", w.Code)
+	}
+}
+
+func TestOperationHistory(t *testing.T) {
+	fs, _, h := setup()
+	cardOp := store.Operation{ID: uuid.New(), ResourceID: cardID, Type: "UPDATE", Status: "RUNNING", RequestedBy: "bia"}
+	fs.operations = append(fs.operations, cardOp)
+
+	w := do(h, "/api/v1/operations?status=SUCCEEDED&type=CREATE", payments)
+	var pg page[operationDTO]
+	decode(t, w, &pg)
+	if len(pg.Items) != 1 || pg.Items[0].ResourceID != payID.String() {
+		t.Fatalf("payments sees only its operations: %s", w.Body)
+	}
+	if f := fs.lastOpFilter; f.Status != "SUCCEEDED" || f.Type != "CREATE" || len(f.Owners) != 1 || f.Owners[0] != "payments" {
+		t.Fatalf("filter %+v", f)
+	}
+	decode(t, do(h, "/api/v1/operations", map[string]string{"X-Dev-User": "ops", "X-Dev-SRE": "true"}), &pg)
+	if len(pg.Items) != 2 || fs.lastOpFilter.Owners != nil {
+		t.Fatalf("sre sees all: %d %+v", len(pg.Items), fs.lastOpFilter)
+	}
+	decode(t, do(h, "/api/v1/operations?resourceId="+payID.String(), payments), &pg)
+	if fs.lastOpFilter.ResourceID == nil || *fs.lastOpFilter.ResourceID != payID {
+		t.Fatalf("resource filter %+v", fs.lastOpFilter)
+	}
+	decode(t, do(h, "/api/v1/resources/"+payID.String()+"/operations?status=FAILED", payments), &pg)
+	if fs.lastOpFilter.ResourceID == nil || fs.lastOpFilter.Status != "FAILED" {
+		t.Fatalf("resource operations filter %+v", fs.lastOpFilter)
+	}
+	for name, path := range map[string]string{
+		"bad status":   "/api/v1/operations?status=DONE",
+		"bad type":     "/api/v1/operations?type=RESIZE",
+		"bad resource": "/api/v1/operations?resourceId=x",
+		"bad cursor":   "/api/v1/operations?cursor=bad",
+		"bad limit":    "/api/v1/operations?limit=500",
+	} {
+		if w := do(h, path, payments); w.Code != http.StatusBadRequest {
+			t.Fatalf("%s: %d", name, w.Code)
+		}
+	}
+
+	own := fs.operations[0]
+	if w := do(h, "/api/v1/operations/"+own.ID.String(), payments); w.Code != 200 || !strings.Contains(w.Body.String(), own.ID.String()) {
+		t.Fatalf("get own: %d %s", w.Code, w.Body)
+	}
+	for _, id := range []string{cardOp.ID.String(), uuid.NewString(), "nope"} {
+		if w := do(h, "/api/v1/operations/"+id, payments); w.Code != http.StatusNotFound {
+			t.Fatalf("%s: %d", id, w.Code)
+		}
 	}
 }

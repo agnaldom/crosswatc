@@ -82,6 +82,7 @@ func toRevisionDTO(r store.Revision) revisionDTO {
 type operationDTO struct {
 	ID            string     `json:"id"`
 	ResourceID    string     `json:"resourceId"`
+	ResourceName  string     `json:"resourceName,omitempty"`
 	RevisionID    string     `json:"revisionId,omitempty"`
 	CorrelationID string     `json:"correlationId"`
 	Type          string     `json:"type"`
@@ -94,7 +95,7 @@ type operationDTO struct {
 
 func toOperationDTO(o store.Operation) operationDTO {
 	d := operationDTO{
-		ID: o.ID.String(), ResourceID: o.ResourceID.String(), CorrelationID: o.CorrelationID, Type: o.Type, Status: o.Status,
+		ID: o.ID.String(), ResourceID: o.ResourceID.String(), ResourceName: o.ResourceName, CorrelationID: o.CorrelationID, Type: o.Type, Status: o.Status,
 		RequestedBy: o.RequestedBy, RequestedAt: o.RequestedAt, StartedAt: o.StartedAt, FinishedAt: o.FinishedAt,
 	}
 	if o.RevisionID != nil {

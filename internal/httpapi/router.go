@@ -29,7 +29,12 @@ type ReadStore interface {
 	GetTopology(ctx context.Context, id uuid.UUID) (store.Topology, error)
 	ListEvents(ctx context.Context, id uuid.UUID, p store.Page) ([]store.Event, string, error)
 	ListRevisions(ctx context.Context, id uuid.UUID) ([]store.Revision, error)
-	ListOperations(ctx context.Context, id uuid.UUID) ([]store.Operation, error)
+	// History (spec §39, §46 Changes/Events).
+	ListRevisionsPage(ctx context.Context, id uuid.UUID, p store.Page) ([]store.Revision, string, error)
+	GetRevision(ctx context.Context, id uuid.UUID, rev int) (store.Revision, error)
+	ListOperationsPage(ctx context.Context, f store.OperationFilter, p store.Page) ([]store.Operation, string, error)
+	GetOperation(ctx context.Context, id uuid.UUID) (store.Operation, error)
+	ListEventsByRevision(ctx context.Context, revisionID uuid.UUID, limit int) ([]store.Event, error)
 }
 
 // Catalog lists platform APIs (satisfied by *kube.Client).
@@ -74,6 +79,9 @@ func New(d Deps) *gin.Engine {
 	v1.GET("/catalog/resource-types/:kind", h.getResourceType)
 	v1.GET("/catalog/resource-types/:kind/schema", h.getResourceTypeSchema)
 
+	v1.GET("/operations", h.listOperations)
+	v1.GET("/operations/:operationId", h.getOperation)
+
 	v1.GET("/resources", h.listResources)
 	res := v1.Group("/resources/:id", h.loadResource)
 	res.GET("", h.getResource)
@@ -81,7 +89,8 @@ func New(d Deps) *gin.Engine {
 	res.GET("/health", h.getHealth)
 	res.GET("/events", h.listEvents)
 	res.GET("/revisions", h.listRevisions)
-	res.GET("/operations", h.listOperations)
+	res.GET("/revisions/:rev", h.getRevision)
+	res.GET("/operations", h.listResourceOperations)
 	res.GET("/topology", h.getTopology)
 	return r
 }
@@ -267,32 +276,6 @@ func (h *handlers) listEvents(c *gin.Context) {
 		out[i] = toEventDTO(e)
 	}
 	c.JSON(http.StatusOK, newPage(out, next))
-}
-
-func (h *handlers) listRevisions(c *gin.Context) {
-	revs, err := h.store.ListRevisions(c.Request.Context(), resourceOf(c).ID)
-	if err != nil {
-		internalError(c, err)
-		return
-	}
-	out := make([]revisionDTO, len(revs))
-	for i, r := range revs {
-		out[i] = toRevisionDTO(r)
-	}
-	c.JSON(http.StatusOK, newPage(out, ""))
-}
-
-func (h *handlers) listOperations(c *gin.Context) {
-	ops, err := h.store.ListOperations(c.Request.Context(), resourceOf(c).ID)
-	if err != nil {
-		internalError(c, err)
-		return
-	}
-	out := make([]operationDTO, len(ops))
-	for i, o := range ops {
-		out[i] = toOperationDTO(o)
-	}
-	c.JSON(http.StatusOK, newPage(out, ""))
 }
 
 func (h *handlers) getTopology(c *gin.Context) {

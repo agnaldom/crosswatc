@@ -493,3 +493,99 @@ func TestStreamTriggersAndListen(t *testing.T) {
 		t.Fatalf("prune: %d %v", n, err)
 	}
 }
+
+func TestHistoryQueries(t *testing.T) {
+	ctx := context.Background()
+	a, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-hist-a", "histA", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-hist-b", "histB", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Now().Add(-time.Hour).UTC()
+	var revs []Revision
+	for i := 1; i <= 3; i++ {
+		rv, err := testStore.InsertRevision(ctx, Revision{ResourceID: a.ID, Rev: i, Kind: "UPDATE", State: "SUCCEEDED"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		revs = append(revs, rv)
+		status := "SUCCEEDED"
+		if i == 3 {
+			status = "FAILED"
+		}
+		if _, err := testStore.InsertOperation(ctx, Operation{ResourceID: a.ID, RevisionID: &rv.ID, CorrelationID: fmt.Sprintf("%s-%d", a.CorrelationID, i),
+			Type: "UPDATE", Status: status, RequestedBy: "ana", RequestedAt: base.Add(time.Duration(i) * time.Minute)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := testStore.InsertOperation(ctx, Operation{ResourceID: b.ID, CorrelationID: b.CorrelationID, Type: "CREATE",
+		Status: "RUNNING", RequestedBy: "bia", RequestedAt: base.Add(10 * time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+
+	page1, next, err := testStore.ListRevisionsPage(ctx, a.ID, Page{Limit: 2})
+	if err != nil || len(page1) != 2 || page1[0].Rev != 3 || next == "" {
+		t.Fatalf("revisions page1 %v %q %v", len(page1), next, err)
+	}
+	page2, next2, err := testStore.ListRevisionsPage(ctx, a.ID, Page{Limit: 2, Cursor: next})
+	if err != nil || len(page2) != 1 || page2[0].Rev != 1 || next2 != "" {
+		t.Fatalf("revisions page2 %v %q %v", len(page2), next2, err)
+	}
+	if _, _, err := testStore.ListRevisionsPage(ctx, a.ID, Page{Cursor: "%%%"}); !errors.Is(err, ErrBadCursor) {
+		t.Fatalf("bad cursor: %v", err)
+	}
+	if rv, err := testStore.GetRevision(ctx, a.ID, 2); err != nil || rv.ID != revs[1].ID {
+		t.Fatalf("get revision %v", err)
+	}
+	if _, err := testStore.GetRevision(ctx, a.ID, 9); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing revision: %v", err)
+	}
+
+	ops, next, err := testStore.ListOperationsPage(ctx, OperationFilter{Owners: []string{"histA", "histB"}}, Page{Limit: 3})
+	if err != nil || len(ops) != 3 || next == "" {
+		t.Fatalf("ops %d %q %v", len(ops), next, err)
+	}
+	if ops[0].ResourceName != "pg-hist-b" || ops[0].Owner != "histB" || ops[1].Status != "FAILED" {
+		t.Fatalf("order/join %+v", ops[0])
+	}
+	rest, next, _ := testStore.ListOperationsPage(ctx, OperationFilter{Owners: []string{"histA", "histB"}}, Page{Limit: 3, Cursor: next})
+	if len(rest) != 1 || next != "" {
+		t.Fatalf("ops page2 %d", len(rest))
+	}
+	only, _, _ := testStore.ListOperationsPage(ctx, OperationFilter{Owners: []string{"histA"}, Status: "FAILED"}, Page{})
+	if len(only) != 1 || only[0].RevisionID == nil || *only[0].RevisionID != revs[2].ID {
+		t.Fatalf("filtered %+v", only)
+	}
+	byRes, _, _ := testStore.ListOperationsPage(ctx, OperationFilter{ResourceID: &b.ID, Type: "CREATE"}, Page{})
+	if len(byRes) != 1 {
+		t.Fatalf("by resource %d", len(byRes))
+	}
+	byRev, _, _ := testStore.ListOperationsPage(ctx, OperationFilter{RevisionID: &revs[0].ID}, Page{})
+	if len(byRev) != 1 {
+		t.Fatalf("by revision %d", len(byRev))
+	}
+	if none, _, _ := testStore.ListOperationsPage(ctx, OperationFilter{Owners: []string{}}, Page{}); len(none) != 0 {
+		t.Fatal("empty owner scope must return nothing")
+	}
+	got, err := testStore.GetOperation(ctx, only[0].ID)
+	if err != nil || got.Owner != "histA" || got.ResourceName != "pg-hist-a" {
+		t.Fatalf("get operation %+v %v", got, err)
+	}
+	if _, err := testStore.GetOperation(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing operation: %v", err)
+	}
+
+	for i, typ := range []string{"GITOPS.PR.CREATED", "GITOPS.PR.MERGED"} {
+		if _, err := testStore.InsertEvent(ctx, Event{DedupeKey: fmt.Sprintf("hist-%s-%d", revs[1].ID, i), ResourceID: &a.ID,
+			RevisionID: &revs[1].ID, Source: "github", Type: typ, Level: "info", CreatedAt: base.Add(time.Duration(i) * time.Second)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	evs, err := testStore.ListEventsByRevision(ctx, revs[1].ID, 50)
+	if err != nil || len(evs) != 2 || evs[0].Type != "GITOPS.PR.CREATED" {
+		t.Fatalf("revision events %v %v", evs, err)
+	}
+}

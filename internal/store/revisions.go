@@ -98,6 +98,10 @@ type Operation struct {
 	RequestedAt   time.Time
 	StartedAt     *time.Time
 	FinishedAt    *time.Time
+
+	// Read-side only (ListOperationsPage/GetOperation): the owning resource.
+	ResourceName string
+	Owner        string
 }
 
 // InsertOperation creates an operation.
