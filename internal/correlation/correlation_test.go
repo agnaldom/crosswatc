@@ -23,11 +23,11 @@ func TestNewIsValidAndUnique(t *testing.T) {
 func TestValid(t *testing.T) {
 	cases := map[string]bool{
 		"crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T": true,
-		"crosswatc-req-01JCA9S8G4B2Z7":               false, // too short
+		"crosswatc-req-01JCA9S8G4B2Z7":             false, // too short
 		"crosswatc-req-01jca9s8g4b2z7qx3m5n6p8r9t": false, // lowercase
 		"crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9U": false, // U not in alphabet
 		"other-req-01JCA9S8G4B2Z7QX3M5N6P8R9T":     false,
-		"":                                           false,
+		"":                                         false,
 	}
 	for id, want := range cases {
 		if got := Valid(id); got != want {
