@@ -37,6 +37,8 @@ type Config struct {
 	GitHub    GitHubConfig
 	Backstage BackstageConfig
 
+	ArgoCDNamespace string
+
 	ResyncInterval time.Duration
 	StuckTimeout   time.Duration
 	K8sPageLimit   int64
@@ -96,9 +98,10 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 			Token:        r.str("CROSSWATC_BACKSTAGE_TOKEN", ""),
 			PollInterval: r.duration("CROSSWATC_BACKSTAGE_POLL_INTERVAL", 30*time.Second),
 		},
-		ResyncInterval: r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
-		StuckTimeout:   r.duration("CROSSWATC_STUCK_TIMEOUT", 30*time.Minute),
-		K8sPageLimit:   r.int64("CROSSWATC_K8S_PAGE_LIMIT", 500),
+		ArgoCDNamespace: r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
+		ResyncInterval:  r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
+		StuckTimeout:    r.duration("CROSSWATC_STUCK_TIMEOUT", 30*time.Minute),
+		K8sPageLimit:    r.int64("CROSSWATC_K8S_PAGE_LIMIT", 500),
 	}
 	if len(r.errs) > 0 {
 		return Config{}, errors.Join(r.errs...)
