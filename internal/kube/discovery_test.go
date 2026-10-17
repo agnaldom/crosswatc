@@ -143,7 +143,7 @@ func TestDiscoverResourcesClaimXRMR(t *testing.T) {
 	if p := byName["pe-1"]; p.Ready() || p.Parent != "XNetwork/xnetwork-1" {
 		t.Fatalf("pe: %+v", p)
 	}
-	if len(d.Missing) != 1 || d.Missing[0].Name != "vnet-gone" {
+	if len(d.Missing) != 1 || d.Missing[0].Name != "vnet-gone" || d.Missing[0].Parent != "XPostgreSQLInstance/xpostgresql-92a" {
 		t.Fatalf("missing: %+v", d.Missing)
 	}
 	if len(d.Errors) != 1 {

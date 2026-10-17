@@ -39,6 +39,12 @@ func (r Ref) ID() string {
 	return r.Kind + "/" + r.Namespace + "/" + r.Name
 }
 
+// MissingRef is a reference that could not be resolved, with the ID of the object that referenced it.
+type MissingRef struct {
+	Ref
+	Parent string
+}
+
 // Object is the normalized view of a Claim, XR or MR.
 type Object struct {
 	Ref
@@ -72,7 +78,7 @@ type DiscoveredResource struct {
 	XR              *Object  // nil while the XR does not exist yet
 	Composites      []Object // nested XRs
 	MRs             []Object
-	Missing         []Ref // referenced but not found
+	Missing         []MissingRef // referenced but not found
 	SecretAvailable bool
 	Metadata        contract.Metadata
 	MetadataErrors  []contract.FieldError
@@ -139,7 +145,7 @@ func (c *Client) resolve(ctx context.Context, x XRD, u *unstructured.Unstructure
 				o := toObject(xr, RoleComposite, d.Claim.ID())
 				d.XR = &o
 			case IsNotFound(err):
-				d.Missing = append(d.Missing, ref)
+				d.Missing = append(d.Missing, MissingRef{ref, d.Claim.ID()})
 			default:
 				d.Errors = append(d.Errors, err.Error())
 			}
@@ -174,7 +180,7 @@ func (c *Client) walk(ctx context.Context, d *DiscoveredResource, parent Object,
 		}
 		if nested, ok := composites[schema.GroupKind{Group: gv.Group, Kind: ref.Kind}]; ok {
 			u, err := c.getRef(ctx, ref, nested.Plural, nested.Scope == "Namespaced")
-			if c.recordLookup(d, ref, err) {
+			if c.recordLookup(d, ref, parent.ID(), err) {
 				o := toObject(u, RoleComposite, parent.ID())
 				d.Composites = append(d.Composites, o)
 				c.walk(ctx, d, o, composites, mrs, depth+1)
@@ -187,18 +193,18 @@ func (c *Client) walk(ctx context.Context, d *DiscoveredResource, parent Object,
 			continue
 		}
 		u, err := c.getRef(ctx, ref, t.Plural, t.Namespaced)
-		if c.recordLookup(d, ref, err) {
+		if c.recordLookup(d, ref, parent.ID(), err) {
 			d.MRs = append(d.MRs, toObject(u, RoleManaged, parent.ID()))
 		}
 	}
 }
 
-func (c *Client) recordLookup(d *DiscoveredResource, ref Ref, err error) bool {
+func (c *Client) recordLookup(d *DiscoveredResource, ref Ref, parent string, err error) bool {
 	switch {
 	case err == nil:
 		return true
 	case IsNotFound(err):
-		d.Missing = append(d.Missing, ref)
+		d.Missing = append(d.Missing, MissingRef{ref, parent})
 	default:
 		d.Errors = append(d.Errors, err.Error())
 	}
