@@ -17,7 +17,7 @@ Spec: [`crosswatc-spec-v4.md`](crosswatc-spec-v4.md) · Checklist: §69.
 
 ## Desenvolvimento
 
-Requisitos: Go ≥ 1.25, Node 22, pnpm, Docker.
+Requisitos: Go ≥ 1.26, Node 22, pnpm, Docker.
 
 ```bash
 make db-up            # PostgreSQL local

@@ -1,5 +1,5 @@
 # Builds crosswatc-api or crosswatc-worker: docker build --build-arg SERVICE=api -f deploy/docker/go.Dockerfile .
-FROM golang:1.25 AS build
+FROM golang:1.26 AS build
 ARG SERVICE
 ARG VERSION=dev
 ARG COMMIT=none
