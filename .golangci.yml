@@ -11,6 +11,7 @@ linters:
     misspell:
       ignore-rules:
         - operacional
+        - progresso
     revive:
       rules:
         - name: exported

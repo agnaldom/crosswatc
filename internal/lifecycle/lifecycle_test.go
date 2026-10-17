@@ -153,7 +153,8 @@ func TestEvaluateRevisionSignals(t *testing.T) {
 		want    domain.RevisionState
 		failure string
 	}{
-		{"no PR", func(s *Signals) { s.PR = PRSignal{} }, domain.RevisionCreated, ""},
+		{"no PR, infra pending", func(s *Signals) { s.PR = PRSignal{}; s.MRs[0] = notReady() }, domain.RevisionCreated, ""},
+		{"no PR, infra healthy", func(s *Signals) { s.PR = PRSignal{} }, domain.RevisionSucceeded, ""},
 		{"validating", func(s *Signals) { s.PR.Merged, s.PR.Open, s.PR.Checks = false, true, ChecksPending }, domain.RevisionValidating, ""},
 		{"checks failed keeps validating with reason", func(s *Signals) { s.PR.Merged, s.PR.Open, s.PR.Checks = false, true, ChecksFailure }, domain.RevisionValidating, "ChecksFailed"},
 		{"waiting approval", func(s *Signals) { s.PR.Merged, s.PR.Open, s.PR.Approved = false, true, false }, domain.RevisionWaitingApproval, ""},

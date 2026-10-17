@@ -247,15 +247,21 @@ func TestOneOpenRevisionPerResource(t *testing.T) {
 	if err != nil || len(revs) != 2 || revs[0].Rev != 2 {
 		t.Fatalf("list: %v %v", revs, err)
 	}
+	if revs[1].StateChangedAt.IsZero() || revs[1].State != "SUCCEEDED" {
+		t.Fatalf("state_changed_at: %+v", revs[1])
+	}
 
 	op, err := testStore.InsertOperation(ctx, Operation{ResourceID: r.ID, RevisionID: &rev1.ID, CorrelationID: r.CorrelationID,
 		Type: "CREATE", Status: "SUCCEEDED", RequestedBy: "agnaldo"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := testStore.UpdateOperationsForRevision(ctx, rev1.ID, "SUCCEEDED", &now); err != nil {
+		t.Fatal(err)
+	}
 	ops, err := testStore.ListOperations(ctx, r.ID)
-	if err != nil || len(ops) != 1 || ops[0].ID != op.ID {
-		t.Fatalf("ops: %v %v", ops, err)
+	if err != nil || len(ops) != 1 || ops[0].ID != op.ID || ops[0].FinishedAt == nil || ops[0].StartedAt == nil {
+		t.Fatalf("ops: %+v %v", ops, err)
 	}
 }
 

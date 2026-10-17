@@ -11,29 +11,30 @@ import (
 
 // Revision mirrors the revision table (spec §13).
 type Revision struct {
-	ID            uuid.UUID
-	ResourceID    uuid.UUID
-	Rev           int
-	Kind          string
-	State         string
-	Changes       json.RawMessage
-	Branch        string
-	CommitSHA     string
-	PRNumber      *int
-	PRURL         string
-	ArgoApp       string
-	FailureReason json.RawMessage
-	StartedAt     *time.Time
-	CompletedAt   *time.Time
+	ID             uuid.UUID
+	ResourceID     uuid.UUID
+	Rev            int
+	Kind           string
+	State          string
+	Changes        json.RawMessage
+	Branch         string
+	CommitSHA      string
+	PRNumber       *int
+	PRURL          string
+	ArgoApp        string
+	FailureReason  json.RawMessage
+	StartedAt      *time.Time
+	CompletedAt    *time.Time
+	StateChangedAt time.Time
 }
 
 const revisionCols = `id, resource_id, rev, kind, state, changes, coalesce(branch,''), coalesce(commit_sha,''),
-pr_number, coalesce(pr_url,''), coalesce(argo_app,''), failure_reason, started_at, completed_at`
+pr_number, coalesce(pr_url,''), coalesce(argo_app,''), failure_reason, started_at, completed_at, state_changed_at`
 
 func scanRevision(row pgx.Row) (Revision, error) {
 	var r Revision
 	err := row.Scan(&r.ID, &r.ResourceID, &r.Rev, &r.Kind, &r.State, &r.Changes, &r.Branch, &r.CommitSHA,
-		&r.PRNumber, &r.PRURL, &r.ArgoApp, &r.FailureReason, &r.StartedAt, &r.CompletedAt)
+		&r.PRNumber, &r.PRURL, &r.ArgoApp, &r.FailureReason, &r.StartedAt, &r.CompletedAt, &r.StateChangedAt)
 	return r, mapErr(err)
 }
 
@@ -51,10 +52,12 @@ RETURNING `+revisionCols,
 }
 
 // UpdateRevision persists mutable fields (state, git/argo refs, failure, completion).
+// state_changed_at is bumped only when the state actually changes.
 func (s *Store) UpdateRevision(ctx context.Context, r Revision) error {
 	tag, err := s.pool.Exec(ctx, `
 UPDATE revision SET state = $2, branch = nullif($3,''), commit_sha = nullif($4,''), pr_number = $5,
-  pr_url = nullif($6,''), argo_app = nullif($7,''), failure_reason = $8, completed_at = $9
+  pr_url = nullif($6,''), argo_app = nullif($7,''), failure_reason = $8, completed_at = $9,
+  state_changed_at = CASE WHEN state <> $2 THEN now() ELSE state_changed_at END
 WHERE id = $1`, r.ID, r.State, r.Branch, r.CommitSHA, r.PRNumber, r.PRURL, r.ArgoApp, nullJSON(r.FailureReason), r.CompletedAt)
 	if err != nil {
 		return mapErr(err)
@@ -131,6 +134,14 @@ FROM operation WHERE resource_id = $1 ORDER BY requested_at DESC`, resourceID)
 		out = append(out, o)
 	}
 	return out, rows.Err()
+}
+
+// UpdateOperationsForRevision sets the status of operations tied to a revision.
+func (s *Store) UpdateOperationsForRevision(ctx context.Context, revisionID uuid.UUID, status string, finishedAt *time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+UPDATE operation SET status = $2, started_at = coalesce(started_at, now()), finished_at = coalesce($3, finished_at)
+WHERE revision_id = $1`, revisionID, status, finishedAt)
+	return mapErr(err)
 }
 
 // SaveCheckpoint records ingestion progress for a source.
