@@ -562,7 +562,7 @@ interface Operation {
 Formato:
 
 ```text
-crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V
+crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T
 ```
 
 Regra: `crosswatc-req-` + ULID (26 chars, Crockford base32, maiúsculo). Regex: `^crosswatc-req-[0-9A-HJKMNP-TV-Z]{26}$`.
@@ -593,7 +593,7 @@ metadata:
     crosswatc.io/resource-type: postgresql
 
   annotations:
-    crosswatc.io/request-id: crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V
+    crosswatc.io/request-id: crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T
     crosswatc.io/revision: "4"
     crosswatc.io/repository: crosswatc-org/argocd
     crosswatc.io/path: claims/dev/pgsql-payments.yaml
@@ -1149,7 +1149,7 @@ Campo `level`: `info | warning | error`. Campo `status`: `success | failure | in
 ```json
 {
   "eventId": "evt-81727",
-  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V",
+  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T",
   "resourceId": "pgsql-payments-prd",
   "revisionId": "rev-7",
   "operationId": "op-722",
@@ -1526,7 +1526,7 @@ q          # busca por nome (prefixo)
   "title": "Revision already open",
   "status": 409,
   "detail": "Resource pgsql-payments-prd already has revision 8 in WAITING_APPROVAL",
-  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V"
+  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T"
 }
 ```
 
@@ -1614,7 +1614,7 @@ Response:
 {
   "operationId": "op-722",
   "revisionId": "rev-8",
-  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V",
+  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T",
   "prNumber": 173,
   "prUrl": "https://github.com/..."
 }
