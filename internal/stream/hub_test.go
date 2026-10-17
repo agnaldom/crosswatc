@@ -134,7 +134,9 @@ func TestHubFanOutFilterAndOrder(t *testing.T) {
 		t.Fatal("unsubscribed channel must be closed")
 	}
 	cancel()
-	<-done
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("hub stopped with %v", err)
+	}
 	for range all.C { // drain anything buffered; the channel must end closed
 	}
 }
