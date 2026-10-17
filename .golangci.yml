@@ -8,6 +8,9 @@ linters:
     - misspell
     - revive
   settings:
+    misspell:
+      ignore-rules:
+        - operacional
     revive:
       rules:
         - name: exported
