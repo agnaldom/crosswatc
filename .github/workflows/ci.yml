@@ -52,3 +52,24 @@ jobs:
       - run: pnpm --filter web typecheck
       - run: pnpm --filter web test
       - run: pnpm --filter web build
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v4
+      - name: Helm lint and render
+        run: |
+          helm lint deploy/helm/crosswatc
+          helm template t deploy/helm/crosswatc --set rbac.platformApiGroups={database.crosswatc.io} \
+            --set github.enabled=true --set backstage.url=https://bs --set ingress.enabled=true > /dev/null
+      - uses: docker/setup-buildx-action@v3
+      - name: Build api image
+        uses: docker/build-push-action@v6
+        with: { context: ., file: deploy/docker/go.Dockerfile, build-args: SERVICE=api, push: false }
+      - name: Build worker image
+        uses: docker/build-push-action@v6
+        with: { context: ., file: deploy/docker/go.Dockerfile, build-args: SERVICE=worker, push: false }
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with: { context: ., file: deploy/docker/web.Dockerfile, push: false }

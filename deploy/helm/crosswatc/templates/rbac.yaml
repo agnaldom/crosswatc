@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crosswatc
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+---
+# Read-only access to infrastructure (spec §27). No create/update/patch/delete on any infra resource.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-crosswatc-read
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["apiextensions.crossplane.io"]
+    resources: ["compositeresourcedefinitions", "compositions", "compositionrevisions", "managedresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["", "events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  {{- if .Values.rbac.secretMetadata }}
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+  {{- end }}
+  {{- if .Values.rbac.readAllGroups }}
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  {{- else }}
+  {{- $groups := concat .Values.rbac.platformApiGroups .Values.rbac.providerApiGroups }}
+  {{- if $groups }}
+  - apiGroups: {{ toJson $groups }}
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-crosswatc-read
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-crosswatc-read
+subjects:
+  - kind: ServiceAccount
+    name: crosswatc
+    namespace: {{ .Release.Namespace }}
+---
+# Only write permission: leader-election Lease in the release namespace (spec §27, §35.2).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: crosswatc-leader-election
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: crosswatc-leader-election
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: crosswatc-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: crosswatc
+    namespace: {{ .Release.Namespace }}

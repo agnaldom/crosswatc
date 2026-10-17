@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crosswatc-web
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+    app.kubernetes.io/name: crosswatc-web
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels: { app.kubernetes.io/name: crosswatc-web }
+  template:
+    metadata:
+      labels: {{- include "crosswatc.labels" . | nindent 8 }}
+        app.kubernetes.io/name: crosswatc-web
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: web
+          image: {{ include "crosswatc.image" (dict "root" . "name" "web") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ name: http, containerPort: 3000 }]
+          env:
+            - { name: CROSSWATC_API_URL, value: "http://crosswatc-api.{{ .Release.Namespace }}.svc.cluster.local" }
+          readinessProbe: { httpGet: { path: /infrastructure, port: http }, periodSeconds: 10 }
+          resources: {{- toYaml .Values.web.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: next-cache, mountPath: /app/apps/web/.next/cache }
+      volumes:
+        - { name: next-cache, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crosswatc-web
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: crosswatc-web }
+  ports: [{ name: http, port: 80, targetPort: http }]
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crosswatc
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: crosswatc-web, port: { name: http } } } }
+{{- end }}

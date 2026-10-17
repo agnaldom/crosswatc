@@ -1,0 +1,65 @@
+image:
+  registry: ghcr.io/agnaldom
+  tag: ""          # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+env: production   # CROSSWATC_ENV
+
+api:
+  replicas: 2
+  resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { memory: 256Mi } }
+
+worker:
+  # Keep 1 until leader election ships (spec §35.2, issue P2.1).
+  replicas: 1
+  resyncInterval: 5m
+  stuckTimeout: 30m
+  resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 512Mi } }
+
+web:
+  replicas: 2
+  resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 256Mi } }
+
+database:
+  # Secret with key DATABASE_URL (postgres://...).
+  existingSecret: crosswatc-db
+
+auth:
+  mode: oidc                 # oidc | dev (dev is refused when env=production)
+  oidcIssuer: ""
+  oidcAudience: crosswatc
+  squadGroupPrefix: squad-
+  sreGroup: platform-sre
+
+github:
+  enabled: false
+  apiURL: https://api.github.com
+  appID: ""
+  installationID: ""
+  # Secret with key private-key.pem
+  existingSecret: crosswatc-github-app
+
+backstage:
+  url: ""
+  # Secret with key token (optional)
+  existingSecret: ""
+
+argocd:
+  namespace: argocd
+
+rbac:
+  # API groups of platform Claims/XRs (from your XRDs) and provider Managed Resources.
+  # Kubernetes RBAC has no wildcard per group suffix, so list them explicitly.
+  platformApiGroups: []      # e.g. [database.crosswatc.io, compute.crosswatc.io]
+  providerApiGroups: []      # e.g. [dbforpostgresql.azure.upbound.io, network.azure.upbound.io]
+  # Read every API group instead of the lists above (convenient for pilots; broader than needed).
+  readAllGroups: false
+  # Needed to check connection Secret existence. The code only uses the metadata API and never
+  # reads values, but RBAC cannot restrict "get" to metadata.
+  secretMetadata: true
+
+ingress:
+  enabled: false
+  className: ""
+  host: crosswatc.example.com
+  tls: []

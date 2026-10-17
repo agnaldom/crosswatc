@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crosswatc-worker
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+    app.kubernetes.io/name: crosswatc-worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app.kubernetes.io/name: crosswatc-worker }
+  template:
+    metadata:
+      labels: {{- include "crosswatc.labels" . | nindent 8 }}
+        app.kubernetes.io/name: crosswatc-worker
+    spec:
+      serviceAccountName: crosswatc
+      containers:
+        - name: worker
+          image: {{ include "crosswatc.image" (dict "root" . "name" "worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ name: probes, containerPort: 8081 }]
+          env:
+            {{- include "crosswatc.commonEnv" . | nindent 12 }}
+            - { name: CROSSWATC_AUTH_MODE, value: oidc }
+            - { name: CROSSWATC_OIDC_ISSUER, value: {{ .Values.auth.oidcIssuer | default "unused" | quote }} }
+            - { name: CROSSWATC_OIDC_AUDIENCE, value: {{ .Values.auth.oidcAudience | default "unused" | quote }} }
+            - { name: CROSSWATC_RESYNC_INTERVAL, value: {{ .Values.worker.resyncInterval | quote }} }
+            - { name: CROSSWATC_STUCK_TIMEOUT, value: {{ .Values.worker.stuckTimeout | quote }} }
+            - { name: CROSSWATC_ARGOCD_NAMESPACE, value: {{ .Values.argocd.namespace | quote }} }
+            {{- if .Values.github.enabled }}
+            - { name: CROSSWATC_GITHUB_API_URL, value: {{ .Values.github.apiURL | quote }} }
+            - { name: CROSSWATC_GITHUB_APP_ID, value: {{ .Values.github.appID | quote }} }
+            - { name: CROSSWATC_GITHUB_INSTALLATION_ID, value: {{ .Values.github.installationID | quote }} }
+            - { name: CROSSWATC_GITHUB_PRIVATE_KEY_PATH, value: /var/run/secrets/github/private-key.pem }
+            {{- end }}
+            {{- if .Values.backstage.url }}
+            - { name: CROSSWATC_BACKSTAGE_URL, value: {{ .Values.backstage.url | quote }} }
+            {{- if .Values.backstage.existingSecret }}
+            - name: CROSSWATC_BACKSTAGE_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .Values.backstage.existingSecret }}, key: token } }
+            {{- end }}
+            {{- end }}
+          readinessProbe: { httpGet: { path: /readyz, port: probes }, periodSeconds: 15 }
+          livenessProbe: { httpGet: { path: /healthz, port: probes }, periodSeconds: 20 }
+          resources: {{- toYaml .Values.worker.resources | nindent 12 }}
+          {{- include "crosswatc.securityContext" . | nindent 10 }}
+          {{- if .Values.github.enabled }}
+          volumeMounts:
+            - { name: github-app, mountPath: /var/run/secrets/github, readOnly: true }
+          {{- end }}
+      {{- if .Values.github.enabled }}
+      volumes:
+        - name: github-app
+          secret: { secretName: {{ .Values.github.existingSecret }} }
+      {{- end }}
