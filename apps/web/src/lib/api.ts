@@ -1,4 +1,14 @@
-import type { Health, Page, ResourceStateView, Revision, Topology, TrackedResource, TrackerEvent } from "./types";
+import type {
+  Health,
+  Operation,
+  Page,
+  ResourceStateView,
+  Revision,
+  RevisionDetail,
+  Topology,
+  TrackedResource,
+  TrackerEvent,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -45,8 +55,10 @@ export const api = {
   health: (id: string) => get<Health>(`/resources/${id}/health`),
   events: (id: string) => get<Page<TrackerEvent>>(`/resources/${id}/events?limit=100`),
   revisions: (id: string) => get<Page<Revision>>(`/resources/${id}/revisions`),
+  revision: (id: string, rev: number) => get<RevisionDetail>(`/resources/${id}/revisions/${rev}`),
+  operations: (id: string) => get<Page<Operation>>(`/resources/${id}/operations`),
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
 };
 
-/** Polling fallback until SSE lands (spec §45). */
+/** Polling interval used only while the realtime stream is unavailable (spec §45). */
 export const POLL_INTERVAL_MS = 15_000;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Empty, ErrorState, Loading } from "@/components/States";
+import { LiveStatus } from "@/components/Timeline";
 import { api, type ResourceFilters } from "@/lib/api";
 import { resourceStateLabel, resourceStateTone } from "@/lib/labels";
 import type { ResourceState } from "@/lib/types";
@@ -27,7 +28,10 @@ export default function InfrastructurePage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="text-2xl font-semibold tracking-tight">My Infrastructure</h1>
+      <div className="flex items-baseline justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">My Infrastructure</h1>
+        <LiveStatus />
+      </div>
       <p className="mt-1 text-sm text-zinc-600">Recursos das suas squads, do Git até a Cloud.</p>
 
       <div className="mt-6 flex flex-wrap gap-3">

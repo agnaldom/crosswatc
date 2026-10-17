@@ -6,10 +6,11 @@ import { use, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Lifecycle } from "@/components/Lifecycle";
 import { Empty, ErrorState, Loading } from "@/components/States";
+import { LiveStatus, Timeline } from "@/components/Timeline";
 import { TopologyView } from "@/components/TopologyView";
 import { api } from "@/lib/api";
 import { healthTone, resourceStateLabel, resourceStateTone, revisionStateTone } from "@/lib/labels";
-import type { Health, TrackedResource } from "@/lib/types";
+import type { Health, Revision, TrackedResource } from "@/lib/types";
 
 const tabs = ["Overview", "Lifecycle", "Topology", "Changes", "Events"] as const;
 type Tab = (typeof tabs)[number];
@@ -33,6 +34,7 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600">
             <Badge tone={resourceStateTone[r.resourceState]}>{resourceStateLabel[r.resourceState]}</Badge>
             <span>{r.kind}</span>·<span className="capitalize">{r.provider}</span>·<span>{r.environment}</span>
+            <span className="ml-2"><LiveStatus /></span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -132,58 +134,73 @@ function TopologyTab({ id }: { id: string }) {
 
 function Changes({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["revisions", id], queryFn: () => api.revisions(id) });
+  const [open, setOpen] = useState<number | null>(null);
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
   if (!q.data.items.length) return <Empty>Nenhuma mudança registrada.</Empty>;
   return (
     <ul className="space-y-3">
       {q.data.items.map((rv) => (
-        <li key={rv.id} className="rounded-lg border border-zinc-200 bg-white p-4 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">REV {rv.rev}</span>
-            <span className="text-zinc-500">{rv.kind}</span>
-            <Badge tone={revisionStateTone(rv.state)}>{rv.state}</Badge>
-            {rv.prUrl && <a href={rv.prUrl} target="_blank" rel="noreferrer" className="underline">PR #{rv.prNumber}</a>}
-          </div>
-          {rv.failureReason && (
-            <p className="mt-2 text-rose-700">
-              {rv.failureReason.userMessage}
-              {rv.failureReason.recommendedAction && <span className="block text-zinc-600">{rv.failureReason.recommendedAction}</span>}
-            </p>
-          )}
-          <p className="mt-1 text-xs text-zinc-500">
-            {rv.startedAt && `Início ${new Date(rv.startedAt).toLocaleString("pt-BR")}`}
-            {rv.completedAt && ` · Fim ${new Date(rv.completedAt).toLocaleString("pt-BR")}`}
-          </p>
+        <li key={rv.id} className="rounded-lg border border-zinc-200 bg-white text-sm">
+          <button type="button" aria-expanded={open === rv.rev} onClick={() => setOpen(open === rv.rev ? null : rv.rev)}
+            className="w-full p-4 text-left hover:bg-zinc-50">
+            <RevisionSummary rv={rv} />
+          </button>
+          {open === rv.rev && <RevisionHistory id={id} rev={rv.rev} />}
         </li>
       ))}
     </ul>
   );
 }
 
-const levelTone = { info: "muted", warning: "warn", error: "error" } as const;
+function RevisionSummary({ rv }: { rv: Revision }) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold">REV {rv.rev}</span>
+        <span className="text-zinc-500">{rv.kind}</span>
+        <Badge tone={revisionStateTone(rv.state)}>{rv.state}</Badge>
+        {rv.prNumber && <span className="text-zinc-600">PR #{rv.prNumber}</span>}
+      </div>
+      {rv.failureReason && (
+        <p className="mt-2 text-rose-700">
+          {rv.failureReason.userMessage}
+          {rv.failureReason.recommendedAction && <span className="block text-zinc-600">{rv.failureReason.recommendedAction}</span>}
+        </p>
+      )}
+      <p className="mt-1 text-xs text-zinc-500">
+        {rv.startedAt && `Início ${new Date(rv.startedAt).toLocaleString("pt-BR")}`}
+        {rv.completedAt && ` · Fim ${new Date(rv.completedAt).toLocaleString("pt-BR")}`}
+      </p>
+    </>
+  );
+}
+
+/** Operations and event history of one revision (GET /resources/{id}/revisions/{rev}). */
+function RevisionHistory({ id, rev }: { id: string; rev: number }) {
+  const q = useQuery({ queryKey: ["revision", id, rev], queryFn: () => api.revision(id, rev) });
+  if (q.isPending) return <div className="border-t border-zinc-100 px-4"><Loading /></div>;
+  if (q.isError) return <div className="border-t border-zinc-100 p-4"><ErrorState error={q.error} /></div>;
+  const d = q.data;
+  return (
+    <div className="space-y-4 border-t border-zinc-100 p-4">
+      {d.prUrl && <a href={d.prUrl} target="_blank" rel="noreferrer" className="underline">Abrir Pull Request #{d.prNumber}</a>}
+      {d.operations.map((o) => (
+        <p key={o.id} className="text-xs text-zinc-600">
+          Operação {o.type} · <Badge tone={o.status === "SUCCEEDED" ? "ok" : o.status === "FAILED" ? "error" : "progress"}>{o.status}</Badge>
+          {" "}· solicitada por <span className="font-medium">{o.requestedBy}</span> em {new Date(o.requestedAt).toLocaleString("pt-BR")}
+        </p>
+      ))}
+      {d.events.length ? <Timeline events={[...d.events].reverse()} live={false} /> : <Empty>Nenhum evento nesta revisão.</Empty>}
+    </div>
+  );
+}
 
 function Events({ id }: { id: string }) {
+  // Kept fresh by the realtime stream (event.created patches this cache); polls only as a fallback.
   const q = useQuery({ queryKey: ["events", id], queryFn: () => api.events(id) });
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
   if (!q.data.items.length) return <Empty>Nenhum evento.</Empty>;
-  return (
-    <ol className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white text-sm">
-      {q.data.items.map((e) => (
-        <li key={e.eventId} className="flex gap-4 px-4 py-2.5">
-          <time className="w-36 shrink-0 font-mono text-xs text-zinc-500" dateTime={e.timestamp}>
-            {new Date(e.timestamp).toLocaleString("pt-BR")}
-          </time>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={levelTone[e.level]}>{e.source}</Badge>
-              <span className="font-mono text-xs text-zinc-500">{e.type}</span>
-            </div>
-            {e.message && <p className="mt-0.5">{e.message}</p>}
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
+  return <Timeline events={q.data.items} />;
 }

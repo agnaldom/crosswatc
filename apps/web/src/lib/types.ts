@@ -87,9 +87,31 @@ export interface Revision {
   completedAt?: string;
 }
 
+export type OperationStatus = "QUEUED" | "RUNNING" | "WAITING_APPROVAL" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+
+export interface Operation {
+  id: string;
+  resourceId: string;
+  resourceName?: string;
+  revisionId?: string;
+  correlationId: string;
+  type: "CREATE" | "UPDATE" | "DELETE" | "PLATFORM_UPGRADE" | "RECONCILE";
+  status: OperationStatus;
+  requestedBy: string;
+  requestedAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
+export interface RevisionDetail extends Revision {
+  operations: Operation[];
+  events: TrackerEvent[];
+}
+
 export interface TrackerEvent {
   eventId: string;
   correlationId?: string;
+  revisionId?: string;
   source: string;
   type: string;
   level: "info" | "warning" | "error";
