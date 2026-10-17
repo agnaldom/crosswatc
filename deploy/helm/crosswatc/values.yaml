@@ -10,8 +10,17 @@ api:
   resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { memory: 256Mi } }
 
 worker:
-  # Keep 1 until leader election ships (spec §35.2, issue P2.1).
-  replicas: 1
+  # Leader election on Lease crosswatc-worker (spec §35.2): only the leader runs informers,
+  # polling and the reconciler; the other replica is a hot standby.
+  replicas: 2
+  leaderElection:
+    enabled: true
+    leaseDuration: 15s
+    renewDeadline: 10s
+    retryPeriod: 2s
+  informers:
+    enabled: true
+    events: true             # core/v1 Events (triggers refresh of the involved Claim)
   resyncInterval: 5m
   stuckTimeout: 30m
   resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 512Mi } }
@@ -54,8 +63,8 @@ rbac:
   providerApiGroups: []      # e.g. [dbforpostgresql.azure.upbound.io, network.azure.upbound.io]
   # Read every API group instead of the lists above (convenient for pilots; broader than needed).
   readAllGroups: false
-  # Needed to check connection Secret existence. The code only uses the metadata API and never
-  # reads values, but RBAC cannot restrict "get" to metadata.
+  # Needed to check connection Secret existence (get) and to watch Secret metadata (list/watch, informer).
+  # The code only uses the metadata API and never reads values, but RBAC cannot restrict verbs to metadata.
   secretMetadata: true
 
 ingress:

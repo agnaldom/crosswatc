@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/agnaldom/crosswatc/internal/adapters/argocd"
 	"github.com/agnaldom/crosswatc/internal/adapters/github"
@@ -73,6 +75,17 @@ func (m *memStore) ListResources(_ context.Context, _ store.ResourceFilter, _ st
 		out = append(out, r)
 	}
 	return out, "", nil
+}
+
+func (m *memStore) GetResourceByClaim(_ context.Context, ns, name, kind string) (store.TrackedResource, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, r := range m.resources {
+		if r.ClaimNamespace == ns && r.ClaimName == name && r.ClaimKind == kind {
+			return r, nil
+		}
+	}
+	return store.TrackedResource{}, store.ErrNotFound
 }
 
 func (m *memStore) ListRevisions(_ context.Context, id uuid.UUID) ([]store.Revision, error) {
@@ -194,9 +207,22 @@ func (m *memStore) only() (store.TrackedResource, store.Revision) {
 type fakeDiscovery struct {
 	resources []kube.DiscoveredResource
 	err       error
+	xrds      []kube.XRD
+	oneCalls  int
 }
 
-func (f *fakeDiscovery) DiscoverXRDs(context.Context) ([]kube.XRD, error) { return nil, nil }
+func (f *fakeDiscovery) DiscoverXRDs(context.Context) ([]kube.XRD, error) { return f.xrds, nil }
+
+// DiscoverOne serves the Claim from resources; absent Claims yield a Kubernetes NotFound.
+func (f *fakeDiscovery) DiscoverOne(_ context.Context, _ kube.XRD, _ []kube.XRD, _ kube.MRIndex, ns, name string) (kube.DiscoveredResource, error) {
+	f.oneCalls++
+	for _, d := range f.resources {
+		if d.Claim.Namespace == ns && d.Claim.Name == name {
+			return d, nil
+		}
+	}
+	return kube.DiscoveredResource{}, apierrors.NewNotFound(schema.GroupResource{Resource: "claims"}, name)
+}
 func (f *fakeDiscovery) DiscoverMRDs(context.Context) (kube.MRIndex, error) {
 	return kube.MRIndex{}, nil
 }

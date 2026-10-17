@@ -23,6 +23,28 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
+func TestLeaderElectionAndInformerDefaults(t *testing.T) {
+	c, err := LoadFrom(env(map[string]string{"CROSSWATC_AUTH_MODE": "dev"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	le := c.LeaderElection
+	if !le.Enabled || le.LeaseDuration != 15*time.Second || le.RenewDeadline != 10*time.Second || le.RetryPeriod != 2*time.Second {
+		t.Fatalf("leader election: %+v", le)
+	}
+	if !c.Informers.Enabled || !c.Informers.Secrets || !c.Informers.Events {
+		t.Fatalf("informers: %+v", c.Informers)
+	}
+	c, err = LoadFrom(env(map[string]string{"CROSSWATC_AUTH_MODE": "dev", "CROSSWATC_LEADER_ELECTION": "false",
+		"CROSSWATC_LEADER_ELECTION_RENEW_DEADLINE": "1h", "CROSSWATC_WATCH_SECRETS": "false"}))
+	if err != nil {
+		t.Fatal(err) // ordering is only validated when enabled
+	}
+	if c.LeaderElection.Enabled || c.Informers.Secrets {
+		t.Fatalf("overrides ignored: %+v", c)
+	}
+}
+
 func TestDevAuthForbiddenInProduction(t *testing.T) {
 	_, err := LoadFrom(env(map[string]string{"CROSSWATC_ENV": "production", "CROSSWATC_AUTH_MODE": "dev"}))
 	if err == nil || !strings.Contains(err.Error(), "forbidden") {
@@ -52,6 +74,8 @@ func TestInvalidValues(t *testing.T) {
 		"int":      {"CROSSWATC_K8S_PAGE_LIMIT": "x"},
 		"limit":    {"CROSSWATC_K8S_PAGE_LIMIT": "0"},
 		"auth":     {"CROSSWATC_AUTH_MODE": "basic"},
+		"bool":     {"CROSSWATC_LEADER_ELECTION": "maybe"},
+		"lease":    {"CROSSWATC_LEADER_ELECTION_RENEW_DEADLINE": "20s"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := LoadFrom(env(m)); err == nil {

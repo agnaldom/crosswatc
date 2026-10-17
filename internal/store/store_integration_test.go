@@ -89,6 +89,21 @@ func TestUpsertResourceByClaimPreservesIdentity(t *testing.T) {
 	}
 }
 
+func TestGetResourceByClaim(t *testing.T) {
+	ctx := context.Background()
+	r, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-byclaim", "payments", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := testStore.GetResourceByClaim(ctx, r.ClaimNamespace, r.ClaimName, r.ClaimKind)
+	if err != nil || got.ID != r.ID {
+		t.Fatalf("got %v, %v", got.ID, err)
+	}
+	if _, err := testStore.GetResourceByClaim(ctx, r.ClaimNamespace, "nope", r.ClaimKind); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}
+
 func TestUpdateResourceStateOptimisticLock(t *testing.T) {
 	ctx := context.Background()
 	r, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-lock", "payments", "dev"))

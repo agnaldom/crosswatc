@@ -19,6 +19,7 @@ type Discovery interface {
 	DiscoverXRDs(ctx context.Context) ([]kube.XRD, error)
 	DiscoverMRDs(ctx context.Context) (kube.MRIndex, error)
 	DiscoverResources(ctx context.Context, xrds []kube.XRD, mrs kube.MRIndex) ([]kube.DiscoveredResource, error)
+	DiscoverOne(ctx context.Context, x kube.XRD, xrds []kube.XRD, mrs kube.MRIndex, namespace, name string) (kube.DiscoveredResource, error)
 }
 
 // PullRequests is satisfied by *github.Adapter.
@@ -42,6 +43,7 @@ type Store interface {
 	UpsertResourceByClaim(ctx context.Context, r store.TrackedResource) (store.TrackedResource, error)
 	UpdateResourceState(ctx context.Context, id uuid.UUID, expectedVersion int64, state string, everOperational bool) (int64, error)
 	ListResources(ctx context.Context, f store.ResourceFilter, p store.Page) ([]store.TrackedResource, string, error)
+	GetResourceByClaim(ctx context.Context, namespace, name, kind string) (store.TrackedResource, error)
 	ListRevisions(ctx context.Context, resourceID uuid.UUID) ([]store.Revision, error)
 	InsertRevision(ctx context.Context, r store.Revision) (store.Revision, error)
 	UpdateRevision(ctx context.Context, r store.Revision) error

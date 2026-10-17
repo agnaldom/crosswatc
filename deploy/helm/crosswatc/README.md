@@ -17,13 +17,17 @@ helm install crosswatc deploy/helm/crosswatc \
 - `ClusterRole` is **read-only** (`get`, `list`, `watch`): XRDs, Compositions, CompositionRevisions, MRDs, CRDs,
   Argo CD `Application`s, Events, and the API groups listed in `rbac.platformApiGroups` / `rbac.providerApiGroups`.
 - `rbac.readAllGroups=true` grants read on every group — simpler for a pilot, broader than needed.
-- `secrets: get` is required to check connection Secret existence. The code only calls the metadata API and never
-  reads values (§49), but Kubernetes RBAC cannot restrict `get` to metadata. Set `rbac.secretMetadata=false` to drop it
-  (the Operational stage will then report the secret as unavailable).
+- `secrets: get, list, watch` is required to check connection Secret existence and to run the metadata-only Secret
+  informer. The code only calls the metadata API and never reads values (§49), but Kubernetes RBAC cannot restrict
+  verbs to metadata. Set `rbac.secretMetadata=false` to drop it (the Secret informer is disabled and the Operational
+  stage will report the secret as unavailable).
 - The only write permission is a namespaced `Role` on `coordination.k8s.io/leases` for leader election (§35.2).
 
 ## Notes
 
-- `worker.replicas` stays at 1 until leader election ships (issue P2.1).
+- `worker.replicas: 2` with leader election on the `crosswatc-worker` Lease (§35.2). Only the leader runs informers,
+  polling and the reconciler; the standby is ready as soon as the database answers and takes over within
+  `leaseDuration` (immediately on graceful shutdown, since the Lease is released).
+- Set `worker.leaderElection.enabled=false` only with `worker.replicas: 1`.
 - The worker owns database migrations; the API only reads.
 - `auth.mode=dev` is rejected by the API when `env=production`.

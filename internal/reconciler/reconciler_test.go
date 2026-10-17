@@ -229,3 +229,54 @@ func TestToTrackedResource(t *testing.T) {
 		t.Fatal("current revision")
 	}
 }
+
+func TestReconcileClaim(t *testing.T) {
+	st := newMemStore()
+	d := discovered(creating, "")
+	d.Claim.Labels = map[string]string{contract.LabelManaged: "true"}
+	disc := &fakeDiscovery{
+		resources: []kube.DiscoveredResource{d},
+		xrds:      []kube.XRD{{Group: "database.crosswatc.io", Kind: "XPostgreSQLInstance", ClaimKind: "PostgreSQLInstance", Versions: []kube.XRDVersion{{Name: "v1", Served: true}}}},
+	}
+	r := &Reconciler{Discovery: disc, Store: st, StuckTimeout: time.Hour}
+	ctx := context.Background()
+	ref := d.Claim.Ref
+
+	// before any full resync the trigger falls back to RunOnce
+	if err := r.ReconcileClaim(ctx, ref); err != nil {
+		t.Fatal(err)
+	}
+	if disc.oneCalls != 0 {
+		t.Fatal("first trigger must run a full resync")
+	}
+	if tr, _ := st.only(); tr.ResourceState == "OPERATIONAL" {
+		t.Fatalf("unexpected state %s", tr.ResourceState)
+	}
+
+	// MR becomes ready: targeted refresh moves the resource to OPERATIONAL
+	disc.resources[0].MRs[0].Conditions = ready
+	if err := r.ReconcileClaim(ctx, ref); err != nil {
+		t.Fatal(err)
+	}
+	if tr, _ := st.only(); disc.oneCalls != 1 || tr.ResourceState != "OPERATIONAL" {
+		t.Fatalf("calls=%d state=%s", disc.oneCalls, tr.ResourceState)
+	}
+
+	// unknown kinds are ignored until the next resync
+	if err := r.ReconcileClaim(ctx, kube.Ref{APIVersion: "other.io/v1", Kind: "Bucket", Namespace: "x", Name: "y"}); err != nil || disc.oneCalls != 1 {
+		t.Fatalf("calls=%d err=%v", disc.oneCalls, err)
+	}
+
+	// Claim deleted from the cluster → reconciled as absent
+	disc.resources = nil
+	if err := r.ReconcileClaim(ctx, ref); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(st.eventTypes(), "INFRA.CLAIM.DELETED") {
+		t.Fatalf("events %v", st.eventTypes())
+	}
+	// unknown Claim gone: nothing to do
+	if err := r.ReconcileClaim(ctx, kube.Ref{APIVersion: ref.APIVersion, Kind: ref.Kind, Namespace: "nope", Name: "nope"}); err != nil {
+		t.Fatal(err)
+	}
+}

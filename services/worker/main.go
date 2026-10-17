@@ -1,4 +1,4 @@
-// Command worker runs discovery, adapters and the state reconciler.
+// Command worker runs discovery, informers, adapters and the state reconciler on the elected leader (spec §35.2).
 package main
 
 import (
@@ -16,11 +16,13 @@ import (
 	"github.com/agnaldom/crosswatc/internal/adapters/backstage"
 	"github.com/agnaldom/crosswatc/internal/adapters/github"
 	"github.com/agnaldom/crosswatc/internal/config"
+	"github.com/agnaldom/crosswatc/internal/informer"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/logging"
 	"github.com/agnaldom/crosswatc/internal/reconciler"
 	"github.com/agnaldom/crosswatc/internal/store"
 	"github.com/agnaldom/crosswatc/internal/version"
+	"github.com/agnaldom/crosswatc/internal/worker"
 )
 
 func main() {
@@ -81,8 +83,18 @@ func run() error {
 		rec.Backstage = backstage.New(cfg.Backstage.URL, cfg.Backstage.Token, cfg.Backstage.PollInterval, nil)
 	}
 
-	var ready atomic.Bool
-	srv := probeServer(":8081", st, &ready)
+	runner := &worker.Runner{
+		Rec: rec, Resync: cfg.ResyncInterval, Log: log,
+		Watch: informer.Options{Secrets: cfg.Informers.Secrets, Events: cfg.Informers.Events},
+	}
+	if cfg.Informers.Enabled {
+		runner.Informers = informer.New(kc.Dynamic, kc.Metadata, log, runner.OnEvent)
+	}
+
+	// Standby replicas are ready once the DB answers; the leader also needs a resync and synced informers.
+	var leading atomic.Bool
+	ready := func() bool { return !leading.Load() || runner.Ready() }
+	srv := probeServer(":8081", st, ready)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("probe server", "err", err)
@@ -94,32 +106,46 @@ func run() error {
 		_ = srv.Shutdown(shCtx)
 	}()
 
-	// Single replica until leader election lands (P2.1, §35.2).
-	ticker := time.NewTicker(cfg.ResyncInterval)
-	defer ticker.Stop()
-	for {
-		start := time.Now()
-		res, err := rec.RunOnce(ctx)
-		if err != nil {
-			log.Error("resync finished with errors", "err", err, "result", res, "took", time.Since(start))
-		} else {
-			ready.Store(true)
-			log.Info("resync finished", "result", res, "took", time.Since(start))
-		}
-		select {
-		case <-ctx.Done():
-			log.Info("shutting down")
-			return nil
-		case <-ticker.C:
+	lead := func(ctx context.Context) {
+		leading.Store(true)
+		defer leading.Store(false)
+		log.Info("leading: starting informers, reconciler and polling")
+		if err := runner.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Error("runner stopped", "err", err)
 		}
 	}
+	if !cfg.LeaderElection.Enabled {
+		log.Warn("leader election disabled: run a single worker replica")
+		lead(ctx)
+		log.Info("shutting down")
+		return nil
+	}
+
+	coord, err := kube.CoordinationClient(restCfg)
+	if err != nil {
+		return err
+	}
+	identity := cfg.LeaderElection.Identity
+	if identity == "" {
+		if identity, err = os.Hostname(); err != nil {
+			return err
+		}
+	}
+	le := cfg.LeaderElection
+	err = kube.RunLeaderElection(ctx, coord, kube.LeaderConfig{
+		Namespace: kube.PodNamespace(le.Namespace), Identity: identity,
+		LeaseDuration: le.LeaseDuration, RenewDeadline: le.RenewDeadline, RetryPeriod: le.RetryPeriod,
+		OnLeaderChange: func(id string) { log.Info("leader elected", "leader", id, "self", id == identity) },
+	}, lead)
+	log.Info("shutting down")
+	return err
 }
 
-func probeServer(addr string, st *store.Store, ready *atomic.Bool) *http.Server {
+func probeServer(addr string, st *store.Store, ready func() bool) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		if !ready.Load() || st.Ping(r.Context()) != nil {
+		if !ready() || st.Ping(r.Context()) != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

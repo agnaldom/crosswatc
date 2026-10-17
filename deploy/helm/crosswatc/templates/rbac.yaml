@@ -26,7 +26,7 @@ rules:
   {{- if .Values.rbac.secretMetadata }}
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get"]
+    verbs: ["get", "list", "watch"]   # metadata API only; values are never read (§49)
   {{- end }}
   {{- if .Values.rbac.readAllGroups }}
   - apiGroups: ["*"]

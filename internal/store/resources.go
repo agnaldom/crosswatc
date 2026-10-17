@@ -103,6 +103,12 @@ func (s *Store) GetResource(ctx context.Context, id uuid.UUID) (TrackedResource,
 	return scanResource(s.pool.QueryRow(ctx, `SELECT `+resourceCols+` FROM tracked_resource WHERE id = $1`, id))
 }
 
+// GetResourceByClaim returns the resource tracking a Claim.
+func (s *Store) GetResourceByClaim(ctx context.Context, namespace, name, kind string) (TrackedResource, error) {
+	return scanResource(s.pool.QueryRow(ctx, `SELECT `+resourceCols+` FROM tracked_resource
+WHERE claim_namespace = $1 AND claim_name = $2 AND claim_kind = $3`, namespace, name, kind))
+}
+
 // ResourceFilter narrows ListResources (spec §39). Owners == nil means no owner restriction.
 type ResourceFilter struct {
 	Owners      []string

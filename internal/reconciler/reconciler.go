@@ -6,10 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/agnaldom/crosswatc/internal/adapters/backstage"
 	"github.com/agnaldom/crosswatc/internal/adapters/github"
+	"github.com/agnaldom/crosswatc/internal/contract"
 	"github.com/agnaldom/crosswatc/internal/correlation"
 	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/kube"
@@ -28,6 +32,10 @@ type Reconciler struct {
 	Log          *slog.Logger
 	StuckTimeout time.Duration
 	Now          func() time.Time
+
+	mu   sync.Mutex // guards the catalog of the last full resync
+	xrds []kube.XRD
+	mrs  kube.MRIndex
 }
 
 // Result summarizes a run.
@@ -52,6 +60,9 @@ func (r *Reconciler) RunOnce(ctx context.Context) (Result, error) {
 		r.checkpoint(ctx, "k8s", err)
 		return res, err
 	}
+	r.mu.Lock()
+	r.xrds, r.mrs = xrds, mrs
+	r.mu.Unlock()
 	discovered, listErr := r.Discovery.DiscoverResources(ctx, xrds, mrs)
 	r.checkpoint(ctx, "k8s", listErr)
 	res.Discovered = len(discovered)
@@ -73,6 +84,62 @@ func (r *Reconciler) RunOnce(ctx context.Context) (Result, error) {
 	vanished, err := r.reconcileVanished(ctx, seen)
 	res.Vanished = vanished
 	return res, err
+}
+
+// Catalog returns the XRDs and MR types seen by the last full resync (nil before the first one).
+func (r *Reconciler) Catalog() ([]kube.XRD, kube.MRIndex) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.xrds, r.mrs
+}
+
+// ReconcileClaim refreshes a single Claim after an informer or webhook trigger (spec §25, §35.1).
+// A Claim that no longer exists, or lost the managed label, is reconciled as absent.
+func (r *Reconciler) ReconcileClaim(ctx context.Context, ref kube.Ref) error {
+	xrds, mrs := r.Catalog()
+	if xrds == nil {
+		_, err := r.RunOnce(ctx)
+		return err
+	}
+	x, ok := userFacingXRD(xrds, ref)
+	if !ok {
+		r.log().Debug("trigger for unknown claim kind; waiting for next resync", "claim", ref.ID())
+		return nil
+	}
+	d, err := r.Discovery.DiscoverOne(ctx, x, xrds, mrs, ref.Namespace, ref.Name)
+	switch {
+	case kube.IsNotFound(err):
+		return r.reconcileGone(ctx, ref)
+	case err != nil:
+		return fmt.Errorf("discover %s: %w", ref.ID(), err)
+	case d.Claim.Labels[contract.LabelManaged] != "true":
+		return r.reconcileGone(ctx, ref)
+	}
+	return r.reconcile(ctx, d)
+}
+
+func (r *Reconciler) reconcileGone(ctx context.Context, ref kube.Ref) error {
+	tr, err := r.Store.GetResourceByClaim(ctx, ref.Namespace, ref.Name, ref.Kind)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if tr.ResourceState == string(domain.ResourceDeleted) {
+		return nil
+	}
+	return r.reconcileAbsent(ctx, tr)
+}
+
+func userFacingXRD(xrds []kube.XRD, ref kube.Ref) (kube.XRD, bool) {
+	gv, _ := schema.ParseGroupVersion(ref.APIVersion)
+	for _, x := range xrds {
+		if t, ok := x.UserFacingTarget(); ok && t.Kind == ref.Kind && (gv.Group == "" || t.Group == gv.Group) {
+			return x, true
+		}
+	}
+	return kube.XRD{}, false
 }
 
 func (r *Reconciler) reconcileVanished(ctx context.Context, seen map[string]bool) (int, error) {

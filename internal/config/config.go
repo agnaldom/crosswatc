@@ -42,6 +42,26 @@ type Config struct {
 	ResyncInterval time.Duration
 	StuckTimeout   time.Duration
 	K8sPageLimit   int64
+
+	LeaderElection LeaderElectionConfig
+	Informers      InformerConfig
+}
+
+// LeaderElectionConfig drives the worker Lease (spec §35.2).
+type LeaderElectionConfig struct {
+	Enabled       bool
+	Namespace     string // empty: POD_NAMESPACE / service account namespace
+	Identity      string // empty: hostname (pod name)
+	LeaseDuration time.Duration
+	RenewDeadline time.Duration
+	RetryPeriod   time.Duration
+}
+
+// InformerConfig toggles the Informer Manager (spec §25).
+type InformerConfig struct {
+	Enabled bool
+	Secrets bool // metadata-only Secret informer (needs list/watch on secrets)
+	Events  bool // core/v1 Events informer
 }
 
 type AuthConfig struct {
@@ -102,6 +122,19 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 		ResyncInterval:  r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
 		StuckTimeout:    r.duration("CROSSWATC_STUCK_TIMEOUT", 30*time.Minute),
 		K8sPageLimit:    r.int64("CROSSWATC_K8S_PAGE_LIMIT", 500),
+		LeaderElection: LeaderElectionConfig{
+			Enabled:       r.bool("CROSSWATC_LEADER_ELECTION", true),
+			Namespace:     r.str("CROSSWATC_LEADER_ELECTION_NAMESPACE", ""),
+			Identity:      r.str("CROSSWATC_LEADER_ELECTION_IDENTITY", ""),
+			LeaseDuration: r.duration("CROSSWATC_LEADER_ELECTION_LEASE_DURATION", 15*time.Second),
+			RenewDeadline: r.duration("CROSSWATC_LEADER_ELECTION_RENEW_DEADLINE", 10*time.Second),
+			RetryPeriod:   r.duration("CROSSWATC_LEADER_ELECTION_RETRY_PERIOD", 2*time.Second),
+		},
+		Informers: InformerConfig{
+			Enabled: r.bool("CROSSWATC_INFORMERS", true),
+			Secrets: r.bool("CROSSWATC_WATCH_SECRETS", true),
+			Events:  r.bool("CROSSWATC_WATCH_EVENTS", true),
+		},
 	}
 	if len(r.errs) > 0 {
 		return Config{}, errors.Join(r.errs...)
@@ -128,6 +161,9 @@ func (c Config) Validate() error {
 		}
 	default:
 		errs = append(errs, fmt.Errorf("CROSSWATC_AUTH_MODE: invalid value %q", c.Auth.Mode))
+	}
+	if le := c.LeaderElection; le.Enabled && (le.LeaseDuration <= le.RenewDeadline || le.RenewDeadline <= le.RetryPeriod || le.RetryPeriod <= 0) {
+		errs = append(errs, errors.New("leader election requires LEASE_DURATION > RENEW_DEADLINE > RETRY_PERIOD > 0"))
 	}
 	if c.K8sPageLimit <= 0 {
 		errs = append(errs, errors.New("CROSSWATC_K8S_PAGE_LIMIT must be > 0"))
@@ -157,6 +193,18 @@ func (r *reader) int64(key string, def int64) int64 {
 		r.errs = append(r.errs, fmt.Errorf("%s: %w", key, err))
 	}
 	return n
+}
+
+func (r *reader) bool(key string, def bool) bool {
+	v := strings.TrimSpace(r.getenv(key))
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		r.errs = append(r.errs, fmt.Errorf("%s: %w", key, err))
+	}
+	return b
 }
 
 func (r *reader) duration(key string, def time.Duration) time.Duration {
