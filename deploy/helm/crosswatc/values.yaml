@@ -86,3 +86,21 @@ networkPolicy:
   # Namespace of the ingress controller / oauth2-proxy allowed to reach web and the webhook paths of the API.
   ingressNamespaceSelector:
     matchLabels: { kubernetes.io/metadata.name: ingress-nginx }
+
+observability:
+  # OTLP/HTTP collector for traces (OTEL_EXPORTER_OTLP_ENDPOINT); empty disables exporting.
+  otlpEndpoint: ""
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+  prometheusRule:
+    enabled: false
+    labels: {}
+    runbookBaseURL: https://github.com/agnaldom/crosswatc/blob/main/docs/runbooks
+  grafanaDashboard:
+    enabled: false
+    labels: { grafana_dashboard: "1" }
+  # Namespace allowed to scrape metrics through the NetworkPolicy.
+  monitoringNamespaceSelector:
+    matchLabels: { kubernetes.io/metadata.name: monitoring }

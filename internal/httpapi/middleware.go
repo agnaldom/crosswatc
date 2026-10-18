@@ -4,12 +4,15 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/agnaldom/crosswatc/internal/auth"
 	"github.com/agnaldom/crosswatc/internal/correlation"
+	"github.com/agnaldom/crosswatc/internal/metrics"
 )
 
 const principalKey = "crosswatc.principal"
@@ -63,4 +66,21 @@ func principal(c *gin.Context) auth.Principal {
 	p, _ := c.Get(principalKey)
 	pr, _ := p.(auth.Principal)
 	return pr
+}
+
+// observe records request latency (SLO: GET /resources/{id} p95 < 400ms) and webhook failures.
+func observe() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		route := c.FullPath()
+		if route == "" {
+			route = "unmatched"
+		}
+		code := c.Writer.Status()
+		metrics.HTTPDuration.WithLabelValues(c.Request.Method, route, strconv.Itoa(code)).Observe(time.Since(start).Seconds())
+		if strings.HasPrefix(route, "/webhooks/") && code >= 400 {
+			metrics.WebhookFailures.WithLabelValues(strings.TrimPrefix(route, "/webhooks/"), strconv.Itoa(code)).Inc()
+		}
+	}
 }

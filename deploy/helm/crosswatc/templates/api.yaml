@@ -18,9 +18,10 @@ spec:
         - name: api
           image: {{ include "crosswatc.image" (dict "root" . "name" "api") }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports: [{ name: http, containerPort: 8080 }]
+          ports: [{ name: http, containerPort: 8080 }, { name: metrics, containerPort: 9090 }]
           env:
             {{- include "crosswatc.commonEnv" . | nindent 12 }}
+            {{- include "crosswatc.otelEnv" . | nindent 12 }}
             - { name: CROSSWATC_AUTH_MODE, value: {{ .Values.auth.mode | quote }} }
             - { name: CROSSWATC_OIDC_ISSUER, value: {{ .Values.auth.oidcIssuer | quote }} }
             - { name: CROSSWATC_OIDC_AUDIENCE, value: {{ .Values.auth.oidcAudience | quote }} }
@@ -61,4 +62,4 @@ metadata:
   labels: {{- include "crosswatc.labels" . | nindent 4 }}
 spec:
   selector: { app.kubernetes.io/name: crosswatc-api }
-  ports: [{ name: http, port: 80, targetPort: http }]
+  ports: [{ name: http, port: 80, targetPort: http }, { name: metrics, port: 9090, targetPort: metrics }]

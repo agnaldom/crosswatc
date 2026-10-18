@@ -25,10 +25,12 @@ const (
 )
 
 type Config struct {
-	Env       Env
-	HTTPAddr  string
-	LogLevel  string
-	LogFormat string
+	Env      Env
+	HTTPAddr string
+	// MetricsAddr serves /metrics for the API on a separate listener (not exposed by the Service/Ingress).
+	MetricsAddr string
+	LogLevel    string
+	LogFormat   string
 
 	DatabaseURL string
 	Kubeconfig  string // empty → in-cluster
@@ -99,6 +101,7 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 	c := Config{
 		Env:         Env(r.str("CROSSWATC_ENV", string(EnvDevelopment))),
 		HTTPAddr:    r.str("CROSSWATC_HTTP_ADDR", ":8080"),
+		MetricsAddr: r.str("CROSSWATC_METRICS_ADDR", ":9090"),
 		LogLevel:    r.str("CROSSWATC_LOG_LEVEL", "info"),
 		LogFormat:   r.str("CROSSWATC_LOG_FORMAT", "json"),
 		DatabaseURL: r.str("CROSSWATC_DATABASE_URL", ""),

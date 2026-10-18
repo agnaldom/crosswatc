@@ -26,6 +26,7 @@ spec:
           ports: [{ name: probes, containerPort: 8081 }]
           env:
             {{- include "crosswatc.commonEnv" . | nindent 12 }}
+            {{- include "crosswatc.otelEnv" . | nindent 12 }}
             - { name: CROSSWATC_AUTH_MODE, value: oidc }
             - { name: CROSSWATC_OIDC_ISSUER, value: {{ .Values.auth.oidcIssuer | default "unused" | quote }} }
             - { name: CROSSWATC_OIDC_AUDIENCE, value: {{ .Values.auth.oidcAudience | default "unused" | quote }} }
@@ -70,3 +71,12 @@ spec:
         - name: github-app
           secret: { secretName: {{ .Values.github.existingSecret }} }
       {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crosswatc-worker
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: crosswatc-worker }
+  ports: [{ name: metrics, port: 8081, targetPort: probes }]

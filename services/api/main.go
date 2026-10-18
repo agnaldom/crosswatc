@@ -18,8 +18,10 @@ import (
 	"github.com/agnaldom/crosswatc/internal/httpapi"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/logging"
+	"github.com/agnaldom/crosswatc/internal/metrics"
 	"github.com/agnaldom/crosswatc/internal/store"
 	"github.com/agnaldom/crosswatc/internal/stream"
+	"github.com/agnaldom/crosswatc/internal/tracing"
 	"github.com/agnaldom/crosswatc/internal/version"
 )
 
@@ -41,6 +43,20 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	shutdownTracing, err := tracing.Setup(ctx, "crosswatc-api")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
+
+	metricsSrv := &http.Server{Addr: cfg.MetricsAddr, Handler: metrics.Handler(), ReadHeaderTimeout: 5 * time.Second}
+	go func() {
+		if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("metrics server", "err", err)
+		}
+	}()
+	defer func() { _ = metricsSrv.Close() }()
 
 	// Migrations are owned by the worker; the API only reads.
 	st, err := store.Open(ctx, cfg.DatabaseURL)

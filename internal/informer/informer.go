@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/agnaldom/crosswatc/internal/metrics"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -169,6 +171,7 @@ func (m *Manager) Ensure(ctx context.Context, watches []Watch) {
 		}
 		_ = inf.SetWatchErrorHandler(func(_ *cache.Reflector, err error) {
 			m.log.Warn("informer watch error", "watch", w.Key(), "err", err)
+			metrics.InformerRestarts.WithLabelValues(w.Key()).Inc()
 		})
 		ictx, cancel := context.WithCancel(ctx)
 		m.running[w] = &running{informer: inf, cancel: cancel}

@@ -19,8 +19,10 @@ import (
 	"github.com/agnaldom/crosswatc/internal/informer"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/logging"
+	"github.com/agnaldom/crosswatc/internal/metrics"
 	"github.com/agnaldom/crosswatc/internal/reconciler"
 	"github.com/agnaldom/crosswatc/internal/store"
+	"github.com/agnaldom/crosswatc/internal/tracing"
 	"github.com/agnaldom/crosswatc/internal/version"
 	"github.com/agnaldom/crosswatc/internal/worker"
 )
@@ -43,6 +45,12 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	shutdownTracing, err := tracing.Setup(ctx, "crosswatc-worker")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
 
 	if err := store.Migrate(ctx, cfg.DatabaseURL); err != nil {
 		return err
@@ -145,6 +153,7 @@ func run() error {
 func probeServer(addr string, st *store.Store, ready func() bool) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.Handle("GET /metrics", metrics.Handler())
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if !ready() || st.Ping(r.Context()) != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)

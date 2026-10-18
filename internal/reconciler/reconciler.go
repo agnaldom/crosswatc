@@ -7,7 +7,12 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -20,9 +25,11 @@ import (
 	"github.com/agnaldom/crosswatc/internal/events"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/lifecycle"
+	"github.com/agnaldom/crosswatc/internal/metrics"
 	"github.com/agnaldom/crosswatc/internal/redact"
 	"github.com/agnaldom/crosswatc/internal/store"
 	"github.com/agnaldom/crosswatc/internal/topology"
+	"github.com/agnaldom/crosswatc/internal/tracing"
 )
 
 // Reconciler runs one full resync per RunOnce call.
@@ -42,6 +49,7 @@ type Reconciler struct {
 	GitCacheTTL time.Duration
 	gitMu       sync.Mutex
 	gitCache    map[string]gitEntry
+	driftActive atomic.Int64
 
 	mu   sync.Mutex // guards the catalog of the last full resync
 	xrds []kube.XRD
@@ -60,6 +68,11 @@ type Result struct {
 // Claim was not discovered are reconciled as absent, but only when discovery listed everything cleanly.
 func (r *Reconciler) RunOnce(ctx context.Context) (Result, error) {
 	var res Result
+	ctx, span := tracing.Tracer().Start(ctx, "reconciler.resync")
+	defer span.End()
+	start := r.now()
+	defer func() { metrics.ResyncDuration.Observe(r.now().Sub(start).Seconds()) }()
+	r.driftActive.Store(0)
 	xrds, err := r.Discovery.DiscoverXRDs(ctx)
 	if err != nil {
 		r.checkpoint(ctx, "k8s", err)
@@ -82,6 +95,7 @@ func (r *Reconciler) RunOnce(ctx context.Context) (Result, error) {
 		seen[claimKey(d.Claim.Namespace, d.Claim.Name, d.Claim.Kind)] = true
 		if err := r.reconcile(ctx, d); err != nil {
 			res.Errors++
+			metrics.ReconcileErrors.Inc()
 			r.log().Error("reconcile failed", "claim", d.Claim.ID(), "err", err)
 			continue
 		}
@@ -93,6 +107,7 @@ func (r *Reconciler) RunOnce(ctx context.Context) (Result, error) {
 
 	vanished, err := r.reconcileVanished(ctx, seen)
 	res.Vanished = vanished
+	metrics.DriftActive.Set(float64(r.driftActive.Load()))
 	return res, err
 }
 
@@ -154,12 +169,20 @@ func userFacingXRD(xrds []kube.XRD, ref kube.Ref) (kube.XRD, bool) {
 
 func (r *Reconciler) reconcileVanished(ctx context.Context, seen map[string]bool) (int, error) {
 	n, cursor := 0, ""
+	states := map[string]int{}
+	defer func() {
+		metrics.ResourcesTotal.Reset()
+		for st, c := range states {
+			metrics.ResourcesTotal.WithLabelValues(st).Set(float64(c))
+		}
+	}()
 	for {
 		page, next, err := r.Store.ListResources(ctx, store.ResourceFilter{}, store.Page{Limit: 200, Cursor: cursor})
 		if err != nil {
 			return n, err
 		}
 		for _, tr := range page {
+			states[tr.ResourceState]++
 			if seen[claimKey(tr.ClaimNamespace, tr.ClaimName, tr.ClaimKind)] || tr.ResourceState == string(domain.ResourceDeleted) {
 				continue
 			}
@@ -199,11 +222,24 @@ func (r *Reconciler) checkpoint(ctx context.Context, source string, err error) {
 }
 
 // reconcile handles one discovered resource (spec §36 steps).
-func (r *Reconciler) reconcile(ctx context.Context, d kube.DiscoveredResource) error {
+func (r *Reconciler) reconcile(ctx context.Context, d kube.DiscoveredResource) (err error) {
+	start := time.Now()
+	ctx, span := tracing.Tracer().Start(ctx, "reconciler.resource", trace.WithAttributes(attribute.String("claim", d.Claim.ID())))
+	defer func() {
+		metrics.ReconcileDuration.Observe(time.Since(start).Seconds())
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 	tr, err := r.Store.UpsertResourceByClaim(ctx, toTrackedResource(d))
 	if err != nil {
 		return fmt.Errorf("upsert resource: %w", err)
 	}
+	span.SetAttributes(tracing.ResourceID.String(tr.ID.String()), tracing.CorrelationID.String(tr.CorrelationID),
+		tracing.Owner.String(tr.Owner), tracing.Environment.String(tr.Environment), tracing.Provider.String(tr.Provider),
+		tracing.Kind.String(tr.Kind))
 	created := tr.Version == 0
 	if created {
 		r.event(ctx, tr, nil, "claim:"+d.Claim.UID+tr.ID.String(), events.SourceKubernetes, events.InfraClaimCreated,
@@ -305,6 +341,7 @@ func (r *Reconciler) startCreateRevision(ctx context.Context, tr store.TrackedRe
 	}); err != nil && !errors.Is(err, store.ErrConflict) {
 		return store.Revision{}, fmt.Errorf("insert create operation: %w", err)
 	}
+	metrics.OperationsTotal.WithLabelValues(string(domain.OperationCreate)).Inc()
 	r.event(ctx, tr, &rev, "request:"+tr.CorrelationID, events.SourceCrosswatc, events.RequestCreated, "Solicitação registrada")
 	return rev, nil
 }
@@ -428,18 +465,34 @@ func (r *Reconciler) advanceRevision(ctx context.Context, tr store.TrackedResour
 			fmt.Sprintf("Pull Request #%d aprovado", sig.PR.Number))
 	}
 	if res.Stuck {
-		r.event(ctx, tr, rev, fmt.Sprintf("stuck:%s:%s", rev.ID, rev.State), events.SourceCrosswatc, events.OperationStuck,
+		stuck := r.event(ctx, tr, rev, fmt.Sprintf("stuck:%s:%s", rev.ID, rev.State), events.SourceCrosswatc, events.OperationStuck,
 			fmt.Sprintf("Revisão %d sem progresso em %s", rev.Rev, rev.State))
+		if stuck {
+			metrics.OperationsStuckTotal.Inc()
+		}
 	}
 	if !changed {
 		return nil
 	}
 
+	if res.State != cur {
+		metrics.StageDuration.WithLabelValues(string(cur)).Observe(r.now().Sub(rev.StateChangedAt).Seconds())
+	}
 	rev.State = string(res.State)
 	var finished *time.Time
 	if res.State.Terminal() {
 		now := r.now()
 		rev.CompletedAt, finished = &now, &now
+		if rev.StartedAt != nil {
+			metrics.RevisionDuration.WithLabelValues(rev.Kind, rev.State).Observe(now.Sub(*rev.StartedAt).Seconds())
+		}
+		if res.State == domain.RevisionFailed || res.State == domain.RevisionRejected {
+			code := string(res.State)
+			if res.Failure != nil {
+				code = res.Failure.TechnicalCode
+			}
+			metrics.OperationsFailedTotal.WithLabelValues(rev.Kind, code).Inc()
+		}
 	}
 	if err := r.Store.UpdateRevision(ctx, *rev); err != nil {
 		return fmt.Errorf("update revision: %w", err)
@@ -485,7 +538,7 @@ func (r *Reconciler) applyResourceState(ctx context.Context, tr *store.TrackedRe
 }
 
 // event persists a canonical event (level from the §33 catalog). Duplicate keys are ignored.
-func (r *Reconciler) event(ctx context.Context, tr store.TrackedResource, rev *store.Revision, key, source string, typ events.Type, msg string) {
+func (r *Reconciler) event(ctx context.Context, tr store.TrackedResource, rev *store.Revision, key, source string, typ events.Type, msg string) bool {
 	e := store.Event{
 		DedupeKey: key, ResourceID: &tr.ID, CorrelationID: tr.CorrelationID, Source: source, Type: string(typ),
 		Level: string(events.DefaultLevel(typ)), Message: msg, CreatedAt: r.now(),
@@ -493,9 +546,11 @@ func (r *Reconciler) event(ctx context.Context, tr store.TrackedResource, rev *s
 	if rev != nil {
 		e.RevisionID = &rev.ID
 	}
-	if _, err := r.Store.InsertEvent(ctx, e); err != nil {
+	inserted, err := r.Store.InsertEvent(ctx, e)
+	if err != nil {
 		r.log().Warn("insert event failed", "type", typ, "err", err)
 	}
+	return inserted
 }
 
 // toTrackedResource maps discovery output to the read model (spec §11).

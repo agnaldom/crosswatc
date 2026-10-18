@@ -13,6 +13,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/gitops"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/lifecycle"
+	"github.com/agnaldom/crosswatc/internal/metrics"
 	"github.com/agnaldom/crosswatc/internal/store"
 )
 
@@ -79,6 +80,7 @@ func (r *Reconciler) detectDrift(ctx context.Context, tr store.TrackedResource, 
 	cur := drift.Detect(in)
 	switch detected, resolved := drift.Transition(prev, cur); {
 	case detected:
+		metrics.DriftTotal.Inc()
 		msg := "Drift de configuração detectado: " + strings.Join(cur.Signals, ", ")
 		if len(cur.Differences) > 0 {
 			df := cur.Differences[0]
@@ -92,6 +94,9 @@ func (r *Reconciler) detectDrift(ctx context.Context, tr store.TrackedResource, 
 		}
 		r.event(ctx, tr, nil, fmt.Sprintf("drift-resolved:%s:%d", tr.ID, at), events.SourceCrosswatc, events.LifecycleDriftResolve,
 			"Drift de configuração resolvido")
+	}
+	if cur.Detected {
+		r.driftActive.Add(1)
 	}
 	return cur
 }

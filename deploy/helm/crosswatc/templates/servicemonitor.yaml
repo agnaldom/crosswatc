@@ -1,0 +1,17 @@
+{{- if .Values.observability.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: crosswatc
+  labels:
+    {{- include "crosswatc.labels" . | nindent 4 }}
+    {{- with .Values.observability.serviceMonitor.labels }}{{ toYaml . | nindent 4 }}{{ end }}
+spec:
+  selector:
+    matchExpressions:
+      - { key: app.kubernetes.io/part-of, operator: In, values: [crosswatc] }
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.observability.serviceMonitor.interval }}
+{{- end }}

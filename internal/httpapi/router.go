@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/agnaldom/crosswatc/internal/auth"
 	"github.com/agnaldom/crosswatc/internal/changes"
@@ -72,7 +73,7 @@ func New(d Deps) *gin.Engine {
 	}
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.Use(gin.Recovery(), securityHeaders(), withCorrelation(), accessLog(d.Log))
+	r.Use(gin.Recovery(), otelgin.Middleware("crosswatc-api"), securityHeaders(), withCorrelation(), observe(), accessLog(d.Log))
 	r.NoRoute(notFound)
 
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,

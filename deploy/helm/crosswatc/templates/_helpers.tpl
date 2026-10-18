@@ -26,3 +26,10 @@ securityContext:
   capabilities:
     drop: ["ALL"]
 {{- end }}
+
+{{- define "crosswatc.otelEnv" -}}
+{{- with .Values.observability.otlpEndpoint }}
+- name: OTEL_EXPORTER_OTLP_ENDPOINT
+  value: {{ . | quote }}
+{{- end }}
+{{- end }}

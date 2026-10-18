@@ -16,6 +16,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/correlation"
 	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/gitops"
+	"github.com/agnaldom/crosswatc/internal/metrics"
 	"github.com/agnaldom/crosswatc/internal/store"
 )
 
@@ -189,6 +190,7 @@ func (h *handlers) createChange(c *gin.Context) {
 		internalError(c, err)
 		return
 	}
+	metrics.OperationsTotal.WithLabelValues("UPDATE").Inc()
 	h.emit(ctx, r, &rev, "request:"+cid, "crosswatc", "REQUEST.CREATED", "info",
 		fmt.Sprintf("Mudança solicitada por %s (rev %d)", user, next))
 
@@ -206,6 +208,7 @@ func (h *handlers) createChange(c *gin.Context) {
 		h.emit(ctx, r, &rev, "gitops-failed:"+rev.ID.String(), "github", "GITOPS.PR.FAILED", "error", err.Error())
 		before, after := beforeAfter(pv.Changes)
 		h.audit(c, AuditChangeFailed, r, &rev, &op.ID, before, after)
+		metrics.OperationsFailedTotal.WithLabelValues("UPDATE", "GitOpsError").Inc()
 		_ = c.Error(err)
 		problem(c, http.StatusBadGateway, "gitops-failed", "Could not open Pull Request", err.Error())
 		return

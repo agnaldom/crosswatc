@@ -8,6 +8,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/events"
 	"github.com/agnaldom/crosswatc/internal/informer"
 	"github.com/agnaldom/crosswatc/internal/kube"
+	"github.com/agnaldom/crosswatc/internal/metrics"
 	"github.com/agnaldom/crosswatc/internal/store"
 )
 
@@ -64,6 +65,7 @@ func normalize(it store.InboxItem) (events.Normalized, error) {
 }
 
 func (r *Runner) handleDelivery(ctx context.Context, it store.InboxItem) error {
+	metrics.EventIngestionLag.WithLabelValues(it.Source).Observe(time.Since(it.ReceivedAt).Seconds())
 	n, err := normalize(it)
 	if err != nil {
 		return fmt.Errorf("%w: %w", store.ErrPermanent, err)

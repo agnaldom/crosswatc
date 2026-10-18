@@ -15,6 +15,9 @@ spec:
         - namespaceSelector: {{- toYaml . | nindent 12 }}
         {{- end }}
       ports: [{ port: 8080 }]
+    - from:
+        - namespaceSelector: {{- toYaml .Values.observability.monitoringNamespaceSelector | nindent 12 }}
+      ports: [{ port: 9090 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

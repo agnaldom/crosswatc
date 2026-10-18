@@ -1,0 +1,100 @@
+{{- if .Values.observability.prometheusRule.enabled }}
+{{- $rb := .Values.observability.prometheusRule.runbookBaseURL }}
+# SLOs (spec §53) and alerts (spec §54).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: crosswatc
+  labels:
+    {{- include "crosswatc.labels" . | nindent 4 }}
+    {{- with .Values.observability.prometheusRule.labels }}{{ toYaml . | nindent 4 }}{{ end }}
+spec:
+  groups:
+    - name: crosswatc.slo
+      rules:
+        - record: crosswatc:api_error_ratio:rate5m
+          expr: |
+            sum(rate(crosswatc_http_request_duration_seconds_count{route!~"/webhooks/.*",code=~"5.."}[5m]))
+            / clamp_min(sum(rate(crosswatc_http_request_duration_seconds_count{route!~"/webhooks/.*"}[5m])), 1e-9)
+        - record: crosswatc:get_resource_latency:p95_5m
+          expr: histogram_quantile(0.95, sum by (le) (rate(crosswatc_http_request_duration_seconds_bucket{method="GET",route="/api/v1/resources/:id"}[5m])))
+        - record: crosswatc:event_ingestion_lag:p95_5m
+          expr: histogram_quantile(0.95, sum by (le) (rate(crosswatc_event_ingestion_lag_seconds_bucket[5m])))
+        - record: crosswatc:reconcile_duration:p95_5m
+          expr: histogram_quantile(0.95, sum by (le) (rate(crosswatc_reconcile_duration_seconds_bucket[5m])))
+    - name: crosswatc.alerts
+      rules:
+        - alert: CrosswatcAPIAvailabilityBudgetBurn
+          expr: avg_over_time(crosswatc:api_error_ratio:rate5m[1h]) > 14.4 * 0.005
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: API 5xx ratio burning the 99.5% availability budget fast
+            runbook_url: {{ $rb }}/api-availability.md
+        - alert: CrosswatcGetResourceSlow
+          expr: crosswatc:get_resource_latency:p95_5m > 0.4
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: GET /resources/{id} p95 above 400ms
+            runbook_url: {{ $rb }}/api-latency.md
+        - alert: CrosswatcGitHubWebhookFailures
+          expr: sum(increase(crosswatc_webhook_failures_total{source="github"}[15m])) > 5
+          labels: { severity: warning }
+          annotations:
+            summary: GitHub webhook deliveries are being rejected
+            runbook_url: {{ $rb }}/webhooks.md
+        - alert: CrosswatcArgoNotificationFailures
+          expr: sum(increase(crosswatc_webhook_failures_total{source="argocd"}[15m])) > 5
+          labels: { severity: warning }
+          annotations:
+            summary: Argo CD notifications are being rejected
+            runbook_url: {{ $rb }}/webhooks.md
+        - alert: CrosswatcInformerDisconnected
+          expr: sum(increase(crosswatc_informer_restarts_total[10m])) > 3
+          labels: { severity: warning }
+          annotations:
+            summary: Kubernetes informers keep losing their watch
+            runbook_url: {{ $rb }}/informers.md
+        - alert: CrosswatcWorkerBacklog
+          expr: crosswatc:event_ingestion_lag:p95_5m > 10
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: Webhook events wait more than 10s before processing
+            runbook_url: {{ $rb }}/worker-backlog.md
+        - alert: CrosswatcReconcilerLag
+          expr: crosswatc:reconcile_duration:p95_5m > 10
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: Reconciling a resource takes more than 10s (p95)
+            runbook_url: {{ $rb }}/worker-backlog.md
+        - alert: CrosswatcOperationStuck
+          expr: increase(crosswatc_operations_stuck_total[30m]) > 0
+          labels: { severity: warning }
+          annotations:
+            summary: A revision has not progressed beyond the stuck timeout
+            runbook_url: {{ $rb }}/operation-stuck.md
+        - alert: CrosswatcSSEErrors
+          expr: |
+            increase(crosswatc_sse_dropped_total[10m]) > 20
+            or sum(increase(crosswatc_http_request_duration_seconds_count{route="/api/v1/stream",code=~"5.."}[10m])) > 5
+          labels: { severity: warning }
+          annotations:
+            summary: Realtime stream is dropping or failing connections
+            runbook_url: {{ $rb }}/sse.md
+        - alert: CrosswatcDriftSpike
+          expr: increase(crosswatc_drift_total[1h]) > 10
+          labels: { severity: warning }
+          annotations:
+            summary: Many resources started drifting in the last hour
+            runbook_url: {{ $rb }}/drift.md
+        - alert: CrosswatcWorkerDown
+          expr: absent(up{service="crosswatc-worker"} == 1)
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: No worker is being scraped
+            runbook_url: {{ $rb }}/worker-backlog.md
+{{- end }}

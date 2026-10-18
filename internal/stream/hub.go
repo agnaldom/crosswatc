@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/agnaldom/crosswatc/internal/metrics"
 	"github.com/agnaldom/crosswatc/internal/store"
 )
 
@@ -75,6 +76,7 @@ func (h *Hub) Subscribe(f Filter) *Subscription {
 	s := &Subscription{C: ch, ch: ch, filter: f}
 	h.mu.Lock()
 	h.subs[s] = struct{}{}
+	metrics.SSEConnections.Set(float64(len(h.subs)))
 	h.mu.Unlock()
 	return s
 }
@@ -83,6 +85,7 @@ func (h *Hub) Subscribe(f Filter) *Subscription {
 func (h *Hub) Unsubscribe(s *Subscription) {
 	h.mu.Lock()
 	delete(h.subs, s)
+	metrics.SSEConnections.Set(float64(len(h.subs)))
 	h.mu.Unlock()
 	s.close()
 }
@@ -214,6 +217,7 @@ func (h *Hub) broadcast(e store.StreamEvent) {
 	h.mu.RUnlock()
 	for _, s := range slow {
 		h.log.Warn("dropping slow stream subscriber; it will resume with Last-Event-ID")
+		metrics.SSEDropped.Inc()
 		h.Unsubscribe(s)
 	}
 }
@@ -225,4 +229,5 @@ func (h *Hub) closeAll() {
 		delete(h.subs, s)
 		s.close()
 	}
+	metrics.SSEConnections.Set(0)
 }
