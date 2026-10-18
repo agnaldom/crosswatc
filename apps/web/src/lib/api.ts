@@ -1,4 +1,5 @@
 import type {
+  ChangePreview,
   Health,
   ResourceForm,
   Operation,
@@ -21,22 +22,28 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`/api/v1${path}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api/v1${path}`, { ...init, headers: { Accept: "application/json", ...init?.headers }, cache: "no-store" });
   if (!res.ok) {
     let title = res.statusText;
     let correlationId: string | undefined;
+    let detail: string | undefined;
     try {
       const body = await res.json();
       title = body.title ?? title;
+      detail = body.detail;
       correlationId = body.correlationId;
     } catch {
       /* non-JSON error */
     }
-    throw new ApiError(res.status, title, correlationId);
+    throw new ApiError(res.status, detail ? `${title}: ${detail}` : title, correlationId);
   }
   return res.json() as Promise<T>;
 }
+
+const get = <T>(path: string) => request<T>(path);
+const post = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
 
 export interface ResourceFilters {
   environment?: string;
@@ -60,6 +67,7 @@ export const api = {
   operations: (id: string) => get<Page<Operation>>(`/resources/${id}/operations`),
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
   form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
+  preview: (id: string, changes: Record<string, unknown>) => post<ChangePreview>(`/resources/${id}/changes/preview`, { changes }),
 };
 
 /** Polling interval used only while the realtime stream is unavailable (spec §45). */

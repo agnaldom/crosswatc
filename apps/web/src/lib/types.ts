@@ -171,3 +171,19 @@ export interface ResourceForm {
   editable: boolean;
   reason?: string;
 }
+
+export interface SpecChange {
+  field: string;
+  path: string;
+  from: unknown;
+  to: unknown;
+  impact: "IN_PLACE" | "REPLACEMENT";
+}
+
+export interface ChangePreview {
+  valid: boolean;
+  changes: SpecChange[];
+  policy: { result: "PASS" | "FAIL"; violations: { field?: string; rule: string; message: string }[] };
+  impact: { replacementRequired: boolean; possibleDowntime: boolean; approvalRequired: boolean };
+  warnings: string[];
+}

@@ -23,6 +23,9 @@ func TestPrincipal(t *testing.T) {
 	if !p.CanRead("payments") || p.CanRead("cards") || len(p.OwnerScope()) != 1 {
 		t.Fatal("squad member")
 	}
+	if !p.CanWrite("payments") || p.CanWrite("cards") || (Principal{SRE: true}).CanWrite("payments") {
+		t.Fatal("write")
+	}
 	if !(Principal{SRE: true}).CanRead("x") || (Principal{SRE: true}).OwnerScope() != nil {
 		t.Fatal("sre")
 	}

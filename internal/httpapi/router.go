@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/agnaldom/crosswatc/internal/auth"
+	"github.com/agnaldom/crosswatc/internal/changes"
 	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/store"
@@ -52,6 +53,8 @@ type Deps struct {
 	Inbox    Inbox // optional: enables /webhooks/* (spec §35.1)
 	Webhooks WebhookConfig
 
+	Policies []changes.Policy // extra policies for change preview (spec §40)
+
 	Stream          Streamer      // optional: GET /api/v1/stream (spec §45)
 	StreamHeartbeat time.Duration // default 20s
 }
@@ -66,7 +69,7 @@ func New(d Deps) *gin.Engine {
 	r.Use(gin.Recovery(), withCorrelation(), accessLog(d.Log))
 	r.NoRoute(notFound)
 
-	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat}
+	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -94,6 +97,7 @@ func New(d Deps) *gin.Engine {
 	res.GET("/operations", h.listResourceOperations)
 	res.GET("/topology", h.getTopology)
 	res.GET("/form", h.getResourceForm)
+	res.POST("/changes/preview", h.previewChanges)
 	return r
 }
 
@@ -102,6 +106,7 @@ type handlers struct {
 	catalog   *catalogCache
 	streamer  Streamer
 	heartbeat time.Duration
+	policies  []changes.Policy
 }
 
 const resourceKey = "crosswatc.resource"

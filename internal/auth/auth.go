@@ -34,6 +34,17 @@ func (p Principal) CanRead(owner string) bool {
 	return false
 }
 
+// CanWrite reports whether the caller may request changes: only members of the owning squad.
+// SRE global access is read-only (spec §49).
+func (p Principal) CanWrite(owner string) bool {
+	for _, s := range p.Squads {
+		if s == owner {
+			return true
+		}
+	}
+	return false
+}
+
 // OwnerScope returns the owner filter for listings: nil means unrestricted (SRE).
 func (p Principal) OwnerScope() []string {
 	if p.SRE {
