@@ -38,8 +38,13 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
         <div className="flex gap-2">
-          <button type="button" disabled title="Disponível na Fase 3"
-            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-400">Edit Configuration</button>
+          {r.resourceState === "OPERATIONAL" ? (
+            <Link href={`/infrastructure/${r.id}/edit`}
+              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700">Edit Configuration</Link>
+          ) : (
+            <button type="button" disabled title="Somente recursos operacionais podem ser editados"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-400">Edit Configuration</button>
+          )}
           {gitopsUrl(r) && (
             <a href={gitopsUrl(r)} target="_blank" rel="noreferrer"
               className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Open GitOps</a>

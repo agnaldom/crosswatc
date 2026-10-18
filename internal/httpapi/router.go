@@ -78,6 +78,7 @@ func New(d Deps) *gin.Engine {
 	v1.GET("/catalog/resource-types", h.listResourceTypes)
 	v1.GET("/catalog/resource-types/:kind", h.getResourceType)
 	v1.GET("/catalog/resource-types/:kind/schema", h.getResourceTypeSchema)
+	v1.GET("/catalog/resource-types/:kind/form", h.getResourceTypeForm)
 
 	v1.GET("/operations", h.listOperations)
 	v1.GET("/operations/:operationId", h.getOperation)
@@ -92,6 +93,7 @@ func New(d Deps) *gin.Engine {
 	res.GET("/revisions/:rev", h.getRevision)
 	res.GET("/operations", h.listResourceOperations)
 	res.GET("/topology", h.getTopology)
+	res.GET("/form", h.getResourceForm)
 	return r
 }
 

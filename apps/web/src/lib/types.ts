@@ -142,3 +142,32 @@ export interface Topology {
   nodes: TopologyNode[];
   edges: TopologyEdge[];
 }
+
+export interface FormField {
+  key: string;
+  path: string;
+  type: "string" | "integer" | "number" | "boolean" | "array" | "object" | "";
+  title: string;
+  description?: string;
+  required: boolean;
+  editable: boolean;
+  order: number;
+  enum?: (string | number)[];
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  immutable?: boolean;
+  safeInPlace: boolean;
+  approvalRequired?: Record<string, boolean>;
+  group?: string;
+}
+
+export interface ResourceForm {
+  form: { kind: string; version: string; fields: FormField[] };
+  values: Record<string, unknown>;
+  editable: boolean;
+  reason?: string;
+}

@@ -1,5 +1,6 @@
 import type {
   Health,
+  ResourceForm,
   Operation,
   Page,
   ResourceStateView,
@@ -58,6 +59,7 @@ export const api = {
   revision: (id: string, rev: number) => get<RevisionDetail>(`/resources/${id}/revisions/${rev}`),
   operations: (id: string) => get<Page<Operation>>(`/resources/${id}/operations`),
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
+  form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
 };
 
 /** Polling interval used only while the realtime stream is unavailable (spec §45). */

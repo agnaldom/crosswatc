@@ -24,6 +24,7 @@ type XRD struct {
 	ClaimPlural string
 	Scope       string // Cluster | Namespaced | LegacyCluster
 	Established bool
+	Annotations map[string]string
 	Versions    []XRDVersion
 }
 
@@ -123,6 +124,7 @@ func ParseXRD(u *unstructured.Unstructured) XRD {
 		ClaimPlural: str(spec, "claimNames", "plural"),
 		Scope:       str(spec, "scope"),
 		Established: Conditions(u).IsTrue("Established"),
+		Annotations: u.GetAnnotations(),
 	}
 	if x.Scope == "" {
 		x.Scope = "Cluster"
