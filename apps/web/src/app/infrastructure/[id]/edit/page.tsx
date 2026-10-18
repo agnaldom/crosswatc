@@ -1,7 +1,8 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 import { DynamicForm } from "@/components/DynamicForm";
 import { PreviewPanel } from "@/components/PreviewPanel";
@@ -15,6 +16,16 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
   const form = useQuery({ queryKey: ["form", id], queryFn: () => api.form(id), refetchInterval: false });
   const [changes, setChanges] = useState<Record<string, unknown> | null>(null);
   const preview = useMutation({ mutationFn: (c: Record<string, unknown>) => api.preview(id, c) });
+  const [justification, setJustification] = useState("");
+  const router = useRouter();
+  const qc = useQueryClient();
+  const submit = useMutation({
+    mutationFn: () => api.createChange(id, changes ?? {}, justification),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["state", id] });
+      qc.invalidateQueries({ queryKey: ["revisions", id] });
+    },
+  });
 
   if (resource.isPending || form.isPending) return <Loading />;
   if (resource.isError) return <ErrorState error={resource.error} />;
@@ -51,6 +62,30 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
         <section className="mt-6 rounded-lg border border-zinc-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-semibold">Preview</h2>
           <PreviewPanel preview={preview.data} />
+          {preview.data.valid && !submit.data && (
+            <div className="mt-6 space-y-3">
+              <label htmlFor="justification" className="block text-sm font-medium">Justificativa *</label>
+              <textarea id="justification" rows={3} value={justification} onChange={(e) => setJustification(e.target.value)}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Por que esta mudança é necessária?" />
+              <button type="button" disabled={!justification.trim() || submit.isPending} onClick={() => submit.mutate()}
+                className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
+                {submit.isPending ? "Abrindo Pull Request…" : "Confirmar e abrir Pull Request"}
+              </button>
+              {submit.isError && <ErrorState error={submit.error} />}
+            </div>
+          )}
+          {submit.data && (
+            <div className="mt-6 rounded-md bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
+              <p className="font-medium">Revision {submit.data.rev} criada.</p>
+              <p className="mt-1">
+                Pull Request <a className="underline" href={submit.data.prUrl} target="_blank" rel="noreferrer">#{submit.data.prNumber}</a> aberto.
+                Correlation ID <span className="font-mono text-xs">{submit.data.correlationId}</span>.
+              </p>
+              <button type="button" onClick={() => router.push(`/infrastructure/${id}`)} className="mt-3 underline">
+                Acompanhar o lifecycle
+              </button>
+            </div>
+          )}
         </section>
       )}
     </div>

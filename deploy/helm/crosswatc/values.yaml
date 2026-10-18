@@ -45,6 +45,7 @@ github:
   apiURL: https://api.github.com
   appID: ""
   installationID: ""
+  baseBranch: main          # Pull Requests for changes target this branch
   # Secret with key private-key.pem
   existingSecret: crosswatc-github-app
 

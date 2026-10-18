@@ -187,3 +187,13 @@ export interface ChangePreview {
   impact: { replacementRequired: boolean; possibleDowntime: boolean; approvalRequired: boolean };
   warnings: string[];
 }
+
+export interface ChangeCreated {
+  operationId: string;
+  revisionId: string;
+  rev: number;
+  correlationId: string;
+  prNumber: number;
+  prUrl: string;
+  branch: string;
+}

@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/agnaldom/crosswatc/internal/adapters/github"
 	"github.com/agnaldom/crosswatc/internal/auth"
 	"github.com/agnaldom/crosswatc/internal/config"
+	"github.com/agnaldom/crosswatc/internal/gitops"
 	"github.com/agnaldom/crosswatc/internal/httpapi"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/logging"
@@ -72,6 +74,16 @@ func run() error {
 	}
 	if cfg.ArgoCDWebhookToken == "" {
 		log.Warn("CROSSWATC_ARGOCD_WEBHOOK_TOKEN not set; POST /webhooks/argocd disabled")
+	}
+	if cfg.GitHub.AppID != 0 {
+		gh, err := github.New(github.Config{APIURL: cfg.GitHub.APIURL, AppID: cfg.GitHub.AppID,
+			InstallationID: cfg.GitHub.InstallationID, PrivateKeyPath: cfg.GitHub.PrivateKeyPath})
+		if err != nil {
+			return err
+		}
+		deps.Changes, deps.GitOps = st, &gitops.Orchestrator{Repo: gh, BaseBranch: cfg.GitOpsBaseBranch}
+	} else {
+		log.Warn("GitHub App not configured; POST /resources/{id}/changes disabled")
 	}
 	if restCfg, err := kube.RESTConfig(cfg.Kubeconfig); err != nil {
 		log.Warn("kubernetes not configured; catalog endpoints disabled", "err", err)

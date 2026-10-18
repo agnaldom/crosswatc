@@ -54,6 +54,8 @@ type Deps struct {
 	Webhooks WebhookConfig
 
 	Policies []changes.Policy // extra policies for change preview (spec §40)
+	Changes  ChangeStore      // optional with GitOps: enables POST /resources/{id}/changes (spec §41)
+	GitOps   GitOps
 
 	Stream          Streamer      // optional: GET /api/v1/stream (spec §45)
 	StreamHeartbeat time.Duration // default 20s
@@ -69,7 +71,8 @@ func New(d Deps) *gin.Engine {
 	r.Use(gin.Recovery(), withCorrelation(), accessLog(d.Log))
 	r.NoRoute(notFound)
 
-	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies}
+	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
+		changes: d.Changes, gitops: d.GitOps}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -98,6 +101,7 @@ func New(d Deps) *gin.Engine {
 	res.GET("/topology", h.getTopology)
 	res.GET("/form", h.getResourceForm)
 	res.POST("/changes/preview", h.previewChanges)
+	res.POST("/changes", h.createChange)
 	return r
 }
 
@@ -107,6 +111,8 @@ type handlers struct {
 	streamer  Streamer
 	heartbeat time.Duration
 	policies  []changes.Policy
+	changes   ChangeStore
+	gitops    GitOps
 }
 
 const resourceKey = "crosswatc.resource"

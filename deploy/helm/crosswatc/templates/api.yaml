@@ -32,10 +32,26 @@ spec:
             - name: CROSSWATC_ARGOCD_WEBHOOK_TOKEN
               valueFrom: { secretKeyRef: { name: {{ . }}, key: argocd-webhook-token, optional: true } }
             {{- end }}
+            {{- if .Values.github.enabled }}
+            - { name: CROSSWATC_GITHUB_API_URL, value: {{ .Values.github.apiURL | quote }} }
+            - { name: CROSSWATC_GITHUB_APP_ID, value: {{ .Values.github.appID | quote }} }
+            - { name: CROSSWATC_GITHUB_INSTALLATION_ID, value: {{ .Values.github.installationID | quote }} }
+            - { name: CROSSWATC_GITHUB_PRIVATE_KEY_PATH, value: /var/run/secrets/github/private-key.pem }
+            - { name: CROSSWATC_GITOPS_BASE_BRANCH, value: {{ .Values.github.baseBranch | quote }} }
+            {{- end }}
           readinessProbe: { httpGet: { path: /readyz, port: http }, periodSeconds: 10 }
           livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 20 }
           resources: {{- toYaml .Values.api.resources | nindent 12 }}
           {{- include "crosswatc.securityContext" . | nindent 10 }}
+          {{- if .Values.github.enabled }}
+          volumeMounts:
+            - { name: github-app, mountPath: /var/run/secrets/github, readOnly: true }
+          {{- end }}
+      {{- if .Values.github.enabled }}
+      volumes:
+        - name: github-app
+          secret: { secretName: {{ .Values.github.existingSecret }} }
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service

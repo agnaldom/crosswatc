@@ -1,4 +1,5 @@
 import type {
+  ChangeCreated,
   ChangePreview,
   Health,
   ResourceForm,
@@ -68,6 +69,8 @@ export const api = {
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
   form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
   preview: (id: string, changes: Record<string, unknown>) => post<ChangePreview>(`/resources/${id}/changes/preview`, { changes }),
+  createChange: (id: string, changes: Record<string, unknown>, justification: string) =>
+    post<ChangeCreated>(`/resources/${id}/changes`, { changes, justification }),
 };
 
 /** Polling interval used only while the realtime stream is unavailable (spec §45). */

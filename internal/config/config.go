@@ -38,6 +38,7 @@ type Config struct {
 	Backstage BackstageConfig
 
 	ArgoCDNamespace    string
+	GitOpsBaseBranch   string
 	ArgoCDWebhookToken string // bearer token of POST /webhooks/argocd (§35.1)
 	InboxPollInterval  time.Duration
 
@@ -121,6 +122,7 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 			PollInterval: r.duration("CROSSWATC_BACKSTAGE_POLL_INTERVAL", 30*time.Second),
 		},
 		ArgoCDNamespace:    r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
+		GitOpsBaseBranch:   r.str("CROSSWATC_GITOPS_BASE_BRANCH", "main"),
 		ArgoCDWebhookToken: r.str("CROSSWATC_ARGOCD_WEBHOOK_TOKEN", ""),
 		InboxPollInterval:  r.duration("CROSSWATC_INBOX_POLL_INTERVAL", time.Second),
 		ResyncInterval:     r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
