@@ -80,3 +80,47 @@ jobs:
       - name: Build web image
         uses: docker/build-push-action@v6
         with: { context: ., file: deploy/docker/web.Dockerfile, push: false }
+
+  load:
+    # Validates the §53 SLOs (GET /resources/{id} p95 < 400ms, 99.5% success) under concurrent load.
+    runs-on: ubuntu-latest
+    needs: [go]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: crosswatc
+          POSTGRES_PASSWORD: crosswatc
+          POSTGRES_DB: crosswatc
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U crosswatc"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      CROSSWATC_DATABASE_URL: postgres://crosswatc:crosswatc@localhost:5432/crosswatc?sslmode=disable
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Migrate and seed
+        run: |
+          go run ./services/dbtool migrate
+          go run ./services/dbtool seed-load -resources 5000 -squads 20 -events 20
+      - name: Start API
+        run: |
+          go build -o /tmp/crosswatc-api ./services/api
+          CROSSWATC_AUTH_MODE=dev CROSSWATC_LOG_LEVEL=warn /tmp/crosswatc-api > /tmp/api.log 2>&1 &
+          for i in $(seq 30); do curl -sf localhost:8080/readyz && break; sleep 1; done
+      - uses: grafana/setup-k6-action@v1
+      - uses: grafana/run-k6-action@v1
+        env:
+          BASE_URL: http://localhost:8080
+          VUS: "50"
+          HOLD: 1m
+        with:
+          path: test/load/api.js
+      - name: API metrics after load
+        if: always()
+        run: curl -s localhost:9090/metrics | grep -E '^crosswatc_http_request_duration_seconds_count' | head -20

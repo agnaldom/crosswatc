@@ -2,7 +2,7 @@ GO_LDFLAGS := -X github.com/agnaldom/crosswatc/internal/version.Version=$(shell 
               -X github.com/agnaldom/crosswatc/internal/version.Commit=$(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATABASE_URL ?= postgres://crosswatc:crosswatc@localhost:5432/crosswatc?sslmode=disable
 
-.PHONY: build test test-integration lint fmt web-install web-lint web-build db-up db-down
+.PHONY: load-seed load-test build test test-integration lint fmt web-install web-lint web-build db-up db-down
 
 build:
 	go build -ldflags "$(GO_LDFLAGS)" -o bin/crosswatc-api ./services/api
@@ -35,3 +35,11 @@ db-up:
 
 db-down:
 	docker compose down
+
+load-seed:
+	CROSSWATC_DATABASE_URL=$(DATABASE_URL) go run ./services/dbtool migrate
+	CROSSWATC_DATABASE_URL=$(DATABASE_URL) go run ./services/dbtool seed-load -resources 2000 -squads 20
+
+# Requires k6 and the API running with CROSSWATC_AUTH_MODE=dev on :8080.
+load-test:
+	k6 run test/load/api.js

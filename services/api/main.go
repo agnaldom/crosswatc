@@ -78,7 +78,7 @@ func run() error {
 		}
 	}
 
-	deps := httpapi.Deps{Store: st, Auth: authn, Log: log, Inbox: st, Audit: st,
+	deps := httpapi.Deps{Store: st, Auth: authn, Log: log, Inbox: st, Audit: st, MutationsPerMinute: cfg.MutationsPerMinute,
 		Webhooks: httpapi.WebhookConfig{GitHubSecret: cfg.GitHub.WebhookSecret, ArgoCDToken: cfg.ArgoCDWebhookToken}}
 	hub := stream.NewHub(st, log, 0)
 	go func() {
