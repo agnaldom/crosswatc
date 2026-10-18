@@ -56,17 +56,25 @@ func (m *memChanges) InsertEvent(_ context.Context, e store.Event) (bool, error)
 }
 
 type fakeGitOps struct {
-	err  error
-	reqs []gitops.Request
+	err      error
+	reqs     []gitops.Request
+	manifest string
+	canceled []int
 }
 
 func (f *fakeGitOps) Submit(_ context.Context, r gitops.Request) (gitops.Result, error) {
 	f.reqs = append(f.reqs, r)
 	return gitops.Result{Branch: "update/x/dev/y/rev-3", CommitSHA: "c1", PRNumber: 173, PRURL: "https://gh/pr/173"}, f.err
 }
-func (f *fakeGitOps) Manifest(context.Context, string, string) ([]byte, error) { return nil, nil }
-func (f *fakeGitOps) Cancel(context.Context, string, int, string, string) error {
-	return nil
+func (f *fakeGitOps) Manifest(context.Context, string, string) ([]byte, error) {
+	if f.manifest == "" {
+		return []byte("metadata: {name: pgsql-payments}\nspec:\n  parameters:\n    vmSize: Standard_D2as_v5\n"), nil
+	}
+	return []byte(f.manifest), nil
+}
+func (f *fakeGitOps) Cancel(_ context.Context, _ string, n int, _, _ string) error {
+	f.canceled = append(f.canceled, n)
+	return f.err
 }
 
 func changeHandler(cs *memChanges, g *fakeGitOps) http.Handler {

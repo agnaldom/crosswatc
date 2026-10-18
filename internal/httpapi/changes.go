@@ -24,6 +24,7 @@ const maxChangeBody = 64 << 10
 type changeRequest struct {
 	Changes       map[string]any `json:"changes"`
 	Justification string         `json:"justification"`
+	Supersede     bool           `json:"supersede"` // cancel an open pre-merge revision and replace it (SUPERSEDED)
 }
 
 // requireWrite enforces resource.owner ∈ user.squads for mutations; SRE read is not enough.
@@ -150,6 +151,17 @@ func (h *handlers) createChange(c *gin.Context) {
 		internalError(c, err)
 		return
 	}
+	if open := currentRevision(revs); open != nil && !domain.RevisionState(open.State).Terminal() {
+		if !req.Supersede || !cancellable[open.State] {
+			h.revisionOpen(c, revs)
+			return
+		}
+		if err := h.endRevision(ctx, r, *open, domain.RevisionSuperseded, principal(c).User, ""); err != nil {
+			_ = c.Error(err)
+			problem(c, http.StatusBadGateway, "gitops-failed", "Could not close the superseded Pull Request", err.Error())
+			return
+		}
+	}
 	next := 1
 	if len(revs) > 0 {
 		next = revs[0].Rev + 1
@@ -224,9 +236,4 @@ func (h *handlers) emit(ctx context.Context, r store.TrackedResource, rev *store
 		e.RevisionID = &rev.ID
 	}
 	_, _ = h.changes.InsertEvent(ctx, e)
-}
-
-// checkConsistency is extended by P3.4 (spec §43).
-func (h *handlers) checkConsistency(*gin.Context, store.TrackedResource, changes.Input) bool {
-	return true
 }

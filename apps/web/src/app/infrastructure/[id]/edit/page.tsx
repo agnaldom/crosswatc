@@ -7,7 +7,7 @@ import { use, useState } from "react";
 import { DynamicForm } from "@/components/DynamicForm";
 import { PreviewPanel } from "@/components/PreviewPanel";
 import { Empty, ErrorState, Loading } from "@/components/States";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { changedValues } from "@/lib/form-schema";
 
 export default function EditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +20,7 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
   const router = useRouter();
   const qc = useQueryClient();
   const submit = useMutation({
-    mutationFn: () => api.createChange(id, changes ?? {}, justification),
+    mutationFn: (supersede: boolean) => api.createChange(id, changes ?? {}, justification, supersede),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["state", id] });
       qc.invalidateQueries({ queryKey: ["revisions", id] });
@@ -67,11 +67,16 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
               <label htmlFor="justification" className="block text-sm font-medium">Justificativa *</label>
               <textarea id="justification" rows={3} value={justification} onChange={(e) => setJustification(e.target.value)}
                 className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Por que esta mudança é necessária?" />
-              <button type="button" disabled={!justification.trim() || submit.isPending} onClick={() => submit.mutate()}
+              <button type="button" disabled={!justification.trim() || submit.isPending} onClick={() => submit.mutate(false)}
                 className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
                 {submit.isPending ? "Abrindo Pull Request…" : "Confirmar e abrir Pull Request"}
               </button>
               {submit.isError && <ErrorState error={submit.error} />}
+              {submit.error instanceof ApiError && submit.error.status === 409 && submit.error.message.startsWith("Revision already open") && (
+                <button type="button" onClick={() => submit.mutate(true)} className="text-sm text-amber-800 underline">
+                  Substituir a revision aberta (fecha o Pull Request anterior)
+                </button>
+              )}
             </div>
           )}
           {submit.data && (

@@ -8,7 +8,9 @@ export function ErrorState({ error }: { error: unknown }) {
   const e = error instanceof ApiError ? error : null;
   return (
     <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">
-      <p className="font-medium">{e?.status === 404 ? "Recurso não encontrado" : "Não foi possível carregar os dados"}</p>
+      <p className="font-medium">
+        {e?.status === 404 ? "Recurso não encontrado" : e && e.status >= 400 && e.status < 500 ? e.message : "Não foi possível concluir a operação"}
+      </p>
       {e?.correlationId && <p className="mt-1 font-mono text-xs">correlation id: {e.correlationId}</p>}
     </div>
   );

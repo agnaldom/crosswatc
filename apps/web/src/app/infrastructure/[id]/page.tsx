@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { use, useState } from "react";
 import { Badge } from "@/components/Badge";
@@ -151,10 +151,29 @@ function Changes({ id }: { id: string }) {
             className="w-full p-4 text-left hover:bg-zinc-50">
             <RevisionSummary rv={rv} />
           </button>
+          {["CREATED", "VALIDATING", "WAITING_APPROVAL"].includes(rv.state) && <CancelRevision id={id} rev={rv.rev} />}
           {open === rv.rev && <RevisionHistory id={id} rev={rv.rev} />}
         </li>
       ))}
     </ul>
+  );
+}
+
+function CancelRevision({ id, rev }: { id: string; rev: number }) {
+  const qc = useQueryClient();
+  const cancel = useMutation({
+    mutationFn: () => api.cancelRevision(id, rev, "Cancelado pelo solicitante"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["revisions", id] }),
+  });
+  return (
+    <div className="border-t border-zinc-100 px-4 py-2">
+      <button type="button" disabled={cancel.isPending}
+        onClick={() => window.confirm(`Cancelar a revision ${rev} e fechar o Pull Request?`) && cancel.mutate()}
+        className="text-sm text-rose-700 hover:underline disabled:opacity-50">
+        {cancel.isPending ? "Cancelando…" : "Cancelar revision"}
+      </button>
+      {cancel.isError && <ErrorState error={cancel.error} />}
+    </div>
   );
 }
 

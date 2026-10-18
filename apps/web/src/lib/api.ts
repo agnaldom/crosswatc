@@ -69,8 +69,17 @@ export const api = {
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
   form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
   preview: (id: string, changes: Record<string, unknown>) => post<ChangePreview>(`/resources/${id}/changes/preview`, { changes }),
-  createChange: (id: string, changes: Record<string, unknown>, justification: string) =>
-    post<ChangeCreated>(`/resources/${id}/changes`, { changes, justification }),
+  cancelRevision: (id: string, rev: number, reason: string) =>
+    fetch(`/api/v1/resources/${id}/revisions/${rev}/cancel`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }),
+    }).then(async (r) => {
+      if (!r.ok) {
+        const b = await r.json().catch(() => ({}));
+        throw new ApiError(r.status, b.detail ? `${b.title}: ${b.detail}` : (b.title ?? r.statusText), b.correlationId);
+      }
+    }),
+  createChange: (id: string, changes: Record<string, unknown>, justification: string, supersede = false) =>
+    post<ChangeCreated>(`/resources/${id}/changes`, { changes, justification, supersede }),
 };
 
 /** Polling interval used only while the realtime stream is unavailable (spec §45). */

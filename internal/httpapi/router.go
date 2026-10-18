@@ -102,6 +102,7 @@ func New(d Deps) *gin.Engine {
 	res.GET("/form", h.getResourceForm)
 	res.POST("/changes/preview", h.previewChanges)
 	res.POST("/changes", h.createChange)
+	res.POST("/revisions/:rev/cancel", h.cancelRevision)
 	return r
 }
 
