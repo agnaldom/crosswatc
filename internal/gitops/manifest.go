@@ -150,3 +150,34 @@ func looksNonString(s string) bool {
 	_, isString := v.(string)
 	return !isString
 }
+
+// ClaimParameters returns spec.parameters of the document named claimName (or of the only document).
+func ClaimParameters(manifest []byte, claimName string) (map[string]any, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(manifest))
+	var docs []map[string]any
+	for {
+		var d map[string]any
+		err := dec.Decode(&d)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("gitops: parse manifest: %w", err)
+		}
+		if d != nil {
+			docs = append(docs, d)
+		}
+	}
+	for _, d := range docs {
+		md, _ := d["metadata"].(map[string]any)
+		if len(docs) == 1 || md["name"] == claimName {
+			spec, _ := d["spec"].(map[string]any)
+			params, _ := spec["parameters"].(map[string]any)
+			if params == nil {
+				params = map[string]any{}
+			}
+			return params, nil
+		}
+	}
+	return nil, ErrClaimNotFound
+}

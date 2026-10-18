@@ -76,6 +76,7 @@ func run() error {
 			return err
 		}
 		rec.PullRequests = gh
+		rec.Git, rec.BaseBranch, rec.GitCacheTTL = gh, cfg.GitOpsBaseBranch, cfg.ResyncInterval
 	} else {
 		log.Warn("GitHub App not configured; PR and CI stages will be skipped")
 	}

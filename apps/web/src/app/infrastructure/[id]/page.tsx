@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { use, useState } from "react";
 import { Badge } from "@/components/Badge";
+import { DriftBanner } from "@/components/DriftBanner";
 import { Lifecycle } from "@/components/Lifecycle";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus, Timeline } from "@/components/Timeline";
@@ -52,6 +53,7 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
         </div>
       </header>
 
+      {state.data?.drift && <DriftBanner drift={state.data.drift} />}
       {state.data?.currentRevision && (
         <p className="mt-3 text-sm text-zinc-600">
           Revision {state.data.currentRevision.rev}:{" "}

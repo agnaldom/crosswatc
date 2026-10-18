@@ -16,6 +16,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/contract"
 	"github.com/agnaldom/crosswatc/internal/correlation"
 	"github.com/agnaldom/crosswatc/internal/domain"
+	"github.com/agnaldom/crosswatc/internal/drift"
 	"github.com/agnaldom/crosswatc/internal/events"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/lifecycle"
@@ -34,6 +35,13 @@ type Reconciler struct {
 	Log          *slog.Logger
 	StuckTimeout time.Duration
 	Now          func() time.Time
+
+	// Git (optional) reads Claim manifests for Git ↔ Claim drift (spec §47). Cached for GitCacheTTL.
+	Git         GitReader
+	BaseBranch  string
+	GitCacheTTL time.Duration
+	gitMu       sync.Mutex
+	gitCache    map[string]gitEntry
 
 	mu   sync.Mutex // guards the catalog of the last full resync
 	xrds []kube.XRD
@@ -237,7 +245,8 @@ func (r *Reconciler) reconcile(ctx context.Context, d kube.DiscoveredResource) e
 	if err := r.applyResourceState(ctx, &tr, sig); err != nil {
 		return err
 	}
-	if err := r.Store.UpsertProjection(ctx, projection(tr, d, sig, r.now())); err != nil {
+	driftState := r.detectDrift(ctx, tr, d, sig)
+	if err := r.Store.UpsertProjection(ctx, projection(tr, d, sig, driftState, r.now())); err != nil {
 		return fmt.Errorf("upsert projection: %w", err)
 	}
 	g := topology.Build(d)
@@ -464,6 +473,7 @@ func (r *Reconciler) applyResourceState(ctx context.Context, tr *store.TrackedRe
 	}
 	prev := tr.ResourceState
 	tr.ResourceState, tr.Version = string(next), v
+	tr.EverOperational = tr.EverOperational || next == domain.ResourceOperational
 	switch next {
 	case domain.ResourceOperational:
 		r.event(ctx, *tr, nil, fmt.Sprintf("res:%s:%s:%d", tr.ID, next, v), events.SourceCrosswatc, events.LifecycleOperational, "Recurso operacional")
@@ -539,7 +549,7 @@ func orUnknown(s string) string {
 }
 
 // projection builds resource_projection (spec §18, §31, §46 Overview).
-func projection(tr store.TrackedResource, d kube.DiscoveredResource, sig lifecycle.Signals, now time.Time) store.Projection {
+func projection(tr store.TrackedResource, d kube.DiscoveredResource, sig lifecycle.Signals, ds drift.State, now time.Time) store.Projection {
 	mustJSON := func(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 	desired := map[string]any{"repository": tr.Repository, "path": tr.GitPath, "commitSha": sig.PR.MergeCommitSHA}
 	applied := map[string]any{
@@ -556,7 +566,7 @@ func projection(tr store.TrackedResource, d kube.DiscoveredResource, sig lifecyc
 	}
 	return store.Projection{
 		ResourceID: tr.ID, DesiredState: mustJSON(desired), AppliedState: mustJSON(applied), ObservedState: mustJSON(observed),
-		DriftState: mustJSON(map[string]any{"detected": false}), Stages: mustJSON(lifecycle.ResolveStages(sig)),
+		DriftState: mustJSON(ds), Stages: mustJSON(lifecycle.ResolveStages(sig)),
 		Health: mustJSON(health), LastReconcileAt: &now,
 	}
 }

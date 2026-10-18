@@ -624,3 +624,37 @@ func TestAuditLog(t *testing.T) {
 		t.Fatal("audit_log must be append-only")
 	}
 }
+
+func TestStreamDriftTrigger(t *testing.T) {
+	ctx := context.Background()
+	r, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-drift", "drifters", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	start, err := testStore.LatestStreamID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ds := range []string{`{"detected":false}`, `{"detected":true,"signals":["argo-out-of-sync"]}`,
+		`{"detected":true,"signals":["argo-out-of-sync"]}`, `{"detected":false}`} {
+		if err := testStore.UpsertProjection(ctx, Projection{ResourceID: r.ID, DriftState: []byte(ds)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	evs, err := testStore.StreamEventsAfter(ctx, start, time.Now().Add(-time.Minute), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var drift []StreamEvent
+	for _, e := range evs {
+		if e.Type == "drift.detected" {
+			drift = append(drift, e)
+		}
+	}
+	if len(drift) != 1 {
+		t.Fatalf("want one event when drift turns on (migration 00003), got %d: %+v", len(drift), drift)
+	}
+	if !strings.Contains(string(drift[0].Data), `"detected": true`) || drift[0].Owner != "drifters" {
+		t.Fatalf("%+v", drift[0])
+	}
+}

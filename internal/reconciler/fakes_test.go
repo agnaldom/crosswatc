@@ -155,6 +155,16 @@ func (m *memStore) UpsertProjection(_ context.Context, p store.Projection) error
 	return nil
 }
 
+func (m *memStore) GetProjection(_ context.Context, id uuid.UUID) (store.Projection, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p, ok := m.projections[id]
+	if !ok {
+		return p, store.ErrNotFound
+	}
+	return p, nil
+}
+
 func (m *memStore) UpsertTopology(_ context.Context, t store.Topology) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

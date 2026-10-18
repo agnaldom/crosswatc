@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,11 +12,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.yaml.in/yaml/v3"
 
 	"github.com/agnaldom/crosswatc/internal/changes"
 	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/forms"
+	"github.com/agnaldom/crosswatc/internal/gitops"
 	"github.com/agnaldom/crosswatc/internal/store"
 )
 
@@ -43,7 +42,7 @@ func (h *handlers) checkConsistency(c *gin.Context, r store.TrackedResource, in 
 		problem(c, http.StatusBadGateway, "git-unavailable", "Could not read desired state from Git", err.Error())
 		return false
 	}
-	gitParams, err := claimParameters(manifest, r.ClaimName)
+	gitParams, err := gitops.ClaimParameters(manifest, r.ClaimName)
 	if err != nil {
 		problem(c, http.StatusConflict, "update-blocked", "Update blocked", "Claim manifest not readable: "+err.Error())
 		return false
@@ -73,34 +72,6 @@ func (h *handlers) syncedWithGit(ctx context.Context, r store.TrackedResource) (
 		return false, false
 	}
 	return *applied.SyncedWithGit, true
-}
-
-// claimParameters extracts spec.parameters of the Claim document named claimName.
-func claimParameters(manifest []byte, claimName string) (map[string]any, error) {
-	dec := yaml.NewDecoder(bytes.NewReader(manifest))
-	var docs []map[string]any
-	for {
-		var d map[string]any
-		err := dec.Decode(&d)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		if d != nil {
-			docs = append(docs, d)
-		}
-	}
-	for _, d := range docs {
-		md, _ := d["metadata"].(map[string]any)
-		if len(docs) == 1 || md["name"] == claimName {
-			spec, _ := d["spec"].(map[string]any)
-			params, _ := spec["parameters"].(map[string]any)
-			return params, nil
-		}
-	}
-	return nil, fmt.Errorf("claim %q not found in manifest", claimName)
 }
 
 func diverging(f forms.Form, git, cluster map[string]any) []Divergence {

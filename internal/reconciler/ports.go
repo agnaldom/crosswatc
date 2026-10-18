@@ -50,6 +50,7 @@ type Store interface {
 	InsertOperation(ctx context.Context, o store.Operation) (store.Operation, error)
 	UpdateOperationsForRevision(ctx context.Context, revisionID uuid.UUID, status string, finishedAt *time.Time) error
 	UpsertProjection(ctx context.Context, p store.Projection) error
+	GetProjection(ctx context.Context, id uuid.UUID) (store.Projection, error)
 	UpsertTopology(ctx context.Context, t store.Topology) error
 	InsertEvent(ctx context.Context, e store.Event) (bool, error)
 	SaveCheckpoint(ctx context.Context, source, cursor string, ingestErr error) error

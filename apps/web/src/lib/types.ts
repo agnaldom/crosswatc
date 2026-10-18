@@ -66,7 +66,7 @@ export interface ResourceStateView {
   resourceState: ResourceState;
   currentRevision: { rev: number; state: RevisionState; prUrl?: string } | null;
   stages: StageView[];
-  drift: { detected: boolean };
+  drift: DriftState;
   lastReconcileAt: string | null;
 }
 
@@ -211,4 +211,11 @@ export interface AuditEntry {
   prUrl?: string;
   commitSha?: string;
   createdAt: string;
+}
+
+export interface DriftState {
+  detected: boolean;
+  signals?: string[];
+  differences?: { field: string; desired: unknown; observed: unknown }[];
+  detectedAt?: string;
 }

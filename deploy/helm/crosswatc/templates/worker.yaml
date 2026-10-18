@@ -48,6 +48,7 @@ spec:
             - { name: CROSSWATC_GITHUB_APP_ID, value: {{ .Values.github.appID | quote }} }
             - { name: CROSSWATC_GITHUB_INSTALLATION_ID, value: {{ .Values.github.installationID | quote }} }
             - { name: CROSSWATC_GITHUB_PRIVATE_KEY_PATH, value: /var/run/secrets/github/private-key.pem }
+            - { name: CROSSWATC_GITOPS_BASE_BRANCH, value: {{ .Values.github.baseBranch | quote }} }
             {{- end }}
             {{- if .Values.backstage.url }}
             - { name: CROSSWATC_BACKSTAGE_URL, value: {{ .Values.backstage.url | quote }} }
