@@ -7,6 +7,7 @@ DATABASE_URL ?= postgres://crosswatc:crosswatc@localhost:5432/crosswatc?sslmode=
 build:
 	go build -ldflags "$(GO_LDFLAGS)" -o bin/crosswatc-api ./services/api
 	go build -ldflags "$(GO_LDFLAGS)" -o bin/crosswatc-worker ./services/worker
+	go build -ldflags "$(GO_LDFLAGS)" -o bin/crosswatc-policy ./services/policy
 
 test:
 	go test -race -count=1 ./...

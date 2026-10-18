@@ -104,3 +104,7 @@ observability:
   # Namespace allowed to scrape metrics through the NetworkPolicy.
   monitoringNamespaceSelector:
     matchLabels: { kubernetes.io/metadata.name: monitoring }
+
+policies:
+  # ConfigMap with extra *.rego files (package crosswatc), merged with the built-in policies.
+  configMap: ""

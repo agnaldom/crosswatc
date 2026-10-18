@@ -41,6 +41,7 @@ type Config struct {
 
 	ArgoCDNamespace    string
 	GitOpsBaseBranch   string
+	PolicyDir          string // extra Rego policies (package crosswatc)
 	ArgoCDWebhookToken string // bearer token of POST /webhooks/argocd (§35.1)
 	InboxPollInterval  time.Duration
 
@@ -128,6 +129,7 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 		},
 		ArgoCDNamespace:    r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
 		GitOpsBaseBranch:   r.str("CROSSWATC_GITOPS_BASE_BRANCH", "main"),
+		PolicyDir:          r.str("CROSSWATC_POLICY_DIR", ""),
 		ArgoCDWebhookToken: r.str("CROSSWATC_ARGOCD_WEBHOOK_TOKEN", ""),
 		InboxPollInterval:  r.duration("CROSSWATC_INBOX_POLL_INTERVAL", time.Second),
 		ResyncInterval:     r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),

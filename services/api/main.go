@@ -13,12 +13,14 @@ import (
 
 	"github.com/agnaldom/crosswatc/internal/adapters/github"
 	"github.com/agnaldom/crosswatc/internal/auth"
+	"github.com/agnaldom/crosswatc/internal/changes"
 	"github.com/agnaldom/crosswatc/internal/config"
 	"github.com/agnaldom/crosswatc/internal/gitops"
 	"github.com/agnaldom/crosswatc/internal/httpapi"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/logging"
 	"github.com/agnaldom/crosswatc/internal/metrics"
+	"github.com/agnaldom/crosswatc/internal/policy"
 	"github.com/agnaldom/crosswatc/internal/store"
 	"github.com/agnaldom/crosswatc/internal/stream"
 	"github.com/agnaldom/crosswatc/internal/tracing"
@@ -91,6 +93,13 @@ func run() error {
 	if cfg.ArgoCDWebhookToken == "" {
 		log.Warn("CROSSWATC_ARGOCD_WEBHOOK_TOKEN not set; POST /webhooks/argocd disabled")
 	}
+	engine, err := policy.Load(ctx, cfg.PolicyDir)
+	if err != nil {
+		return err
+	}
+	log.Info("policies loaded", "modules", engine.Modules())
+	deps.Policies = []changes.Policy{engine}
+
 	if cfg.GitHub.AppID != 0 {
 		gh, err := github.New(github.Config{APIURL: cfg.GitHub.APIURL, AppID: cfg.GitHub.AppID,
 			InstallationID: cfg.GitHub.InstallationID, PrivateKeyPath: cfg.GitHub.PrivateKeyPath})

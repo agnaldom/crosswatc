@@ -22,6 +22,9 @@ spec:
           env:
             {{- include "crosswatc.commonEnv" . | nindent 12 }}
             {{- include "crosswatc.otelEnv" . | nindent 12 }}
+            {{- if .Values.policies.configMap }}
+            - { name: CROSSWATC_POLICY_DIR, value: /etc/crosswatc/policies }
+            {{- end }}
             - { name: CROSSWATC_AUTH_MODE, value: {{ .Values.auth.mode | quote }} }
             - { name: CROSSWATC_OIDC_ISSUER, value: {{ .Values.auth.oidcIssuer | quote }} }
             - { name: CROSSWATC_OIDC_AUDIENCE, value: {{ .Values.auth.oidcAudience | quote }} }
@@ -45,15 +48,22 @@ spec:
           livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 20 }
           resources: {{- toYaml .Values.api.resources | nindent 12 }}
           {{- include "crosswatc.securityContext" . | nindent 10 }}
-          {{- if .Values.github.enabled }}
           volumeMounts:
+            {{- if .Values.github.enabled }}
             - { name: github-app, mountPath: /var/run/secrets/github, readOnly: true }
-          {{- end }}
-      {{- if .Values.github.enabled }}
+            {{- end }}
+            {{- if .Values.policies.configMap }}
+            - { name: policies, mountPath: /etc/crosswatc/policies, readOnly: true }
+            {{- end }}
       volumes:
+        {{- if .Values.github.enabled }}
         - name: github-app
           secret: { secretName: {{ .Values.github.existingSecret }} }
-      {{- end }}
+        {{- end }}
+        {{- if .Values.policies.configMap }}
+        - name: policies
+          configMap: { name: {{ .Values.policies.configMap }} }
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

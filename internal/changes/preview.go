@@ -70,6 +70,8 @@ type Input struct {
 	Owner         string
 	Provider      string
 	Kind          string
+	Phase         string // "preview" | "submit" (policies may be stricter on submit)
+	Justification string
 }
 
 // Policy adds organisation rules (naming, tags, security — spec §31 stage 3). Implemented by P4.5.

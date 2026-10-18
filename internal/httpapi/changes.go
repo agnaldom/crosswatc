@@ -134,6 +134,7 @@ func (h *handlers) createChange(c *gin.Context) {
 	if !ok {
 		return
 	}
+	in.Phase, in.Justification = "submit", req.Justification
 	ctx := c.Request.Context()
 	pv, err := changes.Preview(ctx, in, h.policies...)
 	if err != nil {
