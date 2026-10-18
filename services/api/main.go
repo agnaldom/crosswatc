@@ -49,7 +49,7 @@ func run() error {
 	}
 	defer st.Close()
 
-	mapping := auth.GroupMapping{SquadPrefix: cfg.Auth.SquadGroupPrefix, SREGroup: cfg.Auth.SREGroup}
+	mapping := auth.GroupMapping{SquadPrefix: cfg.Auth.SquadGroupPrefix, SREGroup: cfg.Auth.SREGroup, GroupsClaim: cfg.Auth.GroupsClaim}
 	var authn auth.Authenticator
 	if cfg.Auth.Mode == config.AuthModeDev {
 		log.Warn("DEV authentication enabled: identities come from X-Dev-* headers")

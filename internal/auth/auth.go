@@ -65,6 +65,7 @@ type Authenticator interface {
 type GroupMapping struct {
 	SquadPrefix string // e.g. "squad-" → "squad-payments" becomes "payments"
 	SREGroup    string
+	GroupsClaim string // token claim holding groups (default "groups"; e.g. "roles" for Entra ID app roles)
 }
 
 func (m GroupMapping) apply(user string, groups []string) Principal {
@@ -129,20 +130,37 @@ func (o *OIDC) Authenticate(r *http.Request) (Principal, error) {
 	if err != nil {
 		return Principal{}, fmt.Errorf("%w: %w", ErrUnauthenticated, err)
 	}
-	var claims struct {
-		PreferredUsername string   `json:"preferred_username"`
-		Email             string   `json:"email"`
-		Groups            []string `json:"groups"`
-	}
+	var claims map[string]any
 	if err := tok.Claims(&claims); err != nil {
 		return Principal{}, fmt.Errorf("%w: %w", ErrUnauthenticated, err)
 	}
-	user := claims.PreferredUsername
+	user, _ := claims["preferred_username"].(string)
 	if user == "" {
-		user = claims.Email
+		user, _ = claims["email"].(string)
 	}
 	if user == "" {
 		user = tok.Subject
 	}
-	return o.mapping.apply(user, claims.Groups), nil
+	claim := o.mapping.GroupsClaim
+	if claim == "" {
+		claim = "groups"
+	}
+	return o.mapping.apply(user, stringList(claims[claim])), nil
+}
+
+// stringList accepts a JSON array of strings or a space-separated string.
+func stringList(v any) []string {
+	switch t := v.(type) {
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, x := range t {
+			if s, ok := x.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		return strings.Fields(t)
+	}
+	return nil
 }

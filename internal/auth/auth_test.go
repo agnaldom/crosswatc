@@ -98,6 +98,13 @@ func TestOIDC(t *testing.T) {
 	if _, err := o.Authenticate(r); !errors.Is(err, ErrUnauthenticated) {
 		t.Fatal("missing token must fail")
 	}
+	roles := NewOIDCWithVerifier(v, GroupMapping{SquadPrefix: "squad-", SREGroup: "platform-sre", GroupsClaim: "roles"})
+	rt := signedJWT(t, key, map[string]any{"iss": "https://idp.example.com", "aud": "crosswatc", "sub": "u3",
+		"exp": time.Now().Add(time.Hour).Unix(), "roles": "squad-cards platform-sre"})
+	r.Header.Set("Authorization", "Bearer "+rt)
+	if p, err := roles.Authenticate(r); err != nil || !p.SRE || p.Squads[0] != "cards" {
+		t.Fatalf("roles claim: %+v %v", p, err)
+	}
 	sub := signedJWT(t, key, map[string]any{"iss": "https://idp.example.com", "aud": "crosswatc", "sub": "u2", "exp": time.Now().Add(time.Hour).Unix()})
 	r.Header.Set("Authorization", "Bearer "+sub)
 	if p, err := o.Authenticate(r); err != nil || p.User != "u2" {

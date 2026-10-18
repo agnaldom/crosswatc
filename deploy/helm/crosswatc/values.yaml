@@ -35,6 +35,7 @@ database:
 
 auth:
   mode: oidc                 # oidc | dev (dev is refused when env=production)
+  groupsClaim: groups        # token claim with groups (e.g. roles for Entra ID app roles)
   oidcIssuer: ""
   oidcAudience: crosswatc
   squadGroupPrefix: squad-
@@ -79,3 +80,9 @@ ingress:
   className: ""
   host: crosswatc.example.com
   tls: []
+
+networkPolicy:
+  enabled: true
+  # Namespace of the ingress controller / oauth2-proxy allowed to reach web and the webhook paths of the API.
+  ingressNamespaceSelector:
+    matchLabels: { kubernetes.io/metadata.name: ingress-nginx }

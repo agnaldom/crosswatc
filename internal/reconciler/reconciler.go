@@ -19,6 +19,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/events"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/lifecycle"
+	"github.com/agnaldom/crosswatc/internal/redact"
 	"github.com/agnaldom/crosswatc/internal/store"
 	"github.com/agnaldom/crosswatc/internal/topology"
 )
@@ -542,7 +543,7 @@ func projection(tr store.TrackedResource, d kube.DiscoveredResource, sig lifecyc
 	mustJSON := func(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 	desired := map[string]any{"repository": tr.Repository, "path": tr.GitPath, "commitSha": sig.PR.MergeCommitSHA}
 	applied := map[string]any{
-		"generation": d.Claim.Generation, "spec": d.Claim.Spec,
+		"generation": d.Claim.Generation, "spec": redact.Map(d.Claim.Spec), // never persist secret material (§49)
 		"syncedWithGit": sig.Argo.Found && sig.Argo.SyncStatus == "Synced",
 	}
 	observed := map[string]any{"ready": d.Claim.Ready(), "synced": d.Claim.Synced(), "lastReconcileAt": now}

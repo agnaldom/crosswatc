@@ -57,6 +57,9 @@ type Deps struct {
 	Changes  ChangeStore      // optional with GitOps: enables POST /resources/{id}/changes (spec §41)
 	GitOps   GitOps
 
+	// MutationsPerMinute limits POSTs per user: 0 → default 10/min (burst 5), negative → disabled.
+	MutationsPerMinute int
+
 	Stream          Streamer      // optional: GET /api/v1/stream (spec §45)
 	StreamHeartbeat time.Duration // default 20s
 }
@@ -68,7 +71,7 @@ func New(d Deps) *gin.Engine {
 	}
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.Use(gin.Recovery(), withCorrelation(), accessLog(d.Log))
+	r.Use(gin.Recovery(), securityHeaders(), withCorrelation(), accessLog(d.Log))
 	r.NoRoute(notFound)
 
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
@@ -79,7 +82,7 @@ func New(d Deps) *gin.Engine {
 		(&webhooks{inbox: d.Inbox, cfg: d.Webhooks}).register(r)
 	}
 
-	v1 := r.Group("/api/v1", authenticate(d.Auth))
+	v1 := r.Group("/api/v1", authenticate(d.Auth), limitMutations(mutationLimiter(d.MutationsPerMinute)))
 	v1.GET("/stream", h.stream)
 	v1.GET("/catalog/resource-types", h.listResourceTypes)
 	v1.GET("/catalog/resource-types/:kind", h.getResourceType)

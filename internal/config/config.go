@@ -73,6 +73,7 @@ type AuthConfig struct {
 	OIDCAudience     string
 	SquadGroupPrefix string
 	SREGroup         string
+	GroupsClaim      string
 }
 
 type GitHubConfig struct {
@@ -108,6 +109,7 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 			OIDCAudience:     r.str("CROSSWATC_OIDC_AUDIENCE", ""),
 			SquadGroupPrefix: r.str("CROSSWATC_SQUAD_GROUP_PREFIX", "squad-"),
 			SREGroup:         r.str("CROSSWATC_SRE_GROUP", "platform-sre"),
+			GroupsClaim:      r.str("CROSSWATC_OIDC_GROUPS_CLAIM", "groups"),
 		},
 		GitHub: GitHubConfig{
 			APIURL:         r.str("CROSSWATC_GITHUB_API_URL", "https://api.github.com"),
