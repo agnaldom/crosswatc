@@ -28,7 +28,7 @@ func TestRegoUnitTests(t *testing.T) {
 		}
 		mods[name] = m
 	}
-	results, err := tester.NewRunner().Run(ctx, mods)
+	results, err := tester.NewRunner().SetModules(mods).RunTests(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

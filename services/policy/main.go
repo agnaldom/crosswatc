@@ -13,6 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/agnaldom/crosswatc/internal/changes"
@@ -83,7 +84,7 @@ func run(args []string) int {
 }
 
 func params(path, name string) (map[string]any, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path)) //nolint:gosec // CLI: reading the manifest the caller points to is the purpose
 	if err != nil {
 		return nil, err
 	}
