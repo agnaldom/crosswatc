@@ -91,6 +91,7 @@ type ChangeStore interface {
 	InsertOperation(ctx context.Context, o store.Operation) (store.Operation, error)
 	UpdateOperationsForRevision(ctx context.Context, revisionID uuid.UUID, status string, finishedAt *time.Time) error
 	InsertEvent(ctx context.Context, e store.Event) (bool, error)
+	InsertAudit(ctx context.Context, a store.AuditEntry) error
 }
 
 // GitOps opens and closes change Pull Requests (satisfied by *gitops.Orchestrator).
@@ -161,6 +162,7 @@ func (h *handlers) createChange(c *gin.Context) {
 			problem(c, http.StatusBadGateway, "gitops-failed", "Could not close the superseded Pull Request", err.Error())
 			return
 		}
+		h.audit(c, AuditRevisionSuperseded, r, open, nil, nil, nil)
 	}
 	next := 1
 	if len(revs) > 0 {
@@ -202,6 +204,8 @@ func (h *handlers) createChange(c *gin.Context) {
 		_ = h.changes.UpdateRevision(ctx, rev)
 		_ = h.changes.UpdateOperationsForRevision(ctx, rev.ID, "FAILED", &now)
 		h.emit(ctx, r, &rev, "gitops-failed:"+rev.ID.String(), "github", "GITOPS.PR.FAILED", "error", err.Error())
+		before, after := beforeAfter(pv.Changes)
+		h.audit(c, AuditChangeFailed, r, &rev, &op.ID, before, after)
 		_ = c.Error(err)
 		problem(c, http.StatusBadGateway, "gitops-failed", "Could not open Pull Request", err.Error())
 		return
@@ -216,6 +220,9 @@ func (h *handlers) createChange(c *gin.Context) {
 	_ = h.changes.UpdateOperationsForRevision(ctx, rev.ID, "RUNNING", nil)
 	h.emit(ctx, r, &rev, fmt.Sprintf("rev:%s:VALIDATING", rev.ID), "github", "GITOPS.PR.CREATED", "info",
 		fmt.Sprintf("Pull Request #%d criado", pr))
+
+	before, after := beforeAfter(pv.Changes)
+	h.audit(c, AuditChangeRequested, r, &rev, &op.ID, before, after)
 
 	c.JSON(http.StatusCreated, changeResponse{OperationID: op.ID.String(), RevisionID: rev.ID.String(), Rev: next,
 		CorrelationID: cid, PRNumber: pr, PRURL: res.PRURL, Branch: res.Branch})

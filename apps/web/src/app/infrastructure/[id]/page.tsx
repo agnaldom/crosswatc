@@ -12,7 +12,7 @@ import { api } from "@/lib/api";
 import { healthTone, resourceStateLabel, resourceStateTone, revisionStateTone } from "@/lib/labels";
 import type { Health, Revision, TrackedResource } from "@/lib/types";
 
-const tabs = ["Overview", "Lifecycle", "Topology", "Changes", "Events"] as const;
+const tabs = ["Overview", "Lifecycle", "Topology", "Changes", "Events", "Audit"] as const;
 type Tab = (typeof tabs)[number];
 
 export default function ResourcePage({ params }: { params: Promise<{ id: string }> }) {
@@ -77,6 +77,7 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
         {tab === "Topology" && <TopologyTab id={id} />}
         {tab === "Changes" && <Changes id={id} />}
         {tab === "Events" && <Events id={id} />}
+        {tab === "Audit" && <Audit id={id} />}
       </section>
     </div>
   );
@@ -227,4 +228,40 @@ function Events({ id }: { id: string }) {
   if (q.isError) return <ErrorState error={q.error} />;
   if (!q.data.items.length) return <Empty>Nenhum evento.</Empty>;
   return <Timeline events={q.data.items} />;
+}
+
+const auditLabel: Record<string, string> = {
+  "change.requested": "Mudança solicitada",
+  "change.failed": "Falha ao abrir PR",
+  "revision.cancelled": "Revision cancelada",
+  "revision.superseded": "Revision substituída",
+};
+
+function Audit({ id }: { id: string }) {
+  const q = useQuery({ queryKey: ["audit", id], queryFn: () => api.audit(id) });
+  if (q.isPending) return <Loading />;
+  if (q.isError) return <ErrorState error={q.error} />;
+  if (!q.data.items.length) return <Empty>Nenhuma ação registrada.</Empty>;
+  return (
+    <table className="w-full overflow-hidden rounded-lg border border-zinc-200 bg-white text-left text-sm">
+      <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+        <tr><th className="px-3 py-2">Quando</th><th className="px-3 py-2">Quem</th><th className="px-3 py-2">O quê</th><th className="px-3 py-2">Antes → Depois</th><th className="px-3 py-2">PR</th></tr>
+      </thead>
+      <tbody className="divide-y divide-zinc-100">
+        {q.data.items.map((a) => (
+          <tr key={a.id} className="align-top">
+            <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-500">{new Date(a.createdAt).toLocaleString("pt-BR")}</td>
+            <td className="px-3 py-2">{a.actor}</td>
+            <td className="px-3 py-2">{auditLabel[a.action] ?? a.action}</td>
+            <td className="px-3 py-2 font-mono text-xs">
+              {a.after && Object.entries(a.after).map(([k, v]) => (
+                <div key={k}>{k}: {a.before?.[k] !== undefined ? `${String(a.before[k])} → ` : ""}{String(v)}</div>
+              ))}
+            </td>
+            <td className="px-3 py-2">{a.prUrl && <a href={a.prUrl} target="_blank" rel="noreferrer" className="underline">abrir</a>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }

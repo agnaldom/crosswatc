@@ -589,3 +589,38 @@ func TestHistoryQueries(t *testing.T) {
 		t.Fatalf("revision events %v %v", evs, err)
 	}
 }
+
+func TestAuditLog(t *testing.T) {
+	ctx := context.Background()
+	mine, err := testStore.UpsertResourceByClaim(ctx, newResource("audit-a", "auditors", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := testStore.UpsertResourceByClaim(ctx, newResource("audit-b", "others", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, r := range []TrackedResource{mine, mine, other} {
+		if err := testStore.InsertAudit(ctx, AuditEntry{Actor: fmt.Sprintf("u%d", i), Action: "change.requested", ResourceID: &r.ID,
+			Before: []byte(`{"vmSize":"D2"}`), After: []byte(`{"vmSize":"D4"}`), PRURL: "https://gh/pr/1"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, next, err := testStore.ListAudit(ctx, AuditFilter{Owners: []string{"auditors"}}, Page{Limit: 1})
+	if err != nil || len(page) != 1 || next == "" || page[0].Actor != "u1" || string(page[0].After) != `{"vmSize": "D4"}` {
+		t.Fatalf("%+v %q %v", page, next, err)
+	}
+	page, next, err = testStore.ListAudit(ctx, AuditFilter{Owners: []string{"auditors"}}, Page{Limit: 1, Cursor: next})
+	if err != nil || len(page) != 1 || page[0].Actor != "u0" || next != "" {
+		t.Fatalf("page2 %+v %q %v", page, next, err)
+	}
+	all, _, err := testStore.ListAudit(ctx, AuditFilter{ResourceID: &other.ID}, Page{})
+	if err != nil || len(all) != 1 || all[0].Actor != "u2" {
+		t.Fatalf("%+v %v", all, err)
+	}
+	var canUpdate bool
+	_ = testStore.pool.QueryRow(ctx, `SELECT has_table_privilege('crosswatc_app', 'audit_log', 'UPDATE')`).Scan(&canUpdate)
+	if canUpdate {
+		t.Fatal("audit_log must be append-only")
+	}
+}

@@ -15,6 +15,7 @@ import (
 )
 
 type memChanges struct {
+	audits   []store.AuditEntry
 	revs     map[uuid.UUID]store.Revision
 	ops      map[uuid.UUID]store.Operation
 	events   []store.Event
@@ -48,6 +49,10 @@ func (m *memChanges) UpdateOperationsForRevision(_ context.Context, id uuid.UUID
 			m.ops[k] = o
 		}
 	}
+	return nil
+}
+func (m *memChanges) InsertAudit(_ context.Context, a store.AuditEntry) error {
+	m.audits = append(m.audits, a)
 	return nil
 }
 func (m *memChanges) InsertEvent(_ context.Context, e store.Event) (bool, error) {

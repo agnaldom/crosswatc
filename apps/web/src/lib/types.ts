@@ -197,3 +197,18 @@ export interface ChangeCreated {
   prUrl: string;
   branch: string;
 }
+
+export interface AuditEntry {
+  id: number;
+  actor: string;
+  action: "change.requested" | "change.failed" | "revision.cancelled" | "revision.superseded" | string;
+  resourceId?: string;
+  revisionId?: string;
+  operationId?: string;
+  correlationId?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  prUrl?: string;
+  commitSha?: string;
+  createdAt: string;
+}

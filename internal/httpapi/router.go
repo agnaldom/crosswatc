@@ -56,6 +56,7 @@ type Deps struct {
 	Policies []changes.Policy // extra policies for change preview (spec §40)
 	Changes  ChangeStore      // optional with GitOps: enables POST /resources/{id}/changes (spec §41)
 	GitOps   GitOps
+	Audit    AuditStore // optional: GET /audit
 
 	// MutationsPerMinute limits POSTs per user: 0 → default 10/min (burst 5), negative → disabled.
 	MutationsPerMinute int
@@ -75,7 +76,7 @@ func New(d Deps) *gin.Engine {
 	r.NoRoute(notFound)
 
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
-		changes: d.Changes, gitops: d.GitOps}
+		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -93,6 +94,7 @@ func New(d Deps) *gin.Engine {
 	v1.GET("/operations/:operationId", h.getOperation)
 
 	v1.GET("/resources", h.listResources)
+	v1.GET("/audit", h.listAudit)
 	res := v1.Group("/resources/:id", h.loadResource)
 	res.GET("", h.getResource)
 	res.GET("/state", h.getState)
@@ -106,17 +108,19 @@ func New(d Deps) *gin.Engine {
 	res.POST("/changes/preview", h.previewChanges)
 	res.POST("/changes", h.createChange)
 	res.POST("/revisions/:rev/cancel", h.cancelRevision)
+	res.GET("/audit", h.listResourceAudit)
 	return r
 }
 
 type handlers struct {
-	store     ReadStore
-	catalog   *catalogCache
-	streamer  Streamer
-	heartbeat time.Duration
-	policies  []changes.Policy
-	changes   ChangeStore
-	gitops    GitOps
+	store      ReadStore
+	catalog    *catalogCache
+	streamer   Streamer
+	heartbeat  time.Duration
+	policies   []changes.Policy
+	changes    ChangeStore
+	gitops     GitOps
+	auditStore AuditStore
 }
 
 const resourceKey = "crosswatc.resource"

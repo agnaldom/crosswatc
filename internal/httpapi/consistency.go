@@ -166,6 +166,8 @@ func (h *handlers) cancelRevision(c *gin.Context) {
 		problem(c, http.StatusBadGateway, "gitops-failed", "Could not close Pull Request", err.Error())
 		return
 	}
+	reason, _ := json.Marshal(map[string]string{"reason": req.Reason})
+	h.audit(c, AuditRevisionCancelled, r, &rev, nil, nil, reason)
 	c.Status(http.StatusNoContent)
 }
 
