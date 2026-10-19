@@ -6,7 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { api } from "@/lib/api";
-import { SIDEBAR_KEY, useTheme } from "@/lib/theme";
+import { SIDEBAR_KEY } from "@/lib/theme";
+import { useTheme } from "@/lib/use-theme";
 
 export function Sidebar() {
   const pathname = usePathname();
