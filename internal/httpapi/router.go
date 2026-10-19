@@ -60,6 +60,9 @@ type Deps struct {
 	GitOps   GitOps
 	Audit    AuditStore // optional: GET /audit
 
+	// Cluster (optional) reads live Kubernetes objects/events for inspection tabs.
+	Cluster Cluster
+
 	// Costs (optional) estimates monthly cost in change previews (spec §60).
 	Costs *cost.Estimator
 
@@ -88,7 +91,7 @@ func New(d Deps) *gin.Engine {
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
 		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit,
 		decommissionEnvs: d.DecommissionEnvironments, costs: d.Costs,
-		productionEnvs: productionEnvs(d.ProductionEnvironments)}
+		productionEnvs: productionEnvs(d.ProductionEnvironments), cluster: d.Cluster}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -117,6 +120,7 @@ func New(d Deps) *gin.Engine {
 	res.GET("/operations", h.listResourceOperations)
 	res.GET("/topology", h.getTopology)
 	res.GET("/form", h.getResourceForm)
+	res.GET("/kube-events", h.listKubeEvents)
 	res.POST("/changes/preview", h.previewChanges)
 	res.POST("/changes", h.createChange)
 	res.POST("/revisions/:rev/cancel", h.cancelRevision)
@@ -139,6 +143,7 @@ type handlers struct {
 	decommissionEnvs []string
 	costs            *cost.Estimator
 	productionEnvs   []string
+	cluster          Cluster
 }
 
 // DefaultProductionEnvironments is shared with the default Rego policies (prd/*).

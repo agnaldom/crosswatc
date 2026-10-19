@@ -250,3 +250,14 @@ export interface DecommissionPreview {
   orphaned: { kind: string; name: string; provider?: string; externalName?: string }[];
   warnings: string[];
 }
+
+export interface KubeEvent {
+  object: { apiVersion?: string; kind: string; name: string; namespace?: string };
+  type: "Normal" | "Warning" | string;
+  reason: string;
+  message: string;
+  count: number;
+  source?: string;
+  firstSeen?: string;
+  lastSeen?: string;
+}

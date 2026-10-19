@@ -120,7 +120,7 @@ func run() error {
 	} else if kc, err := kube.New(restCfg, cfg.K8sPageLimit); err != nil {
 		return err
 	} else {
-		deps.Catalog = kc
+		deps.Catalog, deps.Cluster = kc, kc
 	}
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(deps), ReadHeaderTimeout: 5 * time.Second}
