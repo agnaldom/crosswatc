@@ -522,6 +522,7 @@ func (r *Reconciler) advanceRevision(ctx context.Context, tr store.TrackedResour
 	if res.State.Terminal() {
 		now := r.now()
 		rev.CompletedAt, finished = &now, &now
+		r.invalidateManifest(tr) // merged changes make the cached desired state stale (drift §47)
 		if rev.StartedAt != nil {
 			metrics.RevisionDuration.WithLabelValues(rev.Kind, rev.State).Observe(now.Sub(*rev.StartedAt).Seconds())
 		}

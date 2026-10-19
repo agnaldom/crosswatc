@@ -55,6 +55,13 @@ func (r *Reconciler) manifest(ctx context.Context, repo, path string) ([]byte, e
 	return b, err
 }
 
+// invalidateManifest drops the cached manifest of tr: Git changed when one of its revisions finished.
+func (r *Reconciler) invalidateManifest(tr store.TrackedResource) {
+	r.gitMu.Lock()
+	delete(r.gitCache, tr.Repository+"@"+tr.GitPath)
+	r.gitMu.Unlock()
+}
+
 // detectDrift evaluates §47 signals and emits DETECTED/RESOLVED transitions.
 func (r *Reconciler) detectDrift(ctx context.Context, tr store.TrackedResource, d kube.DiscoveredResource, sig lifecycle.Signals) drift.State {
 	sig.EverOperational = sig.EverOperational || tr.EverOperational

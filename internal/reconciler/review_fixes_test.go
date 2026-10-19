@@ -77,3 +77,42 @@ func TestAppliedStateOmitsSyncWhenArgoUnknown(t *testing.T) {
 		t.Fatalf("%s", st.projections[tr.ID].AppliedState)
 	}
 }
+
+// #77: after a change succeeds, drift must compare against the new Git manifest, not the cached one.
+func TestManifestCacheInvalidatedWhenRevisionFinishes(t *testing.T) {
+	st := newMemStore()
+	d := discovered(ready, "")
+	d.Claim.Spec = map[string]any{"parameters": map[string]any{"vmSize": "D2"}}
+	disc := &fakeDiscovery{resources: []kube.DiscoveredResource{d}}
+	git := &fakeGit{content: "metadata: {name: pgsql-payments}\nspec:\n  parameters:\n    vmSize: D2\n"}
+	pr := &fakePR{}
+	argo := &fakeArgo{sig: lifecycle.ArgoSignal{Found: true, SyncStatus: "Synced", SyncedRevision: "m"}}
+	now := time.Now()
+	r := &Reconciler{Discovery: disc, PullRequests: pr, Argo: argo, Store: st, Git: git, GitCacheTTL: time.Hour,
+		Now: func() time.Time { return now }}
+	ctx := context.Background()
+	if _, err := r.RunOnce(ctx); err != nil { // operational, manifest D2 cached
+		t.Fatal(err)
+	}
+	tr, _ := st.only()
+	n := 300
+	if _, err := st.InsertRevision(ctx, store.Revision{ResourceID: tr.ID, Rev: 2, Kind: "UPDATE", State: "APPLYING", PRNumber: &n}); err != nil {
+		t.Fatal(err)
+	}
+	// change merged and applied: Git and Claim both D4
+	git.content = "metadata: {name: pgsql-payments}\nspec:\n  parameters:\n    vmSize: D4\n"
+	d.Claim.Spec = map[string]any{"parameters": map[string]any{"vmSize": "D4"}}
+	disc.resources = []kube.DiscoveredResource{d}
+	pr.sig = lifecycle.PRSignal{Found: true, Number: n, Merged: true, MergeCommitSHA: "m", Checks: lifecycle.ChecksSuccess, Approved: true}
+	if _, err := r.RunOnce(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range st.eventTypes() {
+		if e == "LIFECYCLE.DRIFT.DETECTED" {
+			t.Fatalf("false drift after a successful change: %v", st.eventTypes())
+		}
+	}
+	if git.calls != 2 {
+		t.Fatalf("manifest must be refetched after the revision finished, calls=%d", git.calls)
+	}
+}
