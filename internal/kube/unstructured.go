@@ -36,6 +36,7 @@ func Conditions(u *unstructured.Unstructured) domain.Conditions {
 		}
 		out = append(out, domain.Condition{
 			Type: str(m, "type"), Status: str(m, "status"), Reason: str(m, "reason"), Message: str(m, "message"),
+			LastTransitionTime: str(m, "lastTransitionTime"),
 		})
 	}
 	return out

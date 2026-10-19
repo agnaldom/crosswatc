@@ -118,3 +118,28 @@ func TestDeletionPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildCompositionNode(t *testing.T) {
+	claim := obj("db/v1", "PostgreSQLInstance", "team", "pg", "", ready)
+	xr := obj("db/v1", "XPostgreSQLInstance", "", "xpg", claim.ID(), ready)
+	xr.CompositionName, xr.CompositionRevision = "pg-azure", "pg-azure-abc12"
+	g := Build(kube.DiscoveredResource{Claim: claim, XR: &xr})
+	var comp *Node
+	for i := range g.Nodes {
+		if g.Nodes[i].Type == TypeComposition {
+			comp = &g.Nodes[i]
+		}
+	}
+	if comp == nil || comp.ID != "Composition/pg-azure" || comp.Status != StatusNone || comp.Message != "revision pg-azure-abc12" {
+		t.Fatalf("%+v", g.Nodes)
+	}
+	found := false
+	for _, e := range g.Edges {
+		if e.Source == xr.ID() && e.Target == comp.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("XR → Composition edge missing: %+v", g.Edges)
+	}
+}

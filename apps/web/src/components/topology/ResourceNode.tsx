@@ -8,13 +8,13 @@ export type ResourceNodeData = { node: TopologyNode; tone: Tone; label: string; 
 export type ResourceFlowNode = Node<ResourceNodeData, "resource">;
 
 export const toneBorder: Record<Tone, string> = { ok: "#10b981", progress: "#0ea5e9", warn: "#f59e0b", error: "#f43f5e", muted: "#a1a1aa" };
-const typeLabel = { claim: "Claim", composite: "XR", "managed-resource": "MR" } as const;
+const typeLabel = { claim: "Claim", composite: "XR", "managed-resource": "MR", composition: "Composition" } as const;
 
 export function ResourceNode({ data }: NodeProps<ResourceFlowNode>) {
   const { node: n, tone, label, detail } = data;
   return (
     <div className="w-[220px] cursor-pointer rounded-lg bg-white p-2 text-left shadow-sm transition hover:shadow-md"
-      style={{ border: `2px solid ${toneBorder[tone]}`, outline: data.selected ? `3px solid ${toneBorder[tone]}33` : undefined }}
+      style={{ border: `2px ${n.type === "composition" ? "dashed" : "solid"} ${toneBorder[tone]}`, outline: data.selected ? `3px solid ${toneBorder[tone]}33` : undefined }}
       title={detail ?? label}>
       {/* invisible handles: floating edges compute their own anchor points */}
       <Handle type="target" position={Position.Top} className="!h-1 !w-1 !border-0 !bg-transparent" />

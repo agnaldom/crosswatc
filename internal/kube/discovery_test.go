@@ -211,3 +211,11 @@ func TestProviderOf(t *testing.T) {
 		}
 	}
 }
+
+func TestConditionsKeepLastTransition(t *testing.T) {
+	u := &unstructured.Unstructured{Object: map[string]any{"status": map[string]any{"conditions": []any{
+		map[string]any{"type": "Ready", "status": "True", "lastTransitionTime": "2026-10-19T10:00:00Z"}}}}}
+	if cs := Conditions(u); cs[0].LastTransitionTime != "2026-10-19T10:00:00Z" {
+		t.Fatalf("%+v", cs)
+	}
+}

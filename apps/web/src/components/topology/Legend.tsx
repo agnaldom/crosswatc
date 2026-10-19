@@ -18,6 +18,7 @@ export function Legend() {
         </span>
       ))}
       <span className="inline-flex items-center gap-1.5"><span className="inline-block h-px w-5 bg-zinc-400" /> compõe</span>
+      <span className="inline-flex items-center gap-1.5"><span className="inline-block w-5 border-t border-dashed border-zinc-400" /> usa (Composition)</span>
       <span className="inline-flex items-center gap-1.5">
         <span className="rounded bg-zinc-900 px-1 text-[9px] text-white">XR</span> composite ·
         <span className="rounded bg-zinc-900 px-1 text-[9px] text-white">MR</span> managed resource

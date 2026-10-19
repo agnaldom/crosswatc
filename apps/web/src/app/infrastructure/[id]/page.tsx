@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { use, useState } from "react";
 import { Badge } from "@/components/Badge";
+import { ConditionCards } from "@/components/ConditionCards";
 import { DriftBanner } from "@/components/DriftBanner";
 import { KubeEvents } from "@/components/KubeEvents";
 import { ManifestTab } from "@/components/ManifestTab";
@@ -114,8 +115,16 @@ const healthRows: [keyof Health, string][] = [
 
 function Overview({ resource: r }: { resource: TrackedResource }) {
   const health = useQuery({ queryKey: ["health", r.id], queryFn: () => api.health(r.id) });
+  const topo = useQuery({ queryKey: ["topology", r.id], queryFn: () => api.topology(r.id) });
+  const claim = topo.data?.nodes.find((n) => n.type === "claim") ?? topo.data?.nodes.find((n) => n.type === "composite");
   return (
     <div className="grid gap-6 md:grid-cols-2">
+      {claim && (
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 md:col-span-2">
+          <h2 className="text-sm font-medium text-zinc-500">Status Conditions · {claim.kind}/{claim.name}</h2>
+          <div className="mt-3 grid gap-2 md:grid-cols-2"><ConditionCards conditions={claim.conditions} /></div>
+        </div>
+      )}
       <div className="rounded-lg border border-zinc-200 bg-white p-4">
         <h2 className="text-sm font-medium text-zinc-500">Saúde</h2>
         {health.isError && <ErrorState error={health.error} />}

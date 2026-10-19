@@ -148,6 +148,8 @@ type Condition struct {
 	Status  string `json:"status"` // "True" | "False" | "Unknown"
 	Reason  string `json:"reason,omitempty"`
 	Message string `json:"message,omitempty"`
+	// LastTransitionTime is RFC3339 as reported by the controller.
+	LastTransitionTime string `json:"lastTransitionTime,omitempty"`
 }
 
 // Conditions is a list helper.
