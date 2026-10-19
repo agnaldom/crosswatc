@@ -4,6 +4,7 @@ package topology
 import (
 	"strings"
 
+	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/kube"
 )
 
@@ -35,6 +36,8 @@ type Node struct {
 	Provider     string `json:"provider,omitempty"`
 	ExternalName string `json:"externalName,omitempty"`
 	Role         string `json:"compositionResourceName,omitempty"`
+	// Conditions are the raw status.conditions (type/status/reason/message) for UI normalization.
+	Conditions domain.Conditions `json:"conditions,omitempty"`
 	// DeletionPolicy of a managed resource: Delete (removed from the cloud) or Orphan (kept).
 	DeletionPolicy string `json:"deletionPolicy,omitempty"`
 	Message        string `json:"message,omitempty"`
@@ -111,6 +114,7 @@ func node(o kube.Object, typ string) Node {
 		ExternalName: o.ExternalName, Role: o.CompositionResourceName,
 	}
 	n.Status, n.Message = status(o)
+	n.Conditions = o.Conditions
 	return n
 }
 
