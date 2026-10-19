@@ -53,11 +53,11 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO resource_topology (resource_id, nodes, edges, updated_at) VALUES
  ('11111111-1111-1111-1111-111111111111',
-  '[{"id":"PostgreSQLInstance/team-payments/pgsql-payments-dev","type":"claim","kind":"PostgreSQLInstance","name":"pgsql-payments-dev","status":"ready"},
-    {"id":"XPostgreSQLInstance/xpostgresql-92a","type":"composite","kind":"XPostgreSQLInstance","name":"xpostgresql-92a","status":"ready"},
-    {"id":"FlexibleServer/postgresql-server","type":"managed-resource","kind":"FlexibleServer","name":"postgresql-server","status":"ready","provider":"azure"},
-    {"id":"PrivateEndpoint/pe-pgsql","type":"managed-resource","kind":"PrivateEndpoint","name":"pe-pgsql","status":"ready","provider":"azure"},
-    {"id":"FlexibleServerDatabase/payments","type":"managed-resource","kind":"FlexibleServerDatabase","name":"payments","status":"ready","provider":"azure"}]',
+  '[{"id":"PostgreSQLInstance/team-payments/pgsql-payments-dev","type":"claim","kind":"PostgreSQLInstance","name":"pgsql-payments-dev","status":"ready","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess"},{"type":"Ready","status":"True","reason":"Available"}]},
+    {"id":"XPostgreSQLInstance/xpostgresql-92a","type":"composite","kind":"XPostgreSQLInstance","name":"xpostgresql-92a","status":"ready","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess"},{"type":"Ready","status":"True","reason":"Available"}]},
+    {"id":"FlexibleServer/postgresql-server","type":"managed-resource","kind":"FlexibleServer","name":"postgresql-server","status":"ready","provider":"azure","externalName":"pgsql-payments-dev-01","deletionPolicy":"Delete","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess"},{"type":"Ready","status":"True","reason":"Available"}]},
+    {"id":"PrivateEndpoint/pe-pgsql","type":"managed-resource","kind":"PrivateEndpoint","name":"pe-pgsql","status":"not-ready","provider":"azure","deletionPolicy":"Delete","conditions":[{"type":"Synced","status":"True"},{"type":"Ready","status":"False","reason":"Creating"}]},
+    {"id":"FlexibleServerDatabase/payments","type":"managed-resource","kind":"FlexibleServerDatabase","name":"payments","status":"error","provider":"azure","deletionPolicy":"Orphan","message":"AuthorizationFailed","conditions":[{"type":"Synced","status":"False","reason":"ReconcileError","message":"AuthorizationFailed: client does not have permission"},{"type":"Ready","status":"False"}]}]',
   '[{"source":"PostgreSQLInstance/team-payments/pgsql-payments-dev","target":"XPostgreSQLInstance/xpostgresql-92a"},
     {"source":"XPostgreSQLInstance/xpostgresql-92a","target":"FlexibleServer/postgresql-server"},
     {"source":"XPostgreSQLInstance/xpostgresql-92a","target":"PrivateEndpoint/pe-pgsql"},

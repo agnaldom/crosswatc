@@ -1,66 +1,63 @@
 "use client";
 
-import { Background, Controls, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import { Background, Controls, MarkerType, ReactFlow, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { normalizeConditions } from "@/lib/conditions";
 import type { Tone } from "@/lib/labels";
 import { layout } from "@/lib/topology-layout";
-import type { NodeStatus, Topology, TopologyNode } from "@/lib/types";
+import type { Topology, TopologyNode } from "@/lib/types";
+import { FloatingEdge } from "./topology/FloatingEdge";
+import { Legend } from "./topology/Legend";
+import { NodeDetails } from "./topology/NodeDetails";
+import { ResourceNode, type ResourceFlowNode } from "./topology/ResourceNode";
 
-const statusBorder: Record<NodeStatus, string> = {
-  ready: "#10b981",
-  "not-ready": "#0ea5e9",
-  error: "#f43f5e",
-  missing: "#a1a1aa",
-  deleting: "#f59e0b",
-};
+const nodeTypes = { resource: ResourceNode };
+const edgeTypes = { floating: FloatingEdge };
 
-const toneBorder: Record<Tone, string> = { ok: "#10b981", progress: "#0ea5e9", warn: "#f59e0b", error: "#f43f5e", muted: "#a1a1aa" };
-
-// Missing/deleting come from the graph itself; otherwise derive from the Crossplane conditions.
-function statusOf(n: TopologyNode) {
-  if (n.status === "missing") return { tone: "muted" as Tone, label: "missing", detail: n.message };
-  if (n.status === "deleting") return { tone: "warn" as Tone, label: "deleting", detail: n.message };
-  return n.conditions?.length ? normalizeConditions(n.conditions, n.kind) : { tone: "muted" as Tone, label: n.status, detail: n.message };
+// Missing/deleting come from the graph; otherwise the Crossplane conditions decide.
+export function statusOf(n: TopologyNode): { tone: Tone; label: string; detail?: string } {
+  if (n.status === "missing") return { tone: "muted", label: "missing", detail: n.message };
+  if (n.status === "deleting") return { tone: "warn", label: "deleting", detail: n.message };
+  return n.conditions?.length ? normalizeConditions(n.conditions, n.kind) : { tone: "muted", label: n.status, detail: n.message };
 }
 
-const typeLabel = { claim: "Claim", composite: "XR", "managed-resource": "MR" } as const;
-
-export function TopologyView({ topology }: { topology: Topology }) {
+export function TopologyView({ topology, nodeActions }: {
+  topology: Topology;
+  nodeActions?: (n: TopologyNode) => React.ReactNode;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
   const { nodes, edges } = useMemo(() => {
     const pos = new Map(layout(topology).map((p) => [p.id, p]));
-    const nodes: Node[] = topology.nodes.map((n) => ({
-      id: n.id,
-      position: { x: pos.get(n.id)?.x ?? 0, y: pos.get(n.id)?.y ?? 0 },
-      data: {
-        label: (
-          <div className="text-left" title={statusOf(n).detail ?? n.message ?? n.status}>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-              {typeLabel[n.type]} · {n.kind}
-            </div>
-            <div className="truncate text-xs font-medium">{n.name}</div>
-            <div className="text-[10px] text-zinc-500">
-              {statusOf(n).label}
-              {n.provider ? ` · ${n.provider}` : ""}
-            </div>
-          </div>
-        ),
-      },
-      style: { border: `2px solid ${n.status === "missing" || n.status === "deleting" ? statusBorder[n.status] : toneBorder[statusOf(n).tone]}`, borderRadius: 8, width: 200, padding: 8, background: "white" },
-      draggable: false,
+    const nodes: ResourceFlowNode[] = topology.nodes.map((n) => {
+      const st = statusOf(n);
+      return {
+        id: n.id, type: "resource", draggable: true,
+        position: { x: pos.get(n.id)?.x ?? 0, y: pos.get(n.id)?.y ?? 0 },
+        data: { node: n, tone: st.tone, label: st.label, detail: st.detail, selected: n.id === selected },
+      };
+    });
+    const edges: Edge[] = topology.edges.map((e) => ({
+      id: `${e.source}->${e.target}`, source: e.source, target: e.target, type: "floating",
+      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#a1a1aa" }, style: { stroke: "#a1a1aa" },
     }));
-    const edges: Edge[] = topology.edges.map((e) => ({ id: `${e.source}->${e.target}`, source: e.source, target: e.target }));
     return { nodes, edges };
-  }, [topology]);
+  }, [topology, selected]);
 
   if (!topology.nodes.length) return <p className="text-sm text-zinc-500">Topologia ainda não disponível.</p>;
+  const node = topology.nodes.find((n) => n.id === selected);
   return (
-    <div className="h-[480px] rounded-lg border border-zinc-200 bg-white" aria-label="Topologia Claim → XR → Managed Resources">
-      <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }} nodesConnectable={false}>
-        <Background />
-        <Controls showInteractive={false} />
-      </ReactFlow>
+    <div className="space-y-2">
+      <Legend />
+      <div className="relative h-[520px] overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-label="Topologia Claim → XR → Managed Resources">
+        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView
+          proOptions={{ hideAttribution: true }} nodesConnectable={false}
+          onNodeClick={(_, n) => setSelected(n.id)} onPaneClick={() => setSelected(null)}>
+          <Background />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+        {node && <NodeDetails node={node} onClose={() => setSelected(null)} actions={nodeActions?.(node)} />}
+      </div>
     </div>
   );
 }
