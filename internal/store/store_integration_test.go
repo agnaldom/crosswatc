@@ -755,3 +755,61 @@ func TestNotificationLease(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestListResourcesSyncedReadyAndKinds(t *testing.T) {
+	ctx := context.Background()
+	mk := func(name string, observed string) TrackedResource {
+		r := newResource(name, "statusteam", "dev")
+		r.Kind = "RedisCache"
+		r.CorrelationID = "crosswatc-req-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:26]
+		got, err := testStore.UpsertResourceByClaim(ctx, r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if observed != "" {
+			if err := testStore.UpsertProjection(ctx, Projection{ResourceID: got.ID, ObservedState: json.RawMessage(observed)}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return got
+	}
+	mk("st-ok", `{"synced":true,"ready":true}`)
+	mk("st-notready", `{"synced":true,"ready":false}`)
+	mk("st-unknown", "")
+	scope := []string{"statusteam"}
+	names := func(f ResourceFilter) []string {
+		f.Owners = scope
+		got, _, err := testStore.ListResources(ctx, f, Page{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, r := range got {
+			out = append(out, r.Name)
+		}
+		return out
+	}
+	all, _, err := testStore.ListResources(ctx, ResourceFilter{Owners: scope}, Page{})
+	if err != nil || len(all) != 3 {
+		t.Fatalf("%v %d", err, len(all))
+	}
+	if all[0].Name != "st-notready" || *all[0].Synced != true || *all[0].Ready != false || all[2].Synced != nil {
+		t.Fatalf("observed state not joined: %+v", all)
+	}
+	if got := names(ResourceFilter{Ready: "false"}); len(got) != 1 || got[0] != "st-notready" {
+		t.Fatalf("ready=false: %v", got)
+	}
+	if got := names(ResourceFilter{Synced: "true", Ready: "true"}); len(got) != 1 || got[0] != "st-ok" {
+		t.Fatalf("synced&ready: %v", got)
+	}
+	if got := names(ResourceFilter{Synced: "unknown"}); len(got) != 1 || got[0] != "st-unknown" {
+		t.Fatalf("unknown: %v", got)
+	}
+	if _, _, err := testStore.ListResources(ctx, ResourceFilter{Ready: "yes"}, Page{}); !errors.Is(err, ErrBadFilter) {
+		t.Fatalf("want ErrBadFilter, got %v", err)
+	}
+	ks, err := testStore.CountResourcesByKind(ctx, scope)
+	if err != nil || len(ks) != 1 || ks[0] != (KindCount{Kind: "RedisCache", Count: 3}) {
+		t.Fatalf("kinds %v %+v", err, ks)
+	}
+}

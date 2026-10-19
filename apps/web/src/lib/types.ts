@@ -47,8 +47,16 @@ export interface TrackedResource {
   currentRevision?: number;
   composition?: { name: string; revision?: string };
   correlationId: string;
+  /** List only: observed Claim conditions; absent = unknown. */
+  synced?: boolean;
+  ready?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface KindCount {
+  kind: string;
+  count: number;
 }
 
 export type Stage = "REQUEST" | "PULL_REQUEST" | "CI_POLICIES" | "ARGO_CD" | "CROSSPLANE" | "CLOUD" | "OPERATIONAL";

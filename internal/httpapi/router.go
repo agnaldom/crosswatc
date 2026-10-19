@@ -28,6 +28,7 @@ type ReadStore interface {
 	Ping(ctx context.Context) error
 	GetResource(ctx context.Context, id uuid.UUID) (store.TrackedResource, error)
 	ListResources(ctx context.Context, f store.ResourceFilter, p store.Page) ([]store.TrackedResource, string, error)
+	CountResourcesByKind(ctx context.Context, owners []string) ([]store.KindCount, error)
 	GetProjection(ctx context.Context, id uuid.UUID) (store.Projection, error)
 	GetTopology(ctx context.Context, id uuid.UUID) (store.Topology, error)
 	ListEvents(ctx context.Context, id uuid.UUID, p store.Page) ([]store.Event, string, error)
@@ -119,6 +120,7 @@ func New(d Deps) *gin.Engine {
 	v1.GET("/operations/:operationId", h.getOperation)
 
 	v1.GET("/resources", h.listResources)
+	v1.GET("/resources/kinds", h.resourceKinds)
 	v1.GET("/audit", h.listAudit)
 	res := v1.Group("/resources/:id", h.loadResource)
 	res.GET("", h.getResource)
@@ -229,10 +231,15 @@ func (h *handlers) listResources(c *gin.Context) {
 	f := store.ResourceFilter{
 		Owners: principal(c).OwnerScope(), Owner: c.Query("owner"), Environment: c.Query("environment"),
 		Provider: c.Query("provider"), Kind: c.Query("kind"), State: c.Query("status"), NamePrefix: c.Query("q"),
+		Synced: c.Query("synced"), Ready: c.Query("ready"),
 	}
 	items, next, err := h.store.ListResources(c.Request.Context(), f, p)
 	if errors.Is(err, store.ErrBadCursor) {
 		problem(c, http.StatusBadRequest, "invalid-cursor", "Invalid cursor", "")
+		return
+	}
+	if errors.Is(err, store.ErrBadFilter) {
+		problem(c, http.StatusBadRequest, "invalid-filter", "Invalid filter", "synced/ready must be true, false or unknown")
 		return
 	}
 	if err != nil {
@@ -244,6 +251,25 @@ func (h *handlers) listResources(c *gin.Context) {
 		out[i] = toResourceDTO(r)
 	}
 	c.JSON(http.StatusOK, newPage(out, next))
+}
+
+type kindCountDTO struct {
+	Kind  string `json:"kind"`
+	Count int    `json:"count"`
+}
+
+// resourceKinds counts the caller's visible resources by kind (sidebar menu).
+func (h *handlers) resourceKinds(c *gin.Context) {
+	ks, err := h.store.CountResourcesByKind(c.Request.Context(), principal(c).OwnerScope())
+	if err != nil {
+		internalError(c, err)
+		return
+	}
+	out := make([]kindCountDTO, len(ks))
+	for i, k := range ks {
+		out[i] = kindCountDTO{Kind: k.Kind, Count: k.Count}
+	}
+	c.JSON(http.StatusOK, gin.H{"items": out})
 }
 
 func (h *handlers) getResource(c *gin.Context) {
