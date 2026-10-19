@@ -56,6 +56,9 @@ func TestBuildClaimXRMR(t *testing.T) {
 			t.Errorf("%s: %+v", c.name, n)
 		}
 	}
+	if len(by["pe"].Conditions) != 1 || by["pe"].Conditions[0].Reason != "ReconcileError" {
+		t.Fatalf("conditions must be exposed: %+v", by["pe"].Conditions)
+	}
 	if by["pe"].Message != "NicInUse" || by["xnet"].Message != "Creating" || by["postgresql-server"].ExternalName != "pg-payments" {
 		t.Fatal("messages/external name not propagated")
 	}

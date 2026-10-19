@@ -131,6 +131,10 @@ export interface TopologyNode {
   provider?: string;
   externalName?: string;
   message?: string;
+  apiVersion?: string;
+  conditions?: { type: string; status: string; reason?: string; message?: string }[];
+  deletionPolicy?: "Delete" | "Orphan";
+  compositionResourceName?: string;
 }
 
 export interface TopologyEdge {

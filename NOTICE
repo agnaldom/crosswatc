@@ -1,0 +1,6 @@
+Crosswatc
+Copyright 2026 The Crosswatc authors
+
+This product includes software adapted from Crossview
+(https://github.com/crossplane-contrib/crossview), licensed under the Apache License, Version 2.0:
+  - apps/web/src/lib/conditions.ts — Crossplane condition normalization (resourceStatus.js)
