@@ -1,4 +1,8 @@
 import type {
+  CompositionSummary,
+  CrossplanePackage,
+  Me,
+  PlatformXRD,
   ManifestObject,
   KubeEvent,
   DecommissionPreview,
@@ -72,6 +76,10 @@ export const api = {
   operations: (id: string) => get<Page<Operation>>(`/resources/${id}/operations`),
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
   form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
+  me: () => get<Me>("/me"),
+  platformPackages: (kind: "providers" | "functions" | "configurations") => get<Page<CrossplanePackage>>(`/platform/${kind}`),
+  platformXRDs: () => get<Page<PlatformXRD>>("/platform/xrds"),
+  platformCompositions: () => get<Page<CompositionSummary>>("/platform/compositions"),
   manifest: (id: string, object?: string) =>
     get<{ object: ManifestObject; yaml: string; objects: ManifestObject[] }>(
       `/resources/${id}/manifest${object ? `?object=${encodeURIComponent(object)}` : ""}`,

@@ -2377,6 +2377,18 @@ Lifecycle
 
 Também não serão reaproveitados conceitos de multi-context ou multi-cluster.
 
+### 65.1 Adaptado do Crossview (Apache-2.0, atribuição em `NOTICE`)
+
+| Ideia | No Crosswatc |
+|---|---|
+| Normalização de `status.conditions` (Synced/Ready, Installed/Healthy, Established/Offered) | `apps/web/src/lib/conditions.ts` (#87) |
+| Floating edges, nós ricos, legenda, painel de detalhes | `apps/web/src/components/topology/*` (#88) |
+| Kubernetes Events por `involvedObject` | `GET /resources/{id}/kube-events`, aba Kubernetes (#89) |
+| Visualizador de YAML (busca, copiar) | `GET /resources/{id}/manifest`, aba Manifest — sanitizado e restrito à topologia do recurso (#90) |
+| Páginas de Providers, Functions, XRDs, Compositions | `/platform`, somente SRE (#91) |
+
+Divergências **não** importadas: multi-cluster/context switcher (§3.4), WebSocket (§66), cluster como fonte de verdade ou qualquer edição direta de objetos (§3.1, §27). As inspeções acima são somente leitura, limitadas aos objetos do recurso e nunca expõem Secrets.
+
 ---
 
 ## 66. Decisão SSE vs WebSocket

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import { PlatformNavLink } from "@/components/PlatformNavLink";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 ),
               )}
             </nav>
+            <PlatformNavLink />
           </aside>
           <main className="min-w-0 flex-1 px-8 py-6">
             <Providers>{children}</Providers>

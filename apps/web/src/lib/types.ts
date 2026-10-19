@@ -269,3 +269,38 @@ export interface ManifestObject {
   name: string;
   namespace?: string;
 }
+
+export interface Me {
+  user: string;
+  squads: string[];
+  sre: boolean;
+}
+
+export interface CrossplanePackage {
+  kind: "Provider" | "Function" | "Configuration";
+  name: string;
+  package: string;
+  currentRevision?: string;
+  currentIdentifier?: string;
+  revisionActivationPolicy?: string;
+  conditions: { type: string; status: string; reason?: string; message?: string }[];
+}
+
+export interface CompositionSummary {
+  name: string;
+  compositeType: string;
+  mode: "Pipeline" | "Resources" | string;
+  functions?: string[];
+  steps: number;
+  latestRevision?: string;
+}
+
+export interface PlatformXRD {
+  name: string;
+  group: string;
+  kind: string;
+  claimKind?: string;
+  scope: string;
+  version: string;
+  established: boolean;
+}
