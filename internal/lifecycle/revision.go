@@ -28,7 +28,7 @@ type RevisionResult struct {
 func candidate(s Signals) (domain.RevisionState, *domain.FailureReason) {
 	pr := s.PR
 	switch {
-	case !pr.Found && s.AllHealthy() && !s.DeleteRequested:
+	case !pr.Found && s.AllHealthy() && s.AllowClusterOnly && !s.DeleteRequested:
 		return domain.RevisionSucceeded, nil // pre-existing/cluster-only resource already converged
 	case !pr.Found:
 		return domain.RevisionCreated, nil
