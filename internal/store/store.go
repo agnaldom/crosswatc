@@ -98,6 +98,9 @@ func encodeCursor(key, id string) string {
 // ErrBadCursor is returned for malformed cursors.
 var ErrBadCursor = errors.New("store: invalid cursor")
 
+// ErrBadFilter is returned for an invalid ListResources filter value.
+var ErrBadFilter = errors.New("store: invalid filter")
+
 func decodeCursor(s string) (*cursor, error) {
 	if s == "" {
 		return nil, nil

@@ -17,6 +17,7 @@ import type {
   Revision,
   RevisionDetail,
   Topology,
+  KindCount,
   TrackedResource,
   TrackerEvent,
 } from "./types";
@@ -58,6 +59,10 @@ export interface ResourceFilters {
   environment?: string;
   provider?: string;
   status?: string;
+  kind?: string;
+  /** "true" | "false" | "unknown" */
+  synced?: string;
+  ready?: string;
   q?: string;
   cursor?: string;
 }
@@ -67,6 +72,7 @@ export const api = {
     const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]);
     return get<Page<TrackedResource>>(`/resources${qs.size ? `?${qs}` : ""}`);
   },
+  resourceKinds: () => get<{ items: KindCount[] }>("/resources/kinds"),
   resource: (id: string) => get<TrackedResource>(`/resources/${id}`),
   state: (id: string) => get<ResourceStateView>(`/resources/${id}/state`),
   health: (id: string) => get<Health>(`/resources/${id}/health`),

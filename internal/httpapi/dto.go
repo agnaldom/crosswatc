@@ -36,6 +36,8 @@ type resourceDTO struct {
 	CurrentRevision *int            `json:"currentRevision,omitempty"`
 	Composition     *compositionDTO `json:"composition,omitempty"`
 	CorrelationID   string          `json:"correlationId"`
+	Synced          *bool           `json:"synced,omitempty"` // list only; absent = unknown
+	Ready           *bool           `json:"ready,omitempty"`
 	CreatedAt       time.Time       `json:"createdAt"`
 	UpdatedAt       time.Time       `json:"updatedAt"`
 }
@@ -46,7 +48,7 @@ func toResourceDTO(r store.TrackedResource) resourceDTO {
 		RequestedBy: r.RequestedBy, Region: r.Region, ResourceGroup: r.ResourceGroup,
 		ClaimRef:   claimRefDTO{Namespace: r.ClaimNamespace, Name: r.ClaimName, Kind: r.ClaimKind, APIVersion: r.ClaimAPIVersion},
 		Repository: r.Repository, GitPath: r.GitPath, ResourceState: r.ResourceState, CurrentRevision: r.CurrentRevision,
-		CorrelationID: r.CorrelationID, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		CorrelationID: r.CorrelationID, Synced: r.Synced, Ready: r.Ready, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
 	if r.CompositionName != "" {
 		d.Composition = &compositionDTO{Name: r.CompositionName, Revision: r.CompositionRevision}

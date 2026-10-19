@@ -45,6 +45,9 @@ func (f *fakeStore) ListResources(_ context.Context, flt store.ResourceFilter, p
 	if p.Cursor == "bad" {
 		return nil, "", store.ErrBadCursor
 	}
+	if flt.Synced == "maybe" {
+		return nil, "", store.ErrBadFilter
+	}
 	var out []store.TrackedResource
 	for _, r := range f.resources {
 		if flt.Owners == nil || contains(flt.Owners, r.Owner) {
@@ -52,6 +55,20 @@ func (f *fakeStore) ListResources(_ context.Context, flt store.ResourceFilter, p
 		}
 	}
 	return out, "next-1", nil
+}
+func (f *fakeStore) CountResourcesByKind(_ context.Context, owners []string) ([]store.KindCount, error) {
+	f.lastFilter = store.ResourceFilter{Owners: owners}
+	n := map[string]int{}
+	for _, r := range f.resources {
+		if owners == nil || contains(owners, r.Owner) {
+			n[r.Kind]++
+		}
+	}
+	out := []store.KindCount{}
+	for k, c := range n {
+		out = append(out, store.KindCount{Kind: k, Count: c})
+	}
+	return out, nil
 }
 func contains(s []string, v string) bool {
 	for _, x := range s {
@@ -239,6 +256,57 @@ func TestListResourcesScopedBySquad(t *testing.T) {
 	}
 	if w := do(h, "/api/v1/resources?cursor=bad", payments); w.Code != 400 {
 		t.Fatalf("cursor: %d", w.Code)
+	}
+}
+
+func TestListResourcesSyncedReady(t *testing.T) {
+	fs, _, h := setup()
+	yes := true
+	r := fs.resources[payID]
+	r.Synced, r.Ready = &yes, nil
+	fs.resources[payID] = r
+	w := do(h, "/api/v1/resources?synced=true&ready=unknown", payments)
+	if w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	if f := fs.lastFilter; f.Synced != "true" || f.Ready != "unknown" {
+		t.Fatalf("filter %+v", f)
+	}
+	var raw struct {
+		Items []map[string]any `json:"items"`
+	}
+	decode(t, w, &raw)
+	if len(raw.Items) != 1 || raw.Items[0]["synced"] != true {
+		t.Fatalf("synced missing: %+v", raw.Items)
+	}
+	if _, ok := raw.Items[0]["ready"]; ok {
+		t.Fatal("unknown ready must be omitted")
+	}
+	if w := do(h, "/api/v1/resources?synced=maybe", payments); w.Code != 400 {
+		t.Fatalf("bad filter: %d", w.Code)
+	}
+}
+
+func TestResourceKindsScopedBySquad(t *testing.T) {
+	fs, _, h := setup()
+	var out struct {
+		Items []kindCountDTO `json:"items"`
+	}
+	w := do(h, "/api/v1/resources/kinds", payments)
+	if w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	decode(t, w, &out)
+	if len(out.Items) != 1 || out.Items[0].Count != 1 || fs.lastFilter.Owners == nil {
+		t.Fatalf("squad scope: %+v", out)
+	}
+	decode(t, do(h, "/api/v1/resources/kinds", map[string]string{"X-Dev-User": "ops", "X-Dev-SRE": "true"}), &out)
+	total := 0
+	for _, k := range out.Items {
+		total += k.Count
+	}
+	if total != 2 || fs.lastFilter.Owners != nil {
+		t.Fatalf("SRE global: %+v", out)
 	}
 }
 

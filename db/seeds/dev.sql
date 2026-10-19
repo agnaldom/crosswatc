@@ -32,7 +32,7 @@ INSERT INTO operation (id, resource_id, revision_id, correlation_id, type, statu
   'crosswatc-req-01JCAB0000000000000000000A', 'CREATE', 'WAITING_APPROVAL', 'agnaldo', now() - interval '1 hour')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO resource_projection (resource_id, stages, health, drift_state, last_reconcile_at) VALUES
+INSERT INTO resource_projection (resource_id, stages, health, drift_state, observed_state, last_reconcile_at) VALUES
  ('11111111-1111-1111-1111-111111111111',
   '[{"stage":"REQUEST","status":"SUCCEEDED","message":"Solicitação registrada no Portal"},
     {"stage":"PULL_REQUEST","status":"SUCCEEDED","message":"Pull Request #171 criado"},
@@ -41,14 +41,14 @@ INSERT INTO resource_projection (resource_id, stages, health, drift_state, last_
     {"stage":"CROSSPLANE","status":"SUCCEEDED","message":"Infraestrutura composta"},
     {"stage":"CLOUD","status":"SUCCEEDED","message":"Recursos de cloud prontos"},
     {"stage":"OPERATIONAL","status":"SUCCEEDED","message":"Recurso operacional"}]',
-  '{"crossplane":"ok","argocd":"ok","cloud":"ok","configuration":"ok","secrets":"ok"}', '{"detected":false}', now()),
+  '{"crossplane":"ok","argocd":"ok","cloud":"ok","configuration":"ok","secrets":"ok"}', '{"detected":false}', '{"synced":true,"ready":true}', now()),
  ('22222222-2222-2222-2222-222222222222',
   '[{"stage":"REQUEST","status":"SUCCEEDED","message":"Solicitação registrada no Portal"},
     {"stage":"PULL_REQUEST","status":"SUCCEEDED","message":"Pull Request #173 criado"},
     {"stage":"CI_POLICIES","status":"IN_PROGRESS","actionOwner":"approver","message":"Aguardando aprovação"},
     {"stage":"ARGO_CD","status":"PENDING"},{"stage":"CROSSPLANE","status":"PENDING"},
     {"stage":"CLOUD","status":"PENDING"},{"stage":"OPERATIONAL","status":"PENDING"}]',
-  '{"crossplane":"unknown","argocd":"unknown","cloud":"unknown","configuration":"unknown","secrets":"ok"}', '{"detected":false}', now())
+  '{"crossplane":"unknown","argocd":"unknown","cloud":"unknown","configuration":"unknown","secrets":"ok"}', '{"detected":false}', '{"synced":true,"ready":false}', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO resource_topology (resource_id, nodes, edges, updated_at) VALUES

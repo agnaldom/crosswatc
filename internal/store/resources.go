@@ -37,6 +37,9 @@ type TrackedResource struct {
 	Version             int64
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+	// Synced/Ready come from resource_projection.observed_state; only ListResources fills them (nil = unknown).
+	Synced *bool
+	Ready  *bool
 }
 
 const resourceCols = `id, name, kind, provider, environment, owner, coalesce(requested_by,''), coalesce(region,''),
@@ -118,6 +121,9 @@ type ResourceFilter struct {
 	Kind        string
 	State       string
 	NamePrefix  string
+	// Synced/Ready: "true", "false" or "unknown" (no observed state yet).
+	Synced string
+	Ready  string
 	// Webhook routing (§35.1).
 	CorrelationIDs []string
 	Repository     string
@@ -164,11 +170,25 @@ func (s *Store) ListResources(ctx context.Context, f ResourceFilter, p Page) ([]
 	if f.NamePrefix != "" {
 		add("name LIKE $%d", escapeLike(f.NamePrefix)+"%")
 	}
+	for _, cf := range [...]struct{ col, v string }{{"o.synced", f.Synced}, {"o.ready", f.Ready}} {
+		col, v := cf.col, cf.v
+		switch v {
+		case "":
+		case "true", "false":
+			add(col+" = $%d::boolean", v)
+		case "unknown":
+			where = append(where, col+" IS NULL")
+		default:
+			return nil, "", fmt.Errorf("%w: %s=%q", ErrBadFilter, strings.TrimPrefix(col, "o."), v)
+		}
+	}
 	if c != nil {
 		args = append(args, c.Key, c.ID)
 		where = append(where, fmt.Sprintf("(name, id) > ($%d, $%d::uuid)", len(args)-1, len(args)))
 	}
-	q := `SELECT ` + resourceCols + ` FROM tracked_resource`
+	q := `SELECT ` + resourceCols + `, o.synced, o.ready FROM tracked_resource LEFT JOIN LATERAL (
+SELECT (observed_state->>'synced')::boolean AS synced, (observed_state->>'ready')::boolean AS ready
+FROM resource_projection WHERE resource_id = tracked_resource.id) o ON true`
 	if len(where) > 0 {
 		q += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -183,8 +203,11 @@ func (s *Store) ListResources(ctx context.Context, f ResourceFilter, p Page) ([]
 	defer rows.Close()
 	var out []TrackedResource
 	for rows.Next() {
-		r, err := scanResource(rows)
-		if err != nil {
+		var r TrackedResource
+		if err := rows.Scan(&r.ID, &r.Name, &r.Kind, &r.Provider, &r.Environment, &r.Owner, &r.RequestedBy, &r.Region,
+			&r.ResourceGroup, &r.ClaimNamespace, &r.ClaimName, &r.ClaimKind, &r.ClaimAPIVersion, &r.Repository,
+			&r.GitPath, &r.ResourceState, &r.CurrentRevision, &r.CompositionName, &r.CompositionRevision,
+			&r.CorrelationID, &r.EverOperational, &r.Version, &r.CreatedAt, &r.UpdatedAt, &r.Synced, &r.Ready); err != nil {
 			return nil, "", err
 		}
 		out = append(out, r)
@@ -199,6 +222,34 @@ func (s *Store) ListResources(ctx context.Context, f ResourceFilter, p Page) ([]
 		next = encodeCursor(last.Name, last.ID.String())
 	}
 	return out, next, nil
+}
+
+// KindCount is the number of tracked resources of one kind.
+type KindCount struct {
+	Kind  string
+	Count int
+}
+
+// CountResourcesByKind groups tracked resources by kind; owners == nil means no owner restriction.
+func (s *Store) CountResourcesByKind(ctx context.Context, owners []string) ([]KindCount, error) {
+	q, args := `SELECT kind, count(*) FROM tracked_resource`, []any{}
+	if owners != nil {
+		q, args = q+` WHERE owner = ANY($1)`, append(args, owners)
+	}
+	rows, err := s.pool.Query(ctx, q+` GROUP BY kind ORDER BY kind`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []KindCount{}
+	for rows.Next() {
+		var k KindCount
+		if err := rows.Scan(&k.Kind, &k.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
 }
 
 func escapeLike(s string) string {

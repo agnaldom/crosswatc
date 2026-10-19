@@ -2,7 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus } from "@/components/Timeline";
@@ -12,13 +13,39 @@ import type { ResourceState } from "@/lib/types";
 
 const states = Object.keys(resourceStateLabel) as ResourceState[];
 
+/** Synced/Ready pill: True, False or unknown (no observed state yet). */
+function ConditionPill({ value }: { value?: boolean }) {
+  if (value === undefined) return <Badge tone="muted">—</Badge>;
+  return <Badge tone={value ? "ok" : "error"}>{value ? "True" : "False"}</Badge>;
+}
+
+const conditionOptions = [
+  { value: "true", label: "True" },
+  { value: "false", label: "False" },
+  { value: "unknown", label: "Desconhecido" },
+];
+
 export default function InfrastructurePage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <KindScoped />
+    </Suspense>
+  );
+}
+
+/** The sidebar Kind menu links to ?kind=…; remount the list per kind so paging resets. */
+function KindScoped() {
+  const kind = useSearchParams().get("kind") ?? undefined;
+  return <InfrastructureList key={kind ?? ""} kind={kind} />;
+}
+
+function InfrastructureList({ kind }: { kind?: string }) {
   const [filters, setFilters] = useState<ResourceFilters>({});
   const [cursors, setCursors] = useState<string[]>([]);
   const cursor = cursors.at(-1);
   const q = useQuery({
-    queryKey: ["resources", filters, cursor],
-    queryFn: () => api.listResources({ ...filters, cursor }),
+    queryKey: ["resources", kind, filters, cursor],
+    queryFn: () => api.listResources({ ...filters, kind, cursor }),
   });
 
   const set = (k: keyof ResourceFilters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -29,7 +56,10 @@ export default function InfrastructurePage() {
   return (
     <div className="mx-auto max-w-6xl">
       <div className="flex items-baseline justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">My Infrastructure</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          My Infrastructure
+          {kind && <span className="ml-2 text-lg font-normal text-zinc-500">· {kind}</span>}
+        </h1>
         <LiveStatus />
       </div>
       <p className="mt-1 text-sm text-zinc-600">Recursos das suas squads, do Git até a Cloud.</p>
@@ -51,6 +81,18 @@ export default function InfrastructurePage() {
             <option key={s} value={s}>{resourceStateLabel[s]}</option>
           ))}
         </select>
+        {(["synced", "ready"] as const).map((k) => (
+          <select key={k} aria-label={k === "synced" ? "Synced" : "Ready"} onChange={set(k)}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
+            <option value="">{k === "synced" ? "Synced: todos" : "Ready: todos"}</option>
+            {conditionOptions.map((o) => (
+              <option key={o.value} value={o.value}>{k === "synced" ? "Synced" : "Ready"}: {o.label}</option>
+            ))}
+          </select>
+        ))}
+        {kind && (
+          <Link href="/infrastructure" className="self-center text-sm text-zinc-500 hover:underline">Limpar kind</Link>
+        )}
       </div>
 
       <div className="mt-4">
@@ -64,6 +106,8 @@ export default function InfrastructurePage() {
                 <tr>
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Synced</th>
+                  <th className="px-4 py-2 font-medium">Ready</th>
                   <th className="px-4 py-2 font-medium">Tipo</th>
                   <th className="px-4 py-2 font-medium">Provider</th>
                   <th className="px-4 py-2 font-medium">Environment</th>
@@ -79,6 +123,8 @@ export default function InfrastructurePage() {
                     <td className="px-4 py-2.5">
                       <Badge tone={resourceStateTone[r.resourceState]}>{resourceStateLabel[r.resourceState]}</Badge>
                     </td>
+                    <td className="px-4 py-2.5"><ConditionPill value={r.synced} /></td>
+                    <td className="px-4 py-2.5"><ConditionPill value={r.ready} /></td>
                     <td className="px-4 py-2.5 text-zinc-600">{r.kind}</td>
                     <td className="px-4 py-2.5 capitalize text-zinc-600">{r.provider}</td>
                     <td className="px-4 py-2.5 text-zinc-600">{r.environment}</td>
