@@ -7,6 +7,7 @@ export interface Condition {
   status: "True" | "False" | "Unknown" | string;
   reason?: string;
   message?: string;
+  lastTransitionTime?: string;
 }
 
 export interface NormalizedStatus {

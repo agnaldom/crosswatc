@@ -53,15 +53,17 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO resource_topology (resource_id, nodes, edges, updated_at) VALUES
  ('11111111-1111-1111-1111-111111111111',
-  '[{"id":"PostgreSQLInstance/team-payments/pgsql-payments-dev","type":"claim","kind":"PostgreSQLInstance","name":"pgsql-payments-dev","status":"ready","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess"},{"type":"Ready","status":"True","reason":"Available"}]},
-    {"id":"XPostgreSQLInstance/xpostgresql-92a","type":"composite","kind":"XPostgreSQLInstance","name":"xpostgresql-92a","status":"ready","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess"},{"type":"Ready","status":"True","reason":"Available"}]},
-    {"id":"FlexibleServer/postgresql-server","type":"managed-resource","kind":"FlexibleServer","name":"postgresql-server","status":"ready","provider":"azure","externalName":"pgsql-payments-dev-01","deletionPolicy":"Delete","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess"},{"type":"Ready","status":"True","reason":"Available"}]},
+  '[{"id":"PostgreSQLInstance/team-payments/pgsql-payments-dev","type":"claim","kind":"PostgreSQLInstance","name":"pgsql-payments-dev","status":"ready","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess","lastTransitionTime":"2026-10-17T10:09:00Z"},{"type":"Ready","status":"True","reason":"Available","lastTransitionTime":"2026-10-17T10:12:00Z"}]},
+    {"id":"XPostgreSQLInstance/xpostgresql-92a","type":"composite","kind":"XPostgreSQLInstance","name":"xpostgresql-92a","status":"ready","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess","lastTransitionTime":"2026-10-17T10:09:00Z"},{"type":"Ready","status":"True","reason":"Available","lastTransitionTime":"2026-10-17T10:12:00Z"}]},
+    {"id":"FlexibleServer/postgresql-server","type":"managed-resource","kind":"FlexibleServer","name":"postgresql-server","status":"ready","provider":"azure","externalName":"pgsql-payments-dev-01","deletionPolicy":"Delete","conditions":[{"type":"Synced","status":"True","reason":"ReconcileSuccess","lastTransitionTime":"2026-10-17T10:09:00Z"},{"type":"Ready","status":"True","reason":"Available","lastTransitionTime":"2026-10-17T10:12:00Z"}]},
     {"id":"PrivateEndpoint/pe-pgsql","type":"managed-resource","kind":"PrivateEndpoint","name":"pe-pgsql","status":"not-ready","provider":"azure","deletionPolicy":"Delete","conditions":[{"type":"Synced","status":"True"},{"type":"Ready","status":"False","reason":"Creating"}]},
+    {"id":"Composition/postgresql-azure-v3","type":"composition","kind":"Composition","name":"postgresql-azure-v3","apiVersion":"apiextensions.crossplane.io/v1","status":"none","message":"revision postgresql-azure-v3-7f2c1"},
     {"id":"FlexibleServerDatabase/payments","type":"managed-resource","kind":"FlexibleServerDatabase","name":"payments","status":"error","provider":"azure","deletionPolicy":"Orphan","message":"AuthorizationFailed","conditions":[{"type":"Synced","status":"False","reason":"ReconcileError","message":"AuthorizationFailed: client does not have permission"},{"type":"Ready","status":"False"}]}]',
   '[{"source":"PostgreSQLInstance/team-payments/pgsql-payments-dev","target":"XPostgreSQLInstance/xpostgresql-92a"},
     {"source":"XPostgreSQLInstance/xpostgresql-92a","target":"FlexibleServer/postgresql-server"},
     {"source":"XPostgreSQLInstance/xpostgresql-92a","target":"PrivateEndpoint/pe-pgsql"},
-    {"source":"XPostgreSQLInstance/xpostgresql-92a","target":"FlexibleServerDatabase/payments"}]', now())
+    {"source":"XPostgreSQLInstance/xpostgresql-92a","target":"FlexibleServerDatabase/payments"},
+    {"source":"XPostgreSQLInstance/xpostgresql-92a","target":"Composition/postgresql-azure-v3"}]', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO tracker_event (id, dedupe_key, resource_id, revision_id, correlation_id, source, type, level, message, created_at) VALUES

@@ -13,6 +13,8 @@ const (
 	TypeClaim     = "claim"
 	TypeComposite = "composite"
 	TypeManaged   = "managed-resource"
+	// TypeComposition is the Composition selected by an XR (a reference, not a composed object).
+	TypeComposition = "composition"
 )
 
 // Node statuses.
@@ -22,6 +24,7 @@ const (
 	StatusError    = "error"
 	StatusMissing  = "missing"
 	StatusDeleting = "deleting"
+	StatusNone     = "none" // references without status of their own (Composition)
 )
 
 // Node is a vertex of the topology graph.
@@ -82,7 +85,13 @@ func Build(d kube.DiscoveredResource) Graph {
 		}
 		add(node(*d.XR, TypeComposite), parent)
 	}
+	if d.XR != nil && d.XR.CompositionName != "" {
+		add(compositionNode(*d.XR), d.XR.ID())
+	}
 	for _, c := range d.Composites {
+		if c.CompositionName != "" {
+			add(compositionNode(c), c.ID())
+		}
 		add(node(c, TypeComposite), c.Parent)
 	}
 	for _, m := range d.MRs {
@@ -99,6 +108,16 @@ func Build(d kube.DiscoveredResource) Graph {
 		}, m.Parent)
 	}
 	return g
+}
+
+// compositionNode is the Composition used by an XR (pinned revision when known).
+func compositionNode(xr kube.Object) Node {
+	n := Node{ID: "Composition/" + xr.CompositionName, Type: TypeComposition, Kind: "Composition", Name: xr.CompositionName,
+		APIVersion: "apiextensions.crossplane.io/v1", Status: StatusNone}
+	if xr.CompositionRevision != "" {
+		n.Message = "revision " + xr.CompositionRevision
+	}
+	return n
 }
 
 func typeOfMissing(d kube.DiscoveredResource, m kube.MissingRef) string {

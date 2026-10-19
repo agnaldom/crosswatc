@@ -119,11 +119,11 @@ export interface TrackerEvent {
   timestamp: string;
 }
 
-export type NodeStatus = "ready" | "not-ready" | "error" | "missing" | "deleting";
+export type NodeStatus = "ready" | "not-ready" | "error" | "missing" | "deleting" | "none";
 
 export interface TopologyNode {
   id: string;
-  type: "claim" | "composite" | "managed-resource";
+  type: "claim" | "composite" | "managed-resource" | "composition";
   kind: string;
   name: string;
   namespace?: string;
@@ -132,7 +132,7 @@ export interface TopologyNode {
   externalName?: string;
   message?: string;
   apiVersion?: string;
-  conditions?: { type: string; status: string; reason?: string; message?: string }[];
+  conditions?: { type: string; status: string; reason?: string; message?: string; lastTransitionTime?: string }[];
   deletionPolicy?: "Delete" | "Orphan";
   compositionResourceName?: string;
 }
@@ -264,7 +264,7 @@ export interface KubeEvent {
 
 export interface ManifestObject {
   id: string;
-  type: "claim" | "composite" | "managed-resource";
+  type: "claim" | "composite" | "managed-resource" | "composition";
   kind: string;
   name: string;
   namespace?: string;

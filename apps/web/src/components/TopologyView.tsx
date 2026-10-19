@@ -19,6 +19,7 @@ const edgeTypes = { floating: FloatingEdge };
 export function statusOf(n: TopologyNode): { tone: Tone; label: string; detail?: string } {
   if (n.status === "missing") return { tone: "muted", label: "missing", detail: n.message };
   if (n.status === "deleting") return { tone: "warn", label: "deleting", detail: n.message };
+  if (n.status === "none") return { tone: "muted", label: n.message ?? "referência", detail: n.message };
   return n.conditions?.length ? normalizeConditions(n.conditions, n.kind) : { tone: "muted", label: n.status, detail: n.message };
 }
 
@@ -38,9 +39,12 @@ export function TopologyView({ topology, nodeActions, nodeExtraActions }: {
         data: { node: n, tone: st.tone, label: st.label, detail: st.detail, selected: n.id === selected },
       };
     });
+    const isComposition = new Set(topology.nodes.filter((n) => n.type === "composition").map((n) => n.id));
     const edges: Edge[] = topology.edges.map((e) => ({
       id: `${e.source}->${e.target}`, source: e.source, target: e.target, type: "floating",
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#a1a1aa" }, style: { stroke: "#a1a1aa" },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#a1a1aa" },
+      // "uses" (XR → Composition) is dashed; composition edges are solid
+      style: isComposition.has(e.target) ? { stroke: "#a1a1aa", strokeDasharray: "5 4" } : { stroke: "#a1a1aa" },
     }));
     return { nodes, edges };
   }, [topology, selected]);

@@ -5,7 +5,7 @@ import { ErrorState, Loading } from "@/components/States";
 import { YamlViewer } from "@/components/YamlViewer";
 import { api } from "@/lib/api";
 
-const typeLabel = { claim: "Claim", composite: "XR", "managed-resource": "MR" } as const;
+const typeLabel = { claim: "Claim", composite: "XR", "managed-resource": "MR", composition: "Composition" } as const;
 
 export function ManifestTab({ id, object, onObject }: { id: string; object: string; onObject: (o: string) => void }) {
   const q = useQuery({ queryKey: ["manifest", id, object], queryFn: () => api.manifest(id, object || undefined), refetchInterval: false });
