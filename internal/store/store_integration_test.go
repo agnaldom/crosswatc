@@ -658,3 +658,58 @@ func TestStreamDriftTrigger(t *testing.T) {
 		t.Fatalf("%+v", drift[0])
 	}
 }
+
+func TestNotificationOutbox(t *testing.T) {
+	ctx := context.Background()
+	r, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-notify", "notified", "prd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, typ := range []string{"LIFECYCLE.OPERATIONAL", "GITOPS.PR.MERGED", "LIFECYCLE.DRIFT.DETECTED", "INFRA.RECONCILE.FAILED"} {
+		if _, err := testStore.InsertEvent(ctx, Event{DedupeKey: fmt.Sprintf("notify:%d", i), ResourceID: &r.ID, Source: "crosswatc",
+			Type: typ, Level: "info", Message: "msg " + typ, CreatedAt: time.Now().Add(time.Duration(i) * time.Millisecond)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var kinds []string
+	_, err = testStore.ProcessNotifications(ctx, 50, 3, func(n Notification) error {
+		if n.Owner != "notified" {
+			return nil
+		}
+		kinds = append(kinds, n.Kind)
+		switch n.Kind {
+		case "DRIFT_DETECTED":
+			return ErrSkip
+		case "FAILED":
+			return errors.New("smtp down")
+		}
+		if !strings.Contains(string(n.Payload), `"resourceName": "pg-notify"`) || !strings.Contains(string(n.Payload), `"environment": "prd"`) {
+			t.Errorf("payload %s", n.Payload)
+		}
+		return nil
+	})
+	if err != nil || strings.Join(kinds, ",") != "OPERATIONAL,DRIFT_DETECTED,FAILED" {
+		t.Fatalf("GITOPS.PR.MERGED must not notify; got %v %v", kinds, err)
+	}
+	statuses := map[string]string{}
+	rows, _ := testStore.pool.Query(ctx, `SELECT kind, status FROM notification WHERE owner = 'notified'`)
+	for rows.Next() {
+		var k, s string
+		_ = rows.Scan(&k, &s)
+		statuses[k] = s
+	}
+	rows.Close()
+	if statuses["OPERATIONAL"] != "sent" || statuses["DRIFT_DETECTED"] != "skipped" || statuses["FAILED"] != "pending" {
+		t.Fatalf("%v", statuses)
+	}
+	again := 0
+	_, _ = testStore.ProcessNotifications(ctx, 50, 3, func(n Notification) error {
+		if n.Owner == "notified" {
+			again++
+		}
+		return nil
+	})
+	if again != 0 {
+		t.Fatal("retry must wait for backoff")
+	}
+}

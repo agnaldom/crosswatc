@@ -20,6 +20,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/logging"
 	"github.com/agnaldom/crosswatc/internal/metrics"
+	"github.com/agnaldom/crosswatc/internal/notify"
 	"github.com/agnaldom/crosswatc/internal/reconciler"
 	"github.com/agnaldom/crosswatc/internal/store"
 	"github.com/agnaldom/crosswatc/internal/tracing"
@@ -95,6 +96,18 @@ func run() error {
 	runner := &worker.Runner{
 		Rec: rec, Resync: cfg.ResyncInterval, Log: log, Inbox: st, InboxInterval: cfg.InboxPollInterval, Stream: st,
 		Watch: informer.Options{Secrets: cfg.Informers.Secrets, Events: cfg.Informers.Events},
+	}
+	if cfg.Notify.RoutesPath != "" {
+		routes, err := notify.LoadConfig(cfg.Notify.RoutesPath)
+		if err != nil {
+			return err
+		}
+		d := &notify.Dispatcher{Config: routes, Teams: notify.Teams{}, PortalURL: cfg.Notify.PortalURL}
+		if cfg.Notify.SMTPAddr != "" {
+			d.Email = notify.Email{Addr: cfg.Notify.SMTPAddr, From: cfg.Notify.SMTPFrom, Username: cfg.Notify.SMTPUser, Password: cfg.Notify.SMTPPassword}
+		}
+		runner.Notifications, runner.Notifier = st, d
+		log.Info("notifications enabled", "squads", len(routes.Squads), "email", cfg.Notify.SMTPAddr != "")
 	}
 	if cfg.Informers.Enabled {
 		runner.Informers = informer.New(kc.Dynamic, kc.Metadata, log, runner.OnEvent)

@@ -2520,7 +2520,7 @@ Status: **todos os itens implementados** (PRs #34–#66, empilhados; marcados `[
 ### 69.1 Roadmap (§60)
 
 - [x] **R1** (#67) — Decommissioning com preview de impacto e dupla confirmação
-- [ ] **R2** (#68) — Notificações (Teams e e-mail): WAITING_APPROVAL, FAILED, OPERATIONAL, DRIFT_DETECTED
+- [x] **R2** (#68) — Notificações (Teams e e-mail): WAITING_APPROVAL, FAILED, OPERATIONAL, DRIFT_DETECTED
 - [ ] **R3** (#69) — Estimativa de custos no preview (Azure Retail Prices)
 
 ---

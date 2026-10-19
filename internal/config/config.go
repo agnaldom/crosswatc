@@ -43,6 +43,8 @@ type Config struct {
 	GitOpsBaseBranch   string
 	PolicyDir          string // extra Rego policies (package crosswatc)
 	MutationsPerMinute int    // per-user limit on change requests (0 → 10, negative disables)
+	Notify             NotifyConfig
+
 	// DecommissionEnvironments where the portal may open decommission PRs (comma list, "*" all, "none" disables).
 	DecommissionEnvironments []string
 	ArgoCDWebhookToken       string // bearer token of POST /webhooks/argocd (§35.1)
@@ -130,10 +132,18 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 			Token:        r.str("CROSSWATC_BACKSTAGE_TOKEN", ""),
 			PollInterval: r.duration("CROSSWATC_BACKSTAGE_POLL_INTERVAL", 30*time.Second),
 		},
-		ArgoCDNamespace:          r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
-		GitOpsBaseBranch:         r.str("CROSSWATC_GITOPS_BASE_BRANCH", "main"),
-		PolicyDir:                r.str("CROSSWATC_POLICY_DIR", ""),
-		MutationsPerMinute:       int(r.int64("CROSSWATC_MUTATIONS_PER_MINUTE", 0)),
+		ArgoCDNamespace:    r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
+		GitOpsBaseBranch:   r.str("CROSSWATC_GITOPS_BASE_BRANCH", "main"),
+		PolicyDir:          r.str("CROSSWATC_POLICY_DIR", ""),
+		MutationsPerMinute: int(r.int64("CROSSWATC_MUTATIONS_PER_MINUTE", 0)),
+		Notify: NotifyConfig{
+			RoutesPath:   r.str("CROSSWATC_NOTIFY_CONFIG", ""),
+			PortalURL:    r.str("CROSSWATC_PORTAL_URL", ""),
+			SMTPAddr:     r.str("CROSSWATC_SMTP_ADDR", ""),
+			SMTPFrom:     r.str("CROSSWATC_SMTP_FROM", "crosswatc@localhost"),
+			SMTPUser:     r.str("CROSSWATC_SMTP_USER", ""),
+			SMTPPassword: r.str("CROSSWATC_SMTP_PASSWORD", ""),
+		},
 		DecommissionEnvironments: splitList(r.str("CROSSWATC_DECOMMISSION_ENVIRONMENTS", "dev,hlg")),
 		ArgoCDWebhookToken:       r.str("CROSSWATC_ARGOCD_WEBHOOK_TOKEN", ""),
 		InboxPollInterval:        r.duration("CROSSWATC_INBOX_POLL_INTERVAL", time.Second),
@@ -235,6 +245,16 @@ func (r *reader) duration(key string, def time.Duration) time.Duration {
 		r.errs = append(r.errs, fmt.Errorf("%s: %w", key, err))
 	}
 	return d
+}
+
+// NotifyConfig configures notifications (spec §60).
+type NotifyConfig struct {
+	RoutesPath   string // YAML routing file (contains webhook URLs: mount from a Secret)
+	PortalURL    string // used to build links back to the resource
+	SMTPAddr     string // host:port; empty disables e-mail
+	SMTPFrom     string
+	SMTPUser     string
+	SMTPPassword string
 }
 
 func splitList(s string) []string {

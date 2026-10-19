@@ -112,3 +112,14 @@ policies:
 decommission:
   # Environments where the portal may open decommission PRs ("*" = all, "none" disables).
   environments: dev,hlg
+
+notifications:
+  # Secret with key routes.yaml (routing per squad; contains Teams webhook URLs) — see docs/architecture/notifications.md
+  routesSecret: ""
+  portalURL: ""            # e.g. https://crosswatc.corp.com (links in messages)
+  smtp:
+    addr: ""               # host:port; empty disables e-mail
+    from: crosswatc@corp.com
+    user: ""
+    # Secret with key smtp-password
+    passwordSecret: ""

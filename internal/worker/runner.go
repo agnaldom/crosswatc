@@ -52,6 +52,10 @@ type Runner struct {
 	InboxInterval time.Duration
 	Stream        StreamPruner // optional: trims the SSE replay buffer (spec §45)
 
+	Notifications  NotificationStore // optional with Notifier: delivers the notification outbox (spec §60)
+	Notifier       Notifier
+	NotifyInterval time.Duration
+
 	resolver atomic.Pointer[informer.Resolver]
 	resynced atomic.Bool
 	mu       sync.Mutex
@@ -133,6 +137,9 @@ func (r *Runner) Run(ctx context.Context) error {
 
 	if r.Inbox != nil {
 		go r.consumeInbox(ctx)
+	}
+	if r.Notifications != nil && r.Notifier != nil {
+		go r.consumeNotifications(ctx)
 	}
 	q.Add(informer.Target{Full: true})
 	for r.processNext(ctx, q) {

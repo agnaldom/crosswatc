@@ -64,6 +64,9 @@ var (
 	WebhookFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "crosswatc_webhook_failures_total", Help: "Rejected or failed webhook deliveries.",
 	}, []string{"source", "reason"})
+	NotificationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "crosswatc_notifications_total", Help: "Notification deliveries by channel, kind and status.",
+	}, []string{"channel", "kind", "status"})
 	HTTPDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "crosswatc_http_request_duration_seconds", Help: "API request latency.", Buckets: latencyBuckets,
 	}, []string{"method", "route", "code"})
@@ -73,7 +76,7 @@ func init() {
 	Registry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		ResourcesTotal, OperationsTotal, OperationsFailedTotal, OperationsStuckTotal, RevisionDuration, StageDuration,
 		EventIngestionLag, ReconcileDuration, ResyncDuration, ReconcileErrors, SSEConnections, SSEDropped, DriftTotal,
-		DriftActive, InformerRestarts, WebhookFailures, HTTPDuration)
+		DriftActive, InformerRestarts, WebhookFailures, HTTPDuration, NotificationsTotal)
 }
 
 // Handler serves /metrics.

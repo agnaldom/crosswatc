@@ -33,6 +33,21 @@ spec:
             - { name: CROSSWATC_RESYNC_INTERVAL, value: {{ .Values.worker.resyncInterval | quote }} }
             - { name: CROSSWATC_STUCK_TIMEOUT, value: {{ .Values.worker.stuckTimeout | quote }} }
             - { name: CROSSWATC_ARGOCD_NAMESPACE, value: {{ .Values.argocd.namespace | quote }} }
+            {{- if .Values.notifications.routesSecret }}
+            - { name: CROSSWATC_NOTIFY_CONFIG, value: /etc/crosswatc/notify/routes.yaml }
+            - { name: CROSSWATC_PORTAL_URL, value: {{ .Values.notifications.portalURL | quote }} }
+            {{- with .Values.notifications.smtp }}
+            {{- if .addr }}
+            - { name: CROSSWATC_SMTP_ADDR, value: {{ .addr | quote }} }
+            - { name: CROSSWATC_SMTP_FROM, value: {{ .from | quote }} }
+            - { name: CROSSWATC_SMTP_USER, value: {{ .user | quote }} }
+            {{- if .passwordSecret }}
+            - name: CROSSWATC_SMTP_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .passwordSecret }}, key: smtp-password } }
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
             - name: POD_NAMESPACE
               valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
             - name: CROSSWATC_LEADER_ELECTION_IDENTITY
@@ -62,15 +77,22 @@ spec:
           livenessProbe: { httpGet: { path: /healthz, port: probes }, periodSeconds: 20 }
           resources: {{- toYaml .Values.worker.resources | nindent 12 }}
           {{- include "crosswatc.securityContext" . | nindent 10 }}
-          {{- if .Values.github.enabled }}
           volumeMounts:
+            {{- if .Values.github.enabled }}
             - { name: github-app, mountPath: /var/run/secrets/github, readOnly: true }
-          {{- end }}
-      {{- if .Values.github.enabled }}
+            {{- end }}
+            {{- if .Values.notifications.routesSecret }}
+            - { name: notify, mountPath: /etc/crosswatc/notify, readOnly: true }
+            {{- end }}
       volumes:
+        {{- if .Values.github.enabled }}
         - name: github-app
           secret: { secretName: {{ .Values.github.existingSecret }} }
-      {{- end }}
+        {{- end }}
+        {{- if .Values.notifications.routesSecret }}
+        - name: notify
+          secret: { secretName: {{ .Values.notifications.routesSecret }} }
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
