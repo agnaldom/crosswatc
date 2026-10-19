@@ -80,8 +80,8 @@ func run() error {
 	}
 
 	deps := httpapi.Deps{Store: st, Auth: authn, Log: log, Inbox: st, Audit: st, MutationsPerMinute: cfg.MutationsPerMinute,
-		DecommissionEnvironments: cfg.DecommissionEnvironments,
-		Webhooks:                 httpapi.WebhookConfig{GitHubSecret: cfg.GitHub.WebhookSecret, ArgoCDToken: cfg.ArgoCDWebhookToken}}
+		DecommissionEnvironments: cfg.DecommissionEnvironments, ProductionEnvironments: cfg.ProductionEnvironments,
+		Webhooks: httpapi.WebhookConfig{GitHubSecret: cfg.GitHub.WebhookSecret, ArgoCDToken: cfg.ArgoCDWebhookToken}}
 	hub := stream.NewHub(st, log, 0)
 	go func() {
 		if err := hub.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {

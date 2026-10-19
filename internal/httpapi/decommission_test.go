@@ -103,3 +103,28 @@ func TestDecommission(t *testing.T) {
 		t.Fatalf("no gitops: %d", w.Code)
 	}
 }
+
+// #82: production is an explicit set, not a "pr" prefix.
+func TestDecommissionProductionWarning(t *testing.T) {
+	for env, want := range map[string]bool{"preview": false, "pre": false, "prd": true, "prod": true, "production": true, "live": false} {
+		h := decomHandler([]string{"*"}, nil, nil, nil, func(fs *fakeStore) {
+			r := fs.resources[payID]
+			r.Environment = env
+			fs.resources[payID] = r
+		})
+		var p decommissionPreview
+		decode(t, post(h, "/api/v1/resources/"+payID.String()+"/decommission/preview", ``, payments), &p)
+		got := false
+		for _, w := range p.Warnings {
+			if strings.Contains(w, "Ambiente produtivo") {
+				got = true
+			}
+		}
+		if got != want {
+			t.Errorf("%s: production warning %v, want %v", env, got, want)
+		}
+	}
+	if productionEnvs([]string{"live"})[0] != "live" {
+		t.Fatal("configured list overrides defaults")
+	}
+}

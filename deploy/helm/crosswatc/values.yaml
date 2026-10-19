@@ -113,6 +113,9 @@ decommission:
   # Environments where the portal may open decommission PRs ("*" = all, "none" disables).
   environments: dev,hlg
 
+# Environments treated as production (warnings; keep in sync with custom Rego policies).
+productionEnvironments: prd,prod,production
+
 notifications:
   # Secret with key routes.yaml (routing per squad; contains Teams webhook URLs) — see docs/architecture/notifications.md
   routesSecret: ""

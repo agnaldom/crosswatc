@@ -96,7 +96,7 @@ func (h *handlers) buildDecommissionPreview(c *gin.Context, r store.TrackedResou
 			}
 		}
 	}
-	if strings.HasPrefix(r.Environment, "pr") {
+	if slices.Contains(h.productionEnvs, r.Environment) {
 		p.Warnings = append(p.Warnings, "Ambiente produtivo: a remoção é irreversível e apaga dados")
 	}
 	if len(p.Deleted) > 0 {
