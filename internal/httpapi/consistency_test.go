@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/agnaldom/crosswatc/internal/auth"
+	"github.com/agnaldom/crosswatc/internal/forms"
 	"github.com/agnaldom/crosswatc/internal/store"
 )
 
@@ -132,4 +133,38 @@ func TestCancelRevision(t *testing.T) {
 	if w := post(h, path, ``, payments); w.Code != 404 {
 		t.Fatalf("missing: %d", w.Code)
 	}
+}
+
+// #75: schema defaults present only on the Claim are not divergences.
+func TestDefaultsOnlyOnClaimDoNotBlock(t *testing.T) {
+	applied := `{"syncedWithGit":true,"spec":{"parameters":{"vmSize":"Standard_D2as_v5","storage":20}}}`
+	g := &fakeGitOps{manifest: "metadata: {name: pgsql-payments}\nspec:\n  parameters:\n    vmSize: Standard_D2as_v5\n"}
+	if w := post(consistencyHandler(applied, nil, newMemChanges(), g), "/api/v1/resources/"+payID.String()+"/changes", changeBody, payments); w.Code != 201 {
+		t.Fatalf("defaulted field blocked the update: %d %s", w.Code, w.Body)
+	}
+}
+
+// #76: an unresolved Argo Application (syncedWithGit absent) does not block updates.
+func TestUnknownArgoSyncDoesNotBlock(t *testing.T) {
+	applied := `{"spec":{"parameters":{"vmSize":"Standard_D2as_v5"}}}`
+	if w := post(consistencyHandler(applied, nil, newMemChanges(), &fakeGitOps{}), "/api/v1/resources/"+payID.String()+"/changes", changeBody, payments); w.Code != 201 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+}
+
+// #78: redacted values cannot be compared with Git and are skipped.
+func TestRedactedValuesAreNotDivergences(t *testing.T) {
+	div := diverging(pgFormWithSecret(), map[string]any{"vmSize": "D2", "adminPassword": "s3cret"},
+		map[string]any{"vmSize": "D2", "adminPassword": "[REDACTED]"})
+	if len(div) != 0 {
+		t.Fatalf("%+v", div)
+	}
+	div = diverging(pgFormWithSecret(), map[string]any{"vmSize": "D4"}, map[string]any{"vmSize": "D2"})
+	if len(div) != 1 || div[0].Field != "vmSize" {
+		t.Fatalf("real divergence must still be reported: %+v", div)
+	}
+}
+
+func pgFormWithSecret() forms.Form {
+	return forms.Form{Fields: []forms.Field{{Key: "vmSize"}, {Key: "adminPassword"}}}
 }

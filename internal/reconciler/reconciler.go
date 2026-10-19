@@ -648,7 +648,9 @@ func projection(tr store.TrackedResource, d kube.DiscoveredResource, sig lifecyc
 	desired := map[string]any{"repository": tr.Repository, "path": tr.GitPath, "commitSha": sig.PR.MergeCommitSHA}
 	applied := map[string]any{
 		"generation": d.Claim.Generation, "spec": redact.Map(d.Claim.Spec), // never persist secret material (§49)
-		"syncedWithGit": sig.Argo.Found && sig.Argo.SyncStatus == "Synced",
+	}
+	if sig.Argo.Found { // unknown when the Application could not be resolved: do not claim "not synced"
+		applied["syncedWithGit"] = sig.Argo.SyncStatus == "Synced"
 	}
 	observed := map[string]any{"ready": d.Claim.Ready(), "synced": d.Claim.Synced(), "lastReconcileAt": now}
 	health := map[string]any{

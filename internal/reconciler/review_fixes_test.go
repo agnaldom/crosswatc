@@ -3,6 +3,7 @@ package reconciler
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,5 +66,14 @@ func TestPortalRevisionWithoutPRIsNotMatchedByPath(t *testing.T) {
 	}
 	if len(pr.lookups) != 0 {
 		t.Fatalf("no GitHub lookup expected without the revision's own PR number: %+v", pr.lookups)
+	}
+}
+
+// #76: without a resolved Argo Application the projection must not claim "not synced with Git".
+func TestAppliedStateOmitsSyncWhenArgoUnknown(t *testing.T) {
+	st, _, _, _ := operationalWith(t, store.Revision{Rev: 2, Kind: "UPDATE", State: "SUCCEEDED"})
+	tr, _ := st.only()
+	if strings.Contains(string(st.projections[tr.ID].AppliedState), "syncedWithGit") {
+		t.Fatalf("%s", st.projections[tr.ID].AppliedState)
 	}
 }
