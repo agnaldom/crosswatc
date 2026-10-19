@@ -115,50 +115,60 @@ type Dispatcher struct {
 	PortalURL string // e.g. https://crosswatc.corp.com
 }
 
-// Handle implements the store.ProcessNotifications callback.
-func (d *Dispatcher) Handle(ctx context.Context, n store.Notification) error {
+// Handle implements the store.ProcessNotifications callback. Each recipient is a separate target
+// ("teams:<url>", "email:<addr>"); targets already in n.SentTargets are skipped, so a retry only reaches
+// the ones that failed. It returns every target delivered in this call, even when others failed.
+func (d *Dispatcher) Handle(ctx context.Context, n store.Notification) ([]string, error) {
 	var m Message
 	if err := json.Unmarshal(n.Payload, &m); err != nil {
-		return fmt.Errorf("%w: payload: %w", store.ErrPermanent, err)
+		return nil, fmt.Errorf("%w: payload: %w", store.ErrPermanent, err)
 	}
 	m.Kind, m.Owner = n.Kind, n.Owner
 	if d.PortalURL != "" && n.ResourceID != nil {
 		m.Link = strings.TrimRight(d.PortalURL, "/") + "/infrastructure/" + n.ResourceID.String()
 	}
-	routes := d.Config.routes(n.Owner, n.Kind)
-	var teams, email []string
-	for _, r := range routes {
-		teams = append(teams, r.Teams...)
-		email = append(email, r.Email...)
+	type target struct {
+		key  string
+		send Sender
+		to   string
 	}
-	teams, email = dedupe(teams), dedupe(email)
-	sent := false
+	var targets []target
+	for _, r := range d.Config.routes(n.Owner, n.Kind) {
+		if d.Teams != nil {
+			for _, u := range r.Teams {
+				targets = append(targets, target{"teams:" + u, d.Teams, u})
+			}
+		}
+		if d.Email != nil {
+			for _, a := range r.Email {
+				targets = append(targets, target{"email:" + a, d.Email, a})
+			}
+		}
+	}
+	if len(targets) == 0 {
+		metrics.NotificationsTotal.WithLabelValues("none", n.Kind, "skipped").Inc()
+		return nil, fmt.Errorf("%w: no recipients for squad %q", store.ErrSkip, n.Owner)
+	}
+	done := map[string]bool{}
+	for _, t := range n.SentTargets {
+		done[t] = true
+	}
+	var delivered []string
 	var errs []error
-	for _, ch := range []struct {
-		s  Sender
-		to []string
-	}{{d.Teams, teams}, {d.Email, email}} {
-		if ch.s == nil || len(ch.to) == 0 {
+	for _, t := range targets {
+		if done[t.key] {
 			continue
 		}
-		err := ch.s.Send(ctx, ch.to, m)
-		status := "sent"
-		if err != nil {
-			status = "error"
-			errs = append(errs, fmt.Errorf("%s: %w", ch.s.Channel(), err))
-		} else {
-			sent = true
+		done[t.key] = true // routes may repeat a recipient (squad + default)
+		if err := t.send.Send(ctx, []string{t.to}, m); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", t.send.Channel(), err))
+			metrics.NotificationsTotal.WithLabelValues(t.send.Channel(), n.Kind, "error").Inc()
+			continue
 		}
-		metrics.NotificationsTotal.WithLabelValues(ch.s.Channel(), n.Kind, status).Inc()
+		delivered = append(delivered, t.key)
+		metrics.NotificationsTotal.WithLabelValues(t.send.Channel(), n.Kind, "sent").Inc()
 	}
-	if len(errs) > 0 && !sent {
-		return errors.Join(errs...)
-	}
-	if !sent && len(errs) == 0 {
-		metrics.NotificationsTotal.WithLabelValues("none", n.Kind, "skipped").Inc()
-		return fmt.Errorf("%w: no recipients for squad %q", store.ErrSkip, n.Owner)
-	}
-	return nil // partial success is not retried to avoid duplicate deliveries on the healthy channel
+	return delivered, errors.Join(errs...)
 }
 
 func dedupe(in []string) []string {

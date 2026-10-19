@@ -672,44 +672,86 @@ func TestNotificationOutbox(t *testing.T) {
 		}
 	}
 	var kinds []string
-	_, err = testStore.ProcessNotifications(ctx, 50, 3, func(n Notification) error {
+	_, err = testStore.ProcessNotifications(ctx, 50, 3, func(n Notification) ([]string, error) {
 		if n.Owner != "notified" {
-			return nil
+			return nil, nil
 		}
 		kinds = append(kinds, n.Kind)
 		switch n.Kind {
 		case "DRIFT_DETECTED":
-			return ErrSkip
+			return nil, ErrSkip
 		case "FAILED":
-			return errors.New("smtp down")
+			return []string{"email:a@corp.com"}, errors.New("teams down")
 		}
 		if !strings.Contains(string(n.Payload), `"resourceName": "pg-notify"`) || !strings.Contains(string(n.Payload), `"environment": "prd"`) {
 			t.Errorf("payload %s", n.Payload)
 		}
-		return nil
+		return []string{"teams:x"}, nil
 	})
 	if err != nil || strings.Join(kinds, ",") != "OPERATIONAL,DRIFT_DETECTED,FAILED" {
 		t.Fatalf("GITOPS.PR.MERGED must not notify; got %v %v", kinds, err)
 	}
 	statuses := map[string]string{}
-	rows, _ := testStore.pool.Query(ctx, `SELECT kind, status FROM notification WHERE owner = 'notified'`)
+	targets := map[string]string{}
+	rows, _ := testStore.pool.Query(ctx, `SELECT kind, status, array_to_string(sent_targets, ',') FROM notification WHERE owner = 'notified'`)
 	for rows.Next() {
-		var k, s string
-		_ = rows.Scan(&k, &s)
-		statuses[k] = s
+		var k, s, tg string
+		_ = rows.Scan(&k, &s, &tg)
+		statuses[k], targets[k] = s, tg
 	}
 	rows.Close()
 	if statuses["OPERATIONAL"] != "sent" || statuses["DRIFT_DETECTED"] != "skipped" || statuses["FAILED"] != "pending" {
 		t.Fatalf("%v", statuses)
 	}
+	if targets["FAILED"] != "email:a@corp.com" || targets["OPERATIONAL"] != "teams:x" {
+		t.Fatalf("delivered targets must be recorded even on partial failure: %v", targets)
+	}
 	again := 0
-	_, _ = testStore.ProcessNotifications(ctx, 50, 3, func(n Notification) error {
+	_, _ = testStore.ProcessNotifications(ctx, 50, 3, func(n Notification) ([]string, error) {
 		if n.Owner == "notified" {
 			again++
 		}
-		return nil
+		return nil, nil
 	})
 	if again != 0 {
 		t.Fatal("retry must wait for backoff")
+	}
+}
+
+// #80: claiming is a short statement with a lease; concurrent workers never get the same row and a
+// crashed worker's rows come back after the lease.
+func TestNotificationLease(t *testing.T) {
+	ctx := context.Background()
+	r, err := testStore.UpsertResourceByClaim(ctx, newResource("pg-lease", "leased", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testStore.InsertEvent(ctx, Event{DedupeKey: "lease:1", ResourceID: &r.ID, Source: "crosswatc", Type: "LIFECYCLE.OPERATIONAL", Level: "info"}); err != nil {
+		t.Fatal(err)
+	}
+	mine := func(ns []Notification) []Notification {
+		var out []Notification
+		for _, n := range ns {
+			if n.Owner == "leased" {
+				out = append(out, n)
+			}
+		}
+		return out
+	}
+	first, err := testStore.ClaimNotifications(ctx, 100, time.Second)
+	if err != nil || len(mine(first)) != 1 {
+		t.Fatalf("%v %v", first, err)
+	}
+	second, _ := testStore.ClaimNotifications(ctx, 100, time.Second)
+	if len(mine(second)) != 0 {
+		t.Fatal("leased row handed out twice")
+	}
+	time.Sleep(1100 * time.Millisecond) // worker "crashed": lease expires
+	third, _ := testStore.ClaimNotifications(ctx, 100, time.Minute)
+	if len(mine(third)) != 1 {
+		t.Fatal("expired lease must make the row due again")
+	}
+	if err := testStore.CompleteNotification(ctx, mine(third)[0].ID, []string{"teams:x"}, nil, 3); err != nil {
+		t.Fatal(err)
 	}
 }

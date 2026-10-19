@@ -15,14 +15,14 @@ type fakeOutbox struct {
 	done  []int64
 }
 
-func (f *fakeOutbox) ProcessNotifications(_ context.Context, limit, _ int, fn func(store.Notification) error) (int, error) {
+func (f *fakeOutbox) ProcessNotifications(_ context.Context, limit, _ int, fn func(store.Notification) ([]string, error)) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	n := 0
 	for len(f.items) > 0 && n < limit {
 		it := f.items[0]
 		f.items = f.items[1:]
-		if fn(it) == nil {
+		if _, err := fn(it); err == nil {
 			f.done = append(f.done, it.ID)
 		}
 		n++
@@ -32,7 +32,10 @@ func (f *fakeOutbox) ProcessNotifications(_ context.Context, limit, _ int, fn fu
 
 type countNotifier struct{ n int }
 
-func (c *countNotifier) Handle(context.Context, store.Notification) error { c.n++; return nil }
+func (c *countNotifier) Handle(context.Context, store.Notification) ([]string, error) {
+	c.n++
+	return nil, nil
+}
 
 func TestConsumeNotifications(t *testing.T) {
 	ob := &fakeOutbox{}

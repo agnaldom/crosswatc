@@ -10,8 +10,8 @@
 ## Fluxo
 
 1. Um trigger em `tracker_event` (migration 00004) grava a notificação na tabela `notification` (outbox) — vale para eventos inseridos pela API e pelo worker, e é idempotente por `event_id`.
-2. O worker drena a outbox (`FOR UPDATE SKIP LOCKED`), resolve os destinatários pela squad dona e envia para Teams e/ou e-mail.
-3. Falha em todos os canais → nova tentativa com backoff quadrático (30 s, 2 min, 4,5 min…; 6 tentativas). Falha só em um canal não reenvia o outro (evita duplicatas). Sem destinatário → `skipped`.
+2. O worker reserva um lote com um único `UPDATE … SKIP LOCKED` (status `sending`, lease de 2 min) e entrega **fora de transação** — um endpoint lento não segura conexão nem locks. Se o worker cair, o lease expira e outro reprocessa.
+3. Cada destinatário é um alvo (`teams:<url>`, `email:<endereço>`). Os entregues ficam em `sent_targets`; havendo falha, a nova tentativa (backoff quadrático 30 s, 2 min, 4,5 min…; 6 tentativas) só envia para os alvos que faltaram — sem duplicatas nem perdas. Sem destinatário → `skipped`.
 
 ## Roteamento (`CROSSWATC_NOTIFY_CONFIG`)
 
