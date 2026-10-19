@@ -12,6 +12,7 @@ import { Lifecycle } from "@/components/Lifecycle";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus, Timeline } from "@/components/Timeline";
 import { TopologyView } from "@/components/TopologyView";
+import { WatchButton } from "@/components/WatchButton";
 import { api } from "@/lib/api";
 import { healthTone, resourceStateLabel, resourceStateTone, revisionStateTone } from "@/lib/labels";
 import type { Health, Revision, TrackedResource } from "@/lib/types";
@@ -44,7 +45,10 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
       <Link href="/infrastructure" className="text-sm text-zinc-500 hover:underline">← My Infrastructure</Link>
       <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{r.name}</h1>
+          <h1 className="flex items-center gap-1 text-2xl font-semibold tracking-tight">
+            {r.name}
+            <WatchButton resource={r} size="md" />
+          </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600">
             <Badge tone={resourceStateTone[r.resourceState]}>{resourceStateLabel[r.resourceState]}</Badge>
             <span>{r.kind}</span>·<span className="capitalize">{r.provider}</span>·<span>{r.environment}</span>

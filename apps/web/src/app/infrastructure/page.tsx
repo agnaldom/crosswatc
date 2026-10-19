@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus } from "@/components/Timeline";
+import { WatchButton } from "@/components/WatchButton";
 import { api, type ResourceFilters } from "@/lib/api";
 import { resourceStateLabel, resourceStateTone } from "@/lib/labels";
 import type { ResourceState } from "@/lib/types";
@@ -118,6 +119,7 @@ function InfrastructureList({ kind }: { kind?: string }) {
                 {q.data.items.map((r) => (
                   <tr key={r.id} className="hover:bg-zinc-50">
                     <td className="whitespace-nowrap px-4 py-2.5 font-medium">
+                      <WatchButton resource={r} />{" "}
                       <Link href={`/infrastructure/${r.id}`} className="hover:underline">{r.name}</Link>
                     </td>
                     <td className="px-4 py-2.5">

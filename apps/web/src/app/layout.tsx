@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import "./globals.css";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { KindNavLinks } from "@/components/KindNavLinks";
 import { PlatformNavLink } from "@/components/PlatformNavLink";
+import { WatchlistNav } from "@/components/WatchlistNav";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -29,6 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/infrastructure" className="block text-lg font-semibold tracking-tight">
                 Crosswatc
               </Link>
+              <GlobalSearch />
               <p className="mt-6 text-xs font-medium uppercase tracking-wide text-zinc-500">Infrastructure</p>
               <nav className="mt-2 flex flex-col gap-1 text-sm">
                 {nav.map((n) =>
@@ -43,6 +46,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   ),
                 )}
               </nav>
+              <WatchlistNav />
               <Suspense fallback={null}>
                 <KindNavLinks />
               </Suspense>
