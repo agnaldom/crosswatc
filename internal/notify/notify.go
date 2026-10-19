@@ -170,8 +170,3 @@ func (d *Dispatcher) Handle(ctx context.Context, n store.Notification) ([]string
 	}
 	return delivered, errors.Join(errs...)
 }
-
-func dedupe(in []string) []string {
-	slices.Sort(in)
-	return slices.Compact(in)
-}
