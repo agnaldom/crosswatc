@@ -261,3 +261,11 @@ export interface KubeEvent {
   firstSeen?: string;
   lastSeen?: string;
 }
+
+export interface ManifestObject {
+  id: string;
+  type: "claim" | "composite" | "managed-resource";
+  kind: string;
+  name: string;
+  namespace?: string;
+}

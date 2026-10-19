@@ -6,6 +6,11 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/restmapper"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,6 +44,7 @@ type Client struct {
 	Dynamic   dynamic.Interface
 	Metadata  metadata.Interface // metadata-only reads (Secrets: never fetch values, §49)
 	PageLimit int64
+	Mapper    meta.RESTMapper // Kind → resource, for objects known only by apiVersion/kind (optional)
 }
 
 // New builds a Client from a REST config.
@@ -51,7 +57,12 @@ func New(cfg *rest.Config, pageLimit int64) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{Dynamic: dyn, Metadata: md, PageLimit: pageLimit}, nil
+	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+	return &Client{Dynamic: dyn, Metadata: md, PageLimit: pageLimit, Mapper: mapper}, nil
 }
 
 // ResourceTarget identifies a resource type (§21).

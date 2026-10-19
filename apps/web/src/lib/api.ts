@@ -1,4 +1,5 @@
 import type {
+  ManifestObject,
   KubeEvent,
   DecommissionPreview,
   AuditEntry,
@@ -71,6 +72,10 @@ export const api = {
   operations: (id: string) => get<Page<Operation>>(`/resources/${id}/operations`),
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
   form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
+  manifest: (id: string, object?: string) =>
+    get<{ object: ManifestObject; yaml: string; objects: ManifestObject[] }>(
+      `/resources/${id}/manifest${object ? `?object=${encodeURIComponent(object)}` : ""}`,
+    ),
   kubeEvents: (id: string) =>
     get<{ items: KubeEvent[]; errors: { object: { kind: string; name: string }; error: string }[] }>(`/resources/${id}/kube-events`),
   audit: (id: string) => get<Page<AuditEntry>>(`/resources/${id}/audit?limit=100`),

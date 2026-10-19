@@ -121,6 +121,7 @@ func New(d Deps) *gin.Engine {
 	res.GET("/topology", h.getTopology)
 	res.GET("/form", h.getResourceForm)
 	res.GET("/kube-events", h.listKubeEvents)
+	res.GET("/manifest", h.getManifest)
 	res.POST("/changes/preview", h.previewChanges)
 	res.POST("/changes", h.createChange)
 	res.POST("/revisions/:rev/cancel", h.cancelRevision)
