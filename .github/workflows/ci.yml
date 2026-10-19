@@ -1,0 +1,126 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: crosswatc
+          POSTGRES_PASSWORD: crosswatc
+          POSTGRES_DB: crosswatc
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U crosswatc"
+          --health-interval 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: make build
+      - name: Unit tests
+        run: make test
+      - name: Integration tests
+        run: make test-integration
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web lint
+      - run: pnpm --filter web typecheck
+      - run: pnpm --filter web test
+      - run: pnpm --filter web build
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v4
+      - name: Helm lint and render
+        run: |
+          helm lint deploy/helm/crosswatc
+          helm template t deploy/helm/crosswatc --set rbac.platformApiGroups={database.crosswatc.io} \
+            --set github.enabled=true --set backstage.url=https://bs --set ingress.enabled=true > /dev/null
+      - name: Validate PromQL rules (promtool)
+        run: |
+          helm template t deploy/helm/crosswatc --set observability.prometheusRule.enabled=true \
+            --show-only templates/prometheusrule.yaml > /tmp/rule.yaml
+          python3 -c "import yaml,sys; d=yaml.safe_load(open('/tmp/rule.yaml')); yaml.safe_dump(d['spec'], open('/tmp/rules.yaml','w'))"
+          docker run --rm -v /tmp:/w --entrypoint promtool prom/prometheus:latest check rules /w/rules.yaml
+          python3 -c "import json; json.load(open('deploy/helm/crosswatc/dashboards/crosswatc.json'))"
+      - uses: docker/setup-buildx-action@v3
+      - name: Build api image
+        uses: docker/build-push-action@v6
+        with: { context: ., file: deploy/docker/go.Dockerfile, build-args: SERVICE=api, push: false }
+      - name: Build worker image
+        uses: docker/build-push-action@v6
+        with: { context: ., file: deploy/docker/go.Dockerfile, build-args: SERVICE=worker, push: false }
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with: { context: ., file: deploy/docker/web.Dockerfile, push: false }
+
+  load:
+    # Validates the §53 SLOs (GET /resources/{id} p95 < 400ms, 99.5% success) under concurrent load.
+    runs-on: ubuntu-latest
+    needs: [go]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: crosswatc
+          POSTGRES_PASSWORD: crosswatc
+          POSTGRES_DB: crosswatc
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U crosswatc"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      CROSSWATC_DATABASE_URL: postgres://crosswatc:crosswatc@localhost:5432/crosswatc?sslmode=disable
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Migrate and seed
+        run: |
+          go run ./services/dbtool migrate
+          go run ./services/dbtool seed-load -resources 5000 -squads 20 -events 20
+      - name: Start API
+        run: |
+          go build -o /tmp/crosswatc-api ./services/api
+          CROSSWATC_AUTH_MODE=dev CROSSWATC_LOG_LEVEL=warn /tmp/crosswatc-api > /tmp/api.log 2>&1 &
+          for i in $(seq 30); do curl -sf localhost:8080/readyz && break; sleep 1; done
+      - uses: grafana/setup-k6-action@v1
+      - uses: grafana/run-k6-action@v1
+        env:
+          BASE_URL: http://localhost:8080
+          VUS: "50"
+          HOLD: 1m
+        with:
+          path: test/load/api.js
+      - name: API metrics after load
+        if: always()
+        run: curl -s localhost:9090/metrics | grep -E '^crosswatc_http_request_duration_seconds_count' | head -20

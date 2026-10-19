@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crosswatc-api
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+    app.kubernetes.io/name: crosswatc-api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels: { app.kubernetes.io/name: crosswatc-api }
+  template:
+    metadata:
+      labels: {{- include "crosswatc.labels" . | nindent 8 }}
+        app.kubernetes.io/name: crosswatc-api
+    spec:
+      serviceAccountName: crosswatc
+      containers:
+        - name: api
+          image: {{ include "crosswatc.image" (dict "root" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ name: http, containerPort: 8080 }, { name: metrics, containerPort: 9090 }]
+          env:
+            {{- include "crosswatc.commonEnv" . | nindent 12 }}
+            {{- include "crosswatc.otelEnv" . | nindent 12 }}
+            {{- if .Values.policies.configMap }}
+            - { name: CROSSWATC_POLICY_DIR, value: /etc/crosswatc/policies }
+            {{- end }}
+            - { name: CROSSWATC_AUTH_MODE, value: {{ .Values.auth.mode | quote }} }
+            - { name: CROSSWATC_OIDC_ISSUER, value: {{ .Values.auth.oidcIssuer | quote }} }
+            - { name: CROSSWATC_OIDC_AUDIENCE, value: {{ .Values.auth.oidcAudience | quote }} }
+            - { name: CROSSWATC_SQUAD_GROUP_PREFIX, value: {{ .Values.auth.squadGroupPrefix | quote }} }
+            - { name: CROSSWATC_SRE_GROUP, value: {{ .Values.auth.sreGroup | quote }} }
+            - { name: CROSSWATC_OIDC_GROUPS_CLAIM, value: {{ .Values.auth.groupsClaim | quote }} }
+            - { name: CROSSWATC_DECOMMISSION_ENVIRONMENTS, value: {{ .Values.decommission.environments | quote }} }
+            - { name: CROSSWATC_PRODUCTION_ENVIRONMENTS, value: {{ .Values.productionEnvironments | quote }} }
+            - { name: CROSSWATC_COST_PROVIDER, value: {{ .Values.cost.provider | quote }} }
+            - { name: CROSSWATC_COST_CURRENCY, value: {{ .Values.cost.currency | quote }} }
+            {{- with .Values.webhooks.existingSecret }}
+            - name: CROSSWATC_GITHUB_WEBHOOK_SECRET
+              valueFrom: { secretKeyRef: { name: {{ . }}, key: github-webhook-secret, optional: true } }
+            - name: CROSSWATC_ARGOCD_WEBHOOK_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ . }}, key: argocd-webhook-token, optional: true } }
+            {{- end }}
+            {{- if .Values.github.enabled }}
+            - { name: CROSSWATC_GITHUB_API_URL, value: {{ .Values.github.apiURL | quote }} }
+            - { name: CROSSWATC_GITHUB_APP_ID, value: {{ .Values.github.appID | quote }} }
+            - { name: CROSSWATC_GITHUB_INSTALLATION_ID, value: {{ .Values.github.installationID | quote }} }
+            - { name: CROSSWATC_GITHUB_PRIVATE_KEY_PATH, value: /var/run/secrets/github/private-key.pem }
+            - { name: CROSSWATC_GITOPS_BASE_BRANCH, value: {{ .Values.github.baseBranch | quote }} }
+            {{- end }}
+          readinessProbe: { httpGet: { path: /readyz, port: http }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 20 }
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          {{- include "crosswatc.securityContext" . | nindent 10 }}
+          volumeMounts:
+            {{- if .Values.github.enabled }}
+            - { name: github-app, mountPath: /var/run/secrets/github, readOnly: true }
+            {{- end }}
+            {{- if .Values.policies.configMap }}
+            - { name: policies, mountPath: /etc/crosswatc/policies, readOnly: true }
+            {{- end }}
+      volumes:
+        {{- if .Values.github.enabled }}
+        - name: github-app
+          secret: { secretName: {{ .Values.github.existingSecret }} }
+        {{- end }}
+        {{- if .Values.policies.configMap }}
+        - name: policies
+          configMap: { name: {{ .Values.policies.configMap }} }
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crosswatc-api
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: crosswatc-api }
+  ports: [{ name: http, port: 80, targetPort: http }, { name: metrics, port: 9090, targetPort: metrics }]

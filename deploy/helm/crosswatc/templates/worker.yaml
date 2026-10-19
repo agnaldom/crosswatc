@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crosswatc-worker
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+    app.kubernetes.io/name: crosswatc-worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  {{- if .Values.worker.leaderElection.enabled }}
+  strategy: { type: RollingUpdate, rollingUpdate: { maxUnavailable: 1, maxSurge: 0 } }
+  {{- else }}
+  strategy: { type: Recreate }
+  {{- end }}
+  selector:
+    matchLabels: { app.kubernetes.io/name: crosswatc-worker }
+  template:
+    metadata:
+      labels: {{- include "crosswatc.labels" . | nindent 8 }}
+        app.kubernetes.io/name: crosswatc-worker
+    spec:
+      serviceAccountName: crosswatc
+      containers:
+        - name: worker
+          image: {{ include "crosswatc.image" (dict "root" . "name" "worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ name: probes, containerPort: 8081 }]
+          env:
+            {{- include "crosswatc.commonEnv" . | nindent 12 }}
+            {{- include "crosswatc.otelEnv" . | nindent 12 }}
+            - { name: CROSSWATC_AUTH_MODE, value: oidc }
+            - { name: CROSSWATC_OIDC_ISSUER, value: {{ .Values.auth.oidcIssuer | default "unused" | quote }} }
+            - { name: CROSSWATC_OIDC_AUDIENCE, value: {{ .Values.auth.oidcAudience | default "unused" | quote }} }
+            - { name: CROSSWATC_RESYNC_INTERVAL, value: {{ .Values.worker.resyncInterval | quote }} }
+            - { name: CROSSWATC_STUCK_TIMEOUT, value: {{ .Values.worker.stuckTimeout | quote }} }
+            - { name: CROSSWATC_ARGOCD_NAMESPACE, value: {{ .Values.argocd.namespace | quote }} }
+            {{- if .Values.notifications.routesSecret }}
+            - { name: CROSSWATC_NOTIFY_CONFIG, value: /etc/crosswatc/notify/routes.yaml }
+            - { name: CROSSWATC_PORTAL_URL, value: {{ .Values.notifications.portalURL | quote }} }
+            {{- with .Values.notifications.smtp }}
+            {{- if .addr }}
+            - { name: CROSSWATC_SMTP_ADDR, value: {{ .addr | quote }} }
+            - { name: CROSSWATC_SMTP_FROM, value: {{ .from | quote }} }
+            - { name: CROSSWATC_SMTP_USER, value: {{ .user | quote }} }
+            {{- if .passwordSecret }}
+            - name: CROSSWATC_SMTP_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .passwordSecret }}, key: smtp-password } }
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+            - name: CROSSWATC_LEADER_ELECTION_IDENTITY
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - { name: CROSSWATC_LEADER_ELECTION, value: {{ .Values.worker.leaderElection.enabled | quote }} }
+            - { name: CROSSWATC_LEADER_ELECTION_LEASE_DURATION, value: {{ .Values.worker.leaderElection.leaseDuration | quote }} }
+            - { name: CROSSWATC_LEADER_ELECTION_RENEW_DEADLINE, value: {{ .Values.worker.leaderElection.renewDeadline | quote }} }
+            - { name: CROSSWATC_LEADER_ELECTION_RETRY_PERIOD, value: {{ .Values.worker.leaderElection.retryPeriod | quote }} }
+            - { name: CROSSWATC_INFORMERS, value: {{ .Values.worker.informers.enabled | quote }} }
+            - { name: CROSSWATC_WATCH_EVENTS, value: {{ .Values.worker.informers.events | quote }} }
+            - { name: CROSSWATC_WATCH_SECRETS, value: {{ .Values.rbac.secretMetadata | quote }} }
+            {{- if .Values.github.enabled }}
+            - { name: CROSSWATC_GITHUB_API_URL, value: {{ .Values.github.apiURL | quote }} }
+            - { name: CROSSWATC_GITHUB_APP_ID, value: {{ .Values.github.appID | quote }} }
+            - { name: CROSSWATC_GITHUB_INSTALLATION_ID, value: {{ .Values.github.installationID | quote }} }
+            - { name: CROSSWATC_GITHUB_PRIVATE_KEY_PATH, value: /var/run/secrets/github/private-key.pem }
+            - { name: CROSSWATC_GITOPS_BASE_BRANCH, value: {{ .Values.github.baseBranch | quote }} }
+            {{- end }}
+            {{- if .Values.backstage.url }}
+            - { name: CROSSWATC_BACKSTAGE_URL, value: {{ .Values.backstage.url | quote }} }
+            {{- if .Values.backstage.existingSecret }}
+            - name: CROSSWATC_BACKSTAGE_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .Values.backstage.existingSecret }}, key: token } }
+            {{- end }}
+            {{- end }}
+          readinessProbe: { httpGet: { path: /readyz, port: probes }, periodSeconds: 15 }
+          livenessProbe: { httpGet: { path: /healthz, port: probes }, periodSeconds: 20 }
+          resources: {{- toYaml .Values.worker.resources | nindent 12 }}
+          {{- include "crosswatc.securityContext" . | nindent 10 }}
+          volumeMounts:
+            {{- if .Values.github.enabled }}
+            - { name: github-app, mountPath: /var/run/secrets/github, readOnly: true }
+            {{- end }}
+            {{- if .Values.notifications.routesSecret }}
+            - { name: notify, mountPath: /etc/crosswatc/notify, readOnly: true }
+            {{- end }}
+      volumes:
+        {{- if .Values.github.enabled }}
+        - name: github-app
+          secret: { secretName: {{ .Values.github.existingSecret }} }
+        {{- end }}
+        {{- if .Values.notifications.routesSecret }}
+        - name: notify
+          secret: { secretName: {{ .Values.notifications.routesSecret }} }
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crosswatc-worker
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: crosswatc-worker }
+  ports: [{ name: metrics, port: 8081, targetPort: probes }]

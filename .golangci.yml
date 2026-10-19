@@ -1,0 +1,23 @@
+version: "2"
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gosec
+    - misspell
+    - revive
+  settings:
+    misspell:
+      mode: restricted # user-facing strings are pt-BR; check comments only
+      ignore-rules:
+        - operacional
+        - progresso
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+formatters:
+  enable:
+    - gofmt
+    - goimports

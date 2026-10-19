@@ -1,0 +1,49 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default-deny ingress for Crosswatc pods; only the paths the architecture needs are opened (spec §6).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: crosswatc-api
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: crosswatc-api } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: crosswatc-web } }
+        {{- with .Values.networkPolicy.ingressNamespaceSelector }}
+        - namespaceSelector: {{- toYaml . | nindent 12 }}
+        {{- end }}
+      ports: [{ port: 8080 }]
+    - from:
+        - namespaceSelector: {{- toYaml .Values.observability.monitoringNamespaceSelector | nindent 12 }}
+      ports: [{ port: 9090 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: crosswatc-worker
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: crosswatc-worker } }
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{ port: 8081 }] # probes/metrics only
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: crosswatc-web
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: crosswatc-web } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- with .Values.networkPolicy.ingressNamespaceSelector }}
+        - namespaceSelector: {{- toYaml . | nindent 12 }}
+        {{- else }}
+        - namespaceSelector: {}
+        {{- end }}
+      ports: [{ port: 3000 }]
+{{- end }}

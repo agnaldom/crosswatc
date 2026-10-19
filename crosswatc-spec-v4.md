@@ -562,7 +562,7 @@ interface Operation {
 Formato:
 
 ```text
-crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V
+crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T
 ```
 
 Regra: `crosswatc-req-` + ULID (26 chars, Crockford base32, maiúsculo). Regex: `^crosswatc-req-[0-9A-HJKMNP-TV-Z]{26}$`.
@@ -593,7 +593,7 @@ metadata:
     crosswatc.io/resource-type: postgresql
 
   annotations:
-    crosswatc.io/request-id: crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V
+    crosswatc.io/request-id: crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T
     crosswatc.io/revision: "4"
     crosswatc.io/repository: crosswatc-org/argocd
     crosswatc.io/path: claims/dev/pgsql-payments.yaml
@@ -1149,7 +1149,7 @@ Campo `level`: `info | warning | error`. Campo `status`: `success | failure | in
 ```json
 {
   "eventId": "evt-81727",
-  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V",
+  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T",
   "resourceId": "pgsql-payments-prd",
   "revisionId": "rev-7",
   "operationId": "op-722",
@@ -1526,7 +1526,7 @@ q          # busca por nome (prefixo)
   "title": "Revision already open",
   "status": 409,
   "detail": "Resource pgsql-payments-prd already has revision 8 in WAITING_APPROVAL",
-  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V"
+  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T"
 }
 ```
 
@@ -1614,7 +1614,7 @@ Response:
 {
   "operationId": "op-722",
   "revisionId": "rev-8",
-  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T0V",
+  "correlationId": "crosswatc-req-01JCA9S8G4B2Z7QX3M5N6P8R9T",
   "prNumber": 173,
   "prUrl": "https://github.com/..."
 }
@@ -2464,58 +2464,64 @@ O resultado final não será apenas um dashboard Crossplane. Será o portal de l
 
 Cada item vira uma issue no GitHub (label `phase:*`). Todo PR referencia a issue (`Closes #N`) e só é mergeado com CI verde.
 
-Escopo desta etapa: **Fundação + Fase 1**. Fases 2–4 ficam como issues abertas.
+Status: **todos os itens implementados** (PRs #34–#66, empilhados; marcados `[x]` quando o PR existe com CI verde). Itens do roadmap em §69.1.
 
 ### Fundação
 
-- [ ] **F0** (#1) — Revisão do spec v4 + checklist
-- [ ] **F1** (#2) — Scaffold do monorepo: `go.mod`, `Makefile`, pnpm workspace, Next.js em `apps/web`, `docker-compose.yml` (PostgreSQL), golangci-lint, CI GitHub Actions (Go test/lint + web lint/build)
-- [ ] **F2** (#3) — Config, logging estruturado (`slog`), Correlation ID (ULID, §16) e contrato de labels/annotations (§17) com validação
-- [ ] **F3** (#4) — Migrations PostgreSQL (§37, goose) + camada `store` (pgx) com testes de integração
-- [ ] **F4** (#5) — Modelo de domínio + Lifecycle State Machine: derivação de `ResourceState` (§12), transições de `RevisionState` (§32), resolver das 7 etapas (§31)
+- [x] **F0** (#1) — Revisão do spec v4 + checklist
+- [x] **F1** (#2) — Scaffold do monorepo: `go.mod`, `Makefile`, pnpm workspace, Next.js em `apps/web`, `docker-compose.yml` (PostgreSQL), golangci-lint, CI GitHub Actions (Go test/lint + web lint/build)
+- [x] **F2** (#3) — Config, logging estruturado (`slog`), Correlation ID (ULID, §16) e contrato de labels/annotations (§17) com validação
+- [x] **F3** (#4) — Migrations PostgreSQL (§37, goose) + camada `store` (pgx) com testes de integração
+- [x] **F4** (#5) — Modelo de domínio + Lifecycle State Machine: derivação de `ResourceState` (§12), transições de `RevisionState` (§32), resolver das 7 etapas (§31)
 
 ### Fase 1 — Read Only
 
-- [ ] **P1.1** (#6) — Single Cluster Kubernetes Client: in-cluster/KUBECONFIG, dynamic client, lister paginado (`limit`/`continue`) — EPIC 01
-- [ ] **P1.2** (#7) — XRD Discovery (§22) — EPIC 02
-- [ ] **P1.3** (#8) — MRD Discovery (§23) — EPIC 03
-- [ ] **P1.4** (#9) — Claim / XR / MR Discovery + Resource Discovery (§48) — EPIC 04
-- [ ] **P1.5** (#10) — Relationship Resolver + Topology (§28, §29) — EPIC 06, 07
-- [ ] **P1.6** (#11) — GitHub Adapter read-only (GitHub App; PR, checks, reviews) — EPIC 09
-- [ ] **P1.7** (#12) — Argo CD Adapter (Application CR via dynamic client) — EPIC 10
-- [ ] **P1.8** (#13) — Backstage Adapter (Scaffolder task polling, §31)
-- [ ] **P1.9** (#14) — Worker: State Reconciler (resync periódico → sinais → projeção → PostgreSQL) — EPIC 12
-- [ ] **P1.10** (#15) — Resource API (Gin): catálogo, resources, state, health, events, revisions, operations, topology; AuthN (OIDC + modo dev) e AuthZ por squad — EPIC 08
-- [ ] **P1.11** (#16) — Next.js UI read-only: lista, detalhe, overview, lifecycle 7 etapas, topology (React Flow), events — EPIC 15
-- [ ] **P1.12** (#17) — Deploy: Dockerfiles, Helm chart, RBAC read-only (§27), probes
+- [x] **P1.1** (#6) — Single Cluster Kubernetes Client: in-cluster/KUBECONFIG, dynamic client, lister paginado (`limit`/`continue`) — EPIC 01
+- [x] **P1.2** (#7) — XRD Discovery (§22) — EPIC 02
+- [x] **P1.3** (#8) — MRD Discovery (§23) — EPIC 03
+- [x] **P1.4** (#9) — Claim / XR / MR Discovery + Resource Discovery (§48) — EPIC 04
+- [x] **P1.5** (#10) — Relationship Resolver + Topology (§28, §29) — EPIC 06, 07
+- [x] **P1.6** (#11) — GitHub Adapter read-only (GitHub App; PR, checks, reviews) — EPIC 09
+- [x] **P1.7** (#12) — Argo CD Adapter (Application CR via dynamic client) — EPIC 10
+- [x] **P1.8** (#13) — Backstage Adapter (Scaffolder task polling, §31)
+- [x] **P1.9** (#14) — Worker: State Reconciler (resync periódico → sinais → projeção → PostgreSQL) — EPIC 12
+- [x] **P1.10** (#15) — Resource API (Gin): catálogo, resources, state, health, events, revisions, operations, topology; AuthN (OIDC + modo dev) e AuthZ por squad — EPIC 08
+- [x] **P1.11** (#16) — Next.js UI read-only: lista, detalhe, overview, lifecycle 7 etapas, topology (React Flow), events — EPIC 15
+- [x] **P1.12** (#17) — Deploy: Dockerfiles, Helm chart, RBAC read-only (§27), probes
 
 ### Fase 2 — Realtime
 
-- [ ] **P2.1** (#18) — Informer Manager + leader election (§25, §35.2) — EPIC 05
-- [ ] **P2.2** (#19) — Canonical Event Model + ingestão por webhooks/inbox (§33–35.1) — EPIC 11
-- [ ] **P2.3** (#20) — SSE com AuthZ, `Last-Event-ID`, `LISTEN/NOTIFY` (§45) — EPIC 17
-- [ ] **P2.4** (#21) — Revisions & Operations history — EPIC 13, 18
-- [ ] **P2.5** (#22) — Event Timeline realtime na UI — EPIC 16
+- [x] **P2.1** (#18) — Informer Manager + leader election (§25, §35.2) — EPIC 05
+- [x] **P2.2** (#19) — Canonical Event Model + ingestão por webhooks/inbox (§33–35.1) — EPIC 11
+- [x] **P2.3** (#20) — SSE com AuthZ, `Last-Event-ID`, `LISTEN/NOTIFY` (§45) — EPIC 17
+- [x] **P2.4** (#21) — Revisions & Operations history — EPIC 13, 18
+- [x] **P2.5** (#22) — Event Timeline realtime na UI — EPIC 16
 
 ### Fase 3 — Edição
 
-- [ ] **P3.1** (#23) — XRD-driven Dynamic Forms (§38) — EPIC 19
-- [ ] **P3.2** (#24) — Change Preview: diff, impacto, policy básica (§40) — EPIC 20
-- [ ] **P3.3** (#25) — GitOps Update Orchestrator: branch, commit, PR (§41, §44) — EPIC 21
-- [ ] **P3.4** (#26) — Update Consistency + concorrência de revisions (§14.1, §43)
+- [x] **P3.1** (#23) — XRD-driven Dynamic Forms (§38) — EPIC 19
+- [x] **P3.2** (#24) — Change Preview: diff, impacto, policy básica (§40) — EPIC 20
+- [x] **P3.3** (#25) — GitOps Update Orchestrator: branch, commit, PR (§41, §44) — EPIC 21
+- [x] **P3.4** (#26) — Update Consistency + concorrência de revisions (§14.1, §43)
 
 ### Fase 4 — Hardening
 
-- [ ] **P4.1** (#27) — Security: OIDC produção, RBAC fino, revisão de secrets — EPIC 23
-- [ ] **P4.2** (#28) — Auditoria (`audit_log`, §50)
-- [ ] **P4.3** (#29) — Drift Detection (§19, §47) — EPIC 22
-- [ ] **P4.4** (#30) — Observabilidade, SLOs, alertas, dashboards (§52–54) — EPIC 24
-- [ ] **P4.5** (#31) — Policy Validation completa (OPA/Kyverno)
-- [ ] **P4.6** (#32) — Load testing
+- [x] **P4.1** (#27) — Security: OIDC produção, RBAC fino, revisão de secrets — EPIC 23
+- [x] **P4.2** (#28) — Auditoria (`audit_log`, §50)
+- [x] **P4.3** (#29) — Drift Detection (§19, §47) — EPIC 22
+- [x] **P4.4** (#30) — Observabilidade, SLOs, alertas, dashboards (§52–54) — EPIC 24
+- [x] **P4.5** (#31) — Policy Validation completa (OPA/Kyverno)
+- [x] **P4.6** (#32) — Load testing
 
 ### Transversal
 
-- [ ] **D1** (#33) — ADRs 001–012 em `docs/adr` (§62)
+- [x] **D1** (#33) — ADRs 001–012 em `docs/adr` (§62)
+
+### 69.1 Roadmap (§60)
+
+- [x] **R1** (#67) — Decommissioning com preview de impacto e dupla confirmação
+- [x] **R2** (#68) — Notificações (Teams e e-mail): WAITING_APPROVAL, FAILED, OPERATIONAL, DRIFT_DETECTED
+- [x] **R3** (#69) — Estimativa de custos no preview (Azure Retail Prices)
 
 ---
 

@@ -1,0 +1,10 @@
+/bin/
+/coverage.out
+node_modules/
+.next/
+out/
+.env
+.env.local
+*.log
+.DS_Store
+*.tsbuildinfo

@@ -1,0 +1,132 @@
+image:
+  registry: ghcr.io/agnaldom
+  tag: ""          # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+env: production   # CROSSWATC_ENV
+
+api:
+  replicas: 2
+  resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { memory: 256Mi } }
+
+worker:
+  # Leader election on Lease crosswatc-worker (spec §35.2): only the leader runs informers,
+  # polling and the reconciler; the other replica is a hot standby.
+  replicas: 2
+  leaderElection:
+    enabled: true
+    leaseDuration: 15s
+    renewDeadline: 10s
+    retryPeriod: 2s
+  informers:
+    enabled: true
+    events: true             # core/v1 Events (triggers refresh of the involved Claim)
+  resyncInterval: 5m
+  stuckTimeout: 30m
+  resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 512Mi } }
+
+web:
+  replicas: 2
+  resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 256Mi } }
+
+database:
+  # Secret with key DATABASE_URL (postgres://...).
+  existingSecret: crosswatc-db
+
+auth:
+  mode: oidc                 # oidc | dev (dev is refused when env=production)
+  groupsClaim: groups        # token claim with groups (e.g. roles for Entra ID app roles)
+  oidcIssuer: ""
+  oidcAudience: crosswatc
+  squadGroupPrefix: squad-
+  sreGroup: platform-sre
+
+github:
+  enabled: false
+  apiURL: https://api.github.com
+  appID: ""
+  installationID: ""
+  baseBranch: main          # Pull Requests for changes target this branch
+  # Secret with key private-key.pem
+  existingSecret: crosswatc-github-app
+
+backstage:
+  url: ""
+  # Secret with key token (optional)
+  existingSecret: ""
+
+argocd:
+  namespace: argocd
+
+webhooks:
+  # Secret with keys github-webhook-secret (GitHub App webhook secret, X-Hub-Signature-256) and/or
+  # argocd-webhook-token (bearer token of the argocd-notifications webhook service). A missing key
+  # disables that endpoint. When set, the ingress routes /webhooks to the API (spec §35.1).
+  existingSecret: ""
+
+rbac:
+  # API groups of platform Claims/XRs (from your XRDs) and provider Managed Resources.
+  # Kubernetes RBAC has no wildcard per group suffix, so list them explicitly.
+  platformApiGroups: []      # e.g. [database.crosswatc.io, compute.crosswatc.io]
+  providerApiGroups: []      # e.g. [dbforpostgresql.azure.upbound.io, network.azure.upbound.io]
+  # Read every API group instead of the lists above (convenient for pilots; broader than needed).
+  readAllGroups: false
+  # Needed to check connection Secret existence (get) and to watch Secret metadata (list/watch, informer).
+  # The code only uses the metadata API and never reads values, but RBAC cannot restrict verbs to metadata.
+  secretMetadata: true
+
+ingress:
+  enabled: false
+  className: ""
+  host: crosswatc.example.com
+  tls: []
+
+networkPolicy:
+  enabled: true
+  # Namespace of the ingress controller / oauth2-proxy allowed to reach web and the webhook paths of the API.
+  ingressNamespaceSelector:
+    matchLabels: { kubernetes.io/metadata.name: ingress-nginx }
+
+observability:
+  # OTLP/HTTP collector for traces (OTEL_EXPORTER_OTLP_ENDPOINT); empty disables exporting.
+  otlpEndpoint: ""
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+  prometheusRule:
+    enabled: false
+    labels: {}
+    runbookBaseURL: https://github.com/agnaldom/crosswatc/blob/main/docs/runbooks
+  grafanaDashboard:
+    enabled: false
+    labels: { grafana_dashboard: "1" }
+  # Namespace allowed to scrape metrics through the NetworkPolicy.
+  monitoringNamespaceSelector:
+    matchLabels: { kubernetes.io/metadata.name: monitoring }
+
+policies:
+  # ConfigMap with extra *.rego files (package crosswatc), merged with the built-in policies.
+  configMap: ""
+
+decommission:
+  # Environments where the portal may open decommission PRs ("*" = all, "none" disables).
+  environments: dev,hlg
+
+# Environments treated as production (warnings; keep in sync with custom Rego policies).
+productionEnvironments: prd,prod,production
+
+notifications:
+  # Secret with key routes.yaml (routing per squad; contains Teams webhook URLs) — see docs/architecture/notifications.md
+  routesSecret: ""
+  portalURL: ""            # e.g. https://crosswatc.corp.com (links in messages)
+  smtp:
+    addr: ""               # host:port; empty disables e-mail
+    from: crosswatc@corp.com
+    user: ""
+    # Secret with key smtp-password
+    passwordSecret: ""
+
+cost:
+  provider: azure   # azure | none — the API calls https://prices.azure.com (public, no credentials)
+  currency: USD
