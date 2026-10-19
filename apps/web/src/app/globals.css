@@ -1,1 +1,67 @@
 @import "tailwindcss";
+
+/* Theme: .dark on <html> (set before paint by the inline script in layout.tsx). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Dark mode remaps the palette instead of adding dark: variants everywhere: zinc and white are inverted
+ * (cards stay one step above the page), status hues get dark tints (50–300) and light text shades (700–900).
+ */
+.dark {
+  color-scheme: dark;
+  --color-white: oklch(19% 0.005 286);
+  --color-zinc-50: oklch(14.1% 0.005 286);
+  --color-zinc-100: oklch(24% 0.005 286);
+  --color-zinc-200: oklch(29% 0.005 286);
+  --color-zinc-300: oklch(37% 0.005 286);
+  --color-zinc-400: oklch(55.2% 0.005 286);
+  --color-zinc-500: oklch(70.5% 0.005 286);
+  --color-zinc-600: oklch(80% 0.005 286);
+  --color-zinc-700: oklch(87.1% 0.005 286);
+  --color-zinc-800: oklch(92% 0.005 286);
+  --color-zinc-900: oklch(96.7% 0.005 286);
+  --color-zinc-950: oklch(98.5% 0.005 286);
+  --color-emerald-50: oklch(26% 0.045 163);
+  --color-emerald-100: oklch(31% 0.06 163);
+  --color-emerald-200: oklch(38% 0.08 163);
+  --color-emerald-300: oklch(48% 0.1 163);
+  --color-emerald-700: oklch(82% 0.12 163);
+  --color-emerald-800: oklch(86% 0.1 163);
+  --color-emerald-900: oklch(91% 0.06 163);
+  --color-sky-50: oklch(26% 0.045 237);
+  --color-sky-100: oklch(31% 0.06 237);
+  --color-sky-200: oklch(38% 0.08 237);
+  --color-sky-300: oklch(48% 0.1 237);
+  --color-sky-700: oklch(82% 0.12 237);
+  --color-sky-800: oklch(86% 0.1 237);
+  --color-sky-900: oklch(91% 0.06 237);
+  --color-amber-50: oklch(26% 0.045 70);
+  --color-amber-100: oklch(31% 0.06 70);
+  --color-amber-200: oklch(38% 0.08 70);
+  --color-amber-300: oklch(48% 0.1 70);
+  --color-amber-700: oklch(82% 0.12 70);
+  --color-amber-800: oklch(86% 0.1 70);
+  --color-amber-900: oklch(91% 0.06 70);
+  --color-rose-50: oklch(26% 0.045 16);
+  --color-rose-100: oklch(31% 0.06 16);
+  --color-rose-200: oklch(38% 0.08 16);
+  --color-rose-300: oklch(48% 0.1 16);
+  --color-rose-700: oklch(82% 0.12 16);
+  --color-rose-800: oklch(86% 0.1 16);
+  --color-rose-900: oklch(91% 0.06 16);
+}
+
+.dark .react-flow__controls-button {
+  background: var(--color-white);
+  border-color: var(--color-zinc-200);
+  fill: var(--color-zinc-700);
+}
+
+/* Collapsible sidebar: html[data-sidebar=collapsed] keeps only the toggle rail. */
+[data-sidebar="collapsed"] .cw-sidebar {
+  width: 3rem;
+  padding-inline: 0.5rem;
+}
+[data-sidebar="collapsed"] .cw-sidebar > :not(.cw-sidebar-keep) {
+  display: none;
+}
