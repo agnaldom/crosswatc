@@ -1,4 +1,5 @@
 import type {
+  KubeEvent,
   DecommissionPreview,
   AuditEntry,
   ChangeCreated,
@@ -70,6 +71,8 @@ export const api = {
   operations: (id: string) => get<Page<Operation>>(`/resources/${id}/operations`),
   topology: (id: string) => get<Topology>(`/resources/${id}/topology`),
   form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
+  kubeEvents: (id: string) =>
+    get<{ items: KubeEvent[]; errors: { object: { kind: string; name: string }; error: string }[] }>(`/resources/${id}/kube-events`),
   audit: (id: string) => get<Page<AuditEntry>>(`/resources/${id}/audit?limit=100`),
   preview: (id: string, changes: Record<string, unknown>) => post<ChangePreview>(`/resources/${id}/changes/preview`, { changes }),
   decommissionPreview: (id: string) => post<DecommissionPreview>(`/resources/${id}/decommission/preview`, {}),

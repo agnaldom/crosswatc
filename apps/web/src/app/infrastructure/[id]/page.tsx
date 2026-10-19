@@ -5,6 +5,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { DriftBanner } from "@/components/DriftBanner";
+import { KubeEvents } from "@/components/KubeEvents";
 import { Lifecycle } from "@/components/Lifecycle";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus, Timeline } from "@/components/Timeline";
@@ -13,12 +14,17 @@ import { api } from "@/lib/api";
 import { healthTone, resourceStateLabel, resourceStateTone, revisionStateTone } from "@/lib/labels";
 import type { Health, Revision, TrackedResource } from "@/lib/types";
 
-const tabs = ["Overview", "Lifecycle", "Topology", "Changes", "Events", "Audit"] as const;
+const tabs = ["Overview", "Lifecycle", "Topology", "Changes", "Events", "Kubernetes", "Audit"] as const;
 type Tab = (typeof tabs)[number];
 
 export default function ResourcePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [tab, setTab] = useState<Tab>("Overview");
+  const [kubeFilter, setKubeFilter] = useState("");
+  const showEvents = (filter: string) => {
+    setKubeFilter(filter);
+    setTab("Kubernetes");
+  };
   const resource = useQuery({ queryKey: ["resource", id], queryFn: () => api.resource(id) });
   const state = useQuery({ queryKey: ["state", id], queryFn: () => api.state(id), enabled: resource.isSuccess });
 
@@ -76,7 +82,8 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
       <section className="mt-5">
         {tab === "Overview" && <Overview resource={r} />}
         {tab === "Lifecycle" && (state.isError ? <ErrorState error={state.error} /> : state.data ? <Lifecycle stages={state.data.stages} /> : <Loading />)}
-        {tab === "Topology" && <TopologyTab id={id} />}
+        {tab === "Topology" && <TopologyTab id={id} onEvents={showEvents} />}
+        {tab === "Kubernetes" && <KubeEvents id={id} filter={kubeFilter} onFilter={setKubeFilter} />}
         {tab === "Changes" && <Changes id={id} />}
         {tab === "Events" && <Events id={id} />}
         {tab === "Audit" && <Audit id={id} />}
@@ -143,11 +150,16 @@ function Overview({ resource: r }: { resource: TrackedResource }) {
   );
 }
 
-function TopologyTab({ id }: { id: string }) {
+function TopologyTab({ id, onEvents }: { id: string; onEvents: (filter: string) => void }) {
   const q = useQuery({ queryKey: ["topology", id], queryFn: () => api.topology(id) });
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
-  return <TopologyView topology={q.data} />;
+  return (
+    <TopologyView topology={q.data} nodeActions={(n) => (
+      <button type="button" onClick={() => onEvents(`${n.kind}/${n.name}`)}
+        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-50">Ver eventos do cluster</button>
+    )} />
+  );
 }
 
 function Changes({ id }: { id: string }) {

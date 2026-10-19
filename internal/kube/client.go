@@ -77,6 +77,7 @@ func (t ResourceTarget) APIVersion() string {
 type ListOptions struct {
 	Namespace     string // empty: all namespaces
 	LabelSelector string
+	FieldSelector string
 }
 
 // List returns every object of gvr, paginating with limit/continue (§24).
@@ -102,7 +103,7 @@ func (c *Client) ForEachPage(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	cont := ""
 	for {
-		list, err := lister.List(ctx, metav1.ListOptions{Limit: limit, Continue: cont, LabelSelector: opts.LabelSelector})
+		list, err := lister.List(ctx, metav1.ListOptions{Limit: limit, Continue: cont, LabelSelector: opts.LabelSelector, FieldSelector: opts.FieldSelector})
 		if err != nil {
 			return fmt.Errorf("kube: list %s: %w", gvr, err)
 		}
