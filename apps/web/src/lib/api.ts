@@ -64,12 +64,13 @@ export interface ResourceFilters {
   synced?: string;
   ready?: string;
   q?: string;
+  limit?: number;
   cursor?: string;
 }
 
 export const api = {
   listResources: (f: ResourceFilters = {}) => {
-    const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]);
+    const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]));
     return get<Page<TrackedResource>>(`/resources${qs.size ? `?${qs}` : ""}`);
   },
   resourceKinds: () => get<{ items: KindCount[] }>("/resources/kinds"),
