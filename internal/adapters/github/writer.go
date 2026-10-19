@@ -109,3 +109,18 @@ func (a *Adapter) ClosePullRequest(ctx context.Context, repository string, numbe
 	}
 	return nil
 }
+
+// DeleteFile removes path on branch (blob fileSHA) and returns the commit SHA.
+func (a *Adapter) DeleteFile(ctx context.Context, repository, branch, path, fileSHA, message string) (string, error) {
+	owner, repo, err := splitRepo(repository)
+	if err != nil {
+		return "", err
+	}
+	res, _, err := a.client.Repositories.DeleteFile(ctx, owner, repo, path, &gh.RepositoryContentFileOptions{
+		Message: &message, SHA: &fileSHA, Branch: &branch,
+	})
+	if err != nil {
+		return "", fmt.Errorf("github: delete %s: %w", path, err)
+	}
+	return res.GetSHA(), nil
+}

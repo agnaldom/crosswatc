@@ -108,3 +108,7 @@ observability:
 policies:
   # ConfigMap with extra *.rego files (package crosswatc), merged with the built-in policies.
   configMap: ""
+
+decommission:
+  # Environments where the portal may open decommission PRs ("*" = all, "none" disables).
+  environments: dev,hlg

@@ -17,6 +17,7 @@ type Repo interface {
 	BranchHead(ctx context.Context, repository, branch string) (string, error)
 	CreateBranch(ctx context.Context, repository, name, sha string) error
 	CommitFile(ctx context.Context, repository, branch, path string, content []byte, fileSHA, message string) (string, error)
+	DeleteFile(ctx context.Context, repository, branch, path, fileSHA, message string) (string, error)
 	OpenPullRequest(ctx context.Context, repository, head, base, title, body string) (int, string, error)
 	ClosePullRequest(ctx context.Context, repository string, number int, comment string) error
 }
@@ -100,6 +101,81 @@ func (o *Orchestrator) Submit(ctx context.Context, req Request) (Result, error) 
 		return Result{}, err
 	}
 	return Result{Branch: branch, CommitSHA: sha, PRNumber: num, PRURL: url}, nil
+}
+
+// DeleteRequest describes a decommission (spec §60).
+type DeleteRequest struct {
+	Repository    string
+	Path          string
+	ClaimName     string
+	Kind          string
+	Environment   string
+	ResourceName  string
+	Rev           int
+	CorrelationID string
+	RequestedBy   string
+	Justification string
+	Deleted       []string // cloud resources that will be destroyed (kind/name)
+	Orphaned      []string // cloud resources kept (deletionPolicy Orphan)
+}
+
+// SubmitDelete opens a PR that removes the Claim from Git; Argo CD prunes it and Crossplane deletes the infra.
+func (o *Orchestrator) SubmitDelete(ctx context.Context, req DeleteRequest) (Result, error) {
+	base := o.base()
+	src, fileSHA, err := o.Repo.GetFile(ctx, req.Repository, req.Path, base)
+	if err != nil {
+		return Result{}, err
+	}
+	rest, remaining, err := RemoveClaim(src, req.ClaimName)
+	if err != nil {
+		return Result{}, err
+	}
+	head, err := o.Repo.BranchHead(ctx, req.Repository, base)
+	if err != nil {
+		return Result{}, err
+	}
+	branch := BranchName("delete", req.Kind, req.Environment, req.ResourceName, req.Rev)
+	if err := o.Repo.CreateBranch(ctx, req.Repository, branch, head); err != nil {
+		return Result{}, err
+	}
+	msg := fmt.Sprintf("crosswatc: decommission %s (rev %d)\n\nRequested-by: %s\nCorrelation-Id: %s", req.ResourceName, req.Rev, req.RequestedBy, req.CorrelationID)
+	var sha string
+	if remaining == 0 {
+		sha, err = o.Repo.DeleteFile(ctx, req.Repository, branch, req.Path, fileSHA, msg)
+	} else {
+		sha, err = o.Repo.CommitFile(ctx, req.Repository, branch, req.Path, rest, fileSHA, msg)
+	}
+	if err != nil {
+		return Result{}, err
+	}
+	title := fmt.Sprintf("[crosswatc] DECOMMISSION %s (%s)", req.ResourceName, req.Environment)
+	num, url, err := o.Repo.OpenPullRequest(ctx, req.Repository, branch, base, title, deleteBody(req))
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{Branch: branch, CommitSHA: sha, PRNumber: num, PRURL: url}, nil
+}
+
+func deleteBody(r DeleteRequest) string {
+	var b strings.Builder
+	b.WriteString("> [!CAUTION]\n> Este PR **remove o Claim**. Após o merge, o Argo CD faz prune e o Crossplane **apaga os recursos de cloud** abaixo.\n\n")
+	fmt.Fprintf(&b, "| | |\n|---|---|\n| Recurso | `%s` (%s, %s) |\n| Revision | %d |\n| Solicitante | %s |\n| Correlation ID | `%s` |\n| Aprovação | obrigatória |\n",
+		r.ResourceName, r.Kind, r.Environment, r.Rev, r.RequestedBy, r.CorrelationID)
+	b.WriteString("\n### Será apagado na cloud\n\n")
+	if len(r.Deleted) == 0 {
+		b.WriteString("_nenhum recurso gerenciado conhecido_\n")
+	}
+	for _, d := range r.Deleted {
+		fmt.Fprintf(&b, "- `%s`\n", d)
+	}
+	if len(r.Orphaned) > 0 {
+		b.WriteString("\n### Mantido (deletionPolicy Orphan)\n\n")
+		for _, d := range r.Orphaned {
+			fmt.Fprintf(&b, "- `%s`\n", d)
+		}
+	}
+	fmt.Fprintf(&b, "\n### Justificativa\n\n%s\n", r.Justification)
+	return b.String()
 }
 
 // Cancel closes an open revision PR.

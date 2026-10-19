@@ -59,6 +59,9 @@ type Deps struct {
 	GitOps   GitOps
 	Audit    AuditStore // optional: GET /audit
 
+	// DecommissionEnvironments lists environments where the portal may open decommission PRs ("*" = all; empty disables).
+	DecommissionEnvironments []string
+
 	// MutationsPerMinute limits POSTs per user: 0 → default 10/min (burst 5), negative → disabled.
 	MutationsPerMinute int
 
@@ -77,7 +80,8 @@ func New(d Deps) *gin.Engine {
 	r.NoRoute(notFound)
 
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
-		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit}
+		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit,
+		decommissionEnvs: d.DecommissionEnvironments}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -110,6 +114,8 @@ func New(d Deps) *gin.Engine {
 	res.POST("/changes", h.createChange)
 	res.POST("/revisions/:rev/cancel", h.cancelRevision)
 	res.GET("/audit", h.listResourceAudit)
+	res.POST("/decommission/preview", h.previewDecommission)
+	res.POST("/decommission", h.decommission)
 	return r
 }
 
@@ -122,6 +128,8 @@ type handlers struct {
 	changes    ChangeStore
 	gitops     GitOps
 	auditStore AuditStore
+
+	decommissionEnvs []string
 }
 
 const resourceKey = "crosswatc.resource"

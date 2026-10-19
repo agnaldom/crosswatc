@@ -43,8 +43,10 @@ type Config struct {
 	GitOpsBaseBranch   string
 	PolicyDir          string // extra Rego policies (package crosswatc)
 	MutationsPerMinute int    // per-user limit on change requests (0 → 10, negative disables)
-	ArgoCDWebhookToken string // bearer token of POST /webhooks/argocd (§35.1)
-	InboxPollInterval  time.Duration
+	// DecommissionEnvironments where the portal may open decommission PRs (comma list, "*" all, "none" disables).
+	DecommissionEnvironments []string
+	ArgoCDWebhookToken       string // bearer token of POST /webhooks/argocd (§35.1)
+	InboxPollInterval        time.Duration
 
 	ResyncInterval time.Duration
 	StuckTimeout   time.Duration
@@ -128,15 +130,16 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 			Token:        r.str("CROSSWATC_BACKSTAGE_TOKEN", ""),
 			PollInterval: r.duration("CROSSWATC_BACKSTAGE_POLL_INTERVAL", 30*time.Second),
 		},
-		ArgoCDNamespace:    r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
-		GitOpsBaseBranch:   r.str("CROSSWATC_GITOPS_BASE_BRANCH", "main"),
-		PolicyDir:          r.str("CROSSWATC_POLICY_DIR", ""),
-		MutationsPerMinute: int(r.int64("CROSSWATC_MUTATIONS_PER_MINUTE", 0)),
-		ArgoCDWebhookToken: r.str("CROSSWATC_ARGOCD_WEBHOOK_TOKEN", ""),
-		InboxPollInterval:  r.duration("CROSSWATC_INBOX_POLL_INTERVAL", time.Second),
-		ResyncInterval:     r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
-		StuckTimeout:       r.duration("CROSSWATC_STUCK_TIMEOUT", 30*time.Minute),
-		K8sPageLimit:       r.int64("CROSSWATC_K8S_PAGE_LIMIT", 500),
+		ArgoCDNamespace:          r.str("CROSSWATC_ARGOCD_NAMESPACE", "argocd"),
+		GitOpsBaseBranch:         r.str("CROSSWATC_GITOPS_BASE_BRANCH", "main"),
+		PolicyDir:                r.str("CROSSWATC_POLICY_DIR", ""),
+		MutationsPerMinute:       int(r.int64("CROSSWATC_MUTATIONS_PER_MINUTE", 0)),
+		DecommissionEnvironments: splitList(r.str("CROSSWATC_DECOMMISSION_ENVIRONMENTS", "dev,hlg")),
+		ArgoCDWebhookToken:       r.str("CROSSWATC_ARGOCD_WEBHOOK_TOKEN", ""),
+		InboxPollInterval:        r.duration("CROSSWATC_INBOX_POLL_INTERVAL", time.Second),
+		ResyncInterval:           r.duration("CROSSWATC_RESYNC_INTERVAL", 5*time.Minute),
+		StuckTimeout:             r.duration("CROSSWATC_STUCK_TIMEOUT", 30*time.Minute),
+		K8sPageLimit:             r.int64("CROSSWATC_K8S_PAGE_LIMIT", 500),
 		LeaderElection: LeaderElectionConfig{
 			Enabled:       r.bool("CROSSWATC_LEADER_ELECTION", true),
 			Namespace:     r.str("CROSSWATC_LEADER_ELECTION_NAMESPACE", ""),
@@ -232,4 +235,17 @@ func (r *reader) duration(key string, def time.Duration) time.Duration {
 		r.errs = append(r.errs, fmt.Errorf("%s: %w", key, err))
 	}
 	return d
+}
+
+func splitList(s string) []string {
+	if strings.EqualFold(strings.TrimSpace(s), "none") {
+		return nil
+	}
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

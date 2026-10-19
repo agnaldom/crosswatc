@@ -35,7 +35,9 @@ type Node struct {
 	Provider     string `json:"provider,omitempty"`
 	ExternalName string `json:"externalName,omitempty"`
 	Role         string `json:"compositionResourceName,omitempty"`
-	Message      string `json:"message,omitempty"`
+	// DeletionPolicy of a managed resource: Delete (removed from the cloud) or Orphan (kept).
+	DeletionPolicy string `json:"deletionPolicy,omitempty"`
+	Message        string `json:"message,omitempty"`
 }
 
 // Edge links a composing object to a composed one.
@@ -83,6 +85,7 @@ func Build(d kube.DiscoveredResource) Graph {
 	for _, m := range d.MRs {
 		n := node(m, TypeManaged)
 		n.Provider = kube.ProviderOf(m.APIVersion)
+		n.DeletionPolicy = DeletionPolicy(m.Spec)
 		add(n, m.Parent)
 	}
 	for _, m := range d.Missing {
@@ -127,4 +130,22 @@ func status(o kube.Object) (string, string) {
 		return StatusNotReady, c.Reason
 	}
 	return StatusNotReady, ""
+}
+
+// DeletionPolicy resolves what happens in the cloud when a managed resource is deleted.
+// Crossplane v2 managementPolicies without "Delete" (or "*") orphan the external resource;
+// otherwise spec.deletionPolicy applies (default Delete).
+func DeletionPolicy(spec map[string]any) string {
+	if mp, ok := spec["managementPolicies"].([]any); ok && len(mp) > 0 {
+		for _, p := range mp {
+			if p == "*" || p == "Delete" {
+				return "Delete"
+			}
+		}
+		return "Orphan"
+	}
+	if p, _ := spec["deletionPolicy"].(string); p == "Orphan" {
+		return "Orphan"
+	}
+	return "Delete"
 }

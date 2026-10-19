@@ -129,6 +129,16 @@ function Overview({ resource: r }: { resource: TrackedResource }) {
           <dt className="text-zinc-500">Correlation</dt><dd className="break-all font-mono text-xs">{r.correlationId}</dd>
         </dl>
       </div>
+      {["OPERATIONAL", "DEGRADED", "FAILED"].includes(r.resourceState) && (
+        <div className="rounded-lg border border-rose-200 bg-white p-4 md:col-span-2">
+          <h2 className="text-sm font-medium text-rose-800">Zona de perigo</h2>
+          <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+            <p className="text-zinc-600">Remover este recurso abre um Pull Request que apaga a infraestrutura após aprovação.</p>
+            <Link href={`/infrastructure/${r.id}/decommission`}
+              className="shrink-0 rounded-md border border-rose-300 px-3 py-1.5 font-medium text-rose-700 hover:bg-rose-50">Decommission</Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

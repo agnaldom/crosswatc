@@ -98,3 +98,20 @@ func TestBuildPendingXR(t *testing.T) {
 		t.Fatalf("edges must serialize as []: %s", b)
 	}
 }
+
+func TestDeletionPolicy(t *testing.T) {
+	cases := []struct {
+		spec map[string]any
+		want string
+	}{
+		{map[string]any{}, "Delete"},
+		{map[string]any{"deletionPolicy": "Orphan"}, "Orphan"},
+		{map[string]any{"managementPolicies": []any{"Observe", "Create", "Update"}}, "Orphan"},
+		{map[string]any{"managementPolicies": []any{"*"}, "deletionPolicy": "Orphan"}, "Delete"},
+	}
+	for _, c := range cases {
+		if got := DeletionPolicy(c.spec); got != c.want {
+			t.Errorf("%v → %s, want %s", c.spec, got, c.want)
+		}
+	}
+}

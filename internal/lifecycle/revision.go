@@ -28,7 +28,7 @@ type RevisionResult struct {
 func candidate(s Signals) (domain.RevisionState, *domain.FailureReason) {
 	pr := s.PR
 	switch {
-	case !pr.Found && s.AllHealthy():
+	case !pr.Found && s.AllHealthy() && !s.DeleteRequested:
 		return domain.RevisionSucceeded, nil // pre-existing/cluster-only resource already converged
 	case !pr.Found:
 		return domain.RevisionCreated, nil
@@ -45,6 +45,10 @@ func candidate(s Signals) (domain.RevisionState, *domain.FailureReason) {
 		}
 	case !pr.Merged:
 		return domain.RevisionValidating, nil
+	case s.DeleteRequested && !s.Claim.Present:
+		return domain.RevisionSucceeded, nil // Claim gone after merge: Crossplane finished deleting
+	case s.DeleteRequested && s.Claim.Deleting:
+		return domain.RevisionApplying, nil // Crossplane deleting managed resources in the cloud
 	case s.argoFailed():
 		return domain.RevisionFailed, &domain.FailureReason{
 			TechnicalCode: "ArgoSyncFailed", UserMessage: "Falha ao sincronizar a configuração com o cluster.",
@@ -54,6 +58,8 @@ func candidate(s Signals) (domain.RevisionState, *domain.FailureReason) {
 		return domain.RevisionSyncing, nil
 	case !s.argoOnCommit():
 		return domain.RevisionMerged, nil
+	case s.DeleteRequested:
+		return domain.RevisionReconciling, nil // synced, waiting for Argo CD to prune the Claim
 	case !s.XR.synced() || s.Claim.Generation > s.Claim.ObservedGeneration:
 		return domain.RevisionReconciling, nil
 	case !s.Claim.ready() || !s.XR.ready() || !s.mrsReady():

@@ -227,3 +227,28 @@ func TestEvaluateRevisionStuck(t *testing.T) {
 		t.Fatalf("waiting approval long time must flag stuck: %+v", got)
 	}
 }
+
+func TestEvaluateRevisionDelete(t *testing.T) {
+	cases := []struct {
+		name string
+		mut  func(*Signals)
+		want domain.RevisionState
+	}{
+		{"pr open", func(s *Signals) { s.PR.Merged, s.PR.Open, s.PR.Checks = false, true, ChecksPending }, domain.RevisionValidating},
+		{"no PR yet, healthy infra is not success", func(s *Signals) { s.PR = PRSignal{} }, domain.RevisionCreated},
+		{"merged, argo pending", func(s *Signals) { s.Argo.SyncedRevision = "old" }, domain.RevisionMerged},
+		{"synced, claim still there", func(*Signals) {}, domain.RevisionReconciling},
+		{"claim deleting", func(s *Signals) { s.Claim.Deleting = true }, domain.RevisionApplying},
+		{"claim gone", func(s *Signals) { s.Claim = ObjectSignal{}; s.Argo = ArgoSignal{} }, domain.RevisionSucceeded},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := happy()
+			s.DeleteRequested = true
+			tc.mut(&s)
+			if got := EvaluateRevision(domain.RevisionCreated, s, 0, time.Hour); got.State != tc.want {
+				t.Fatalf("got %s, want %s", got.State, tc.want)
+			}
+		})
+	}
+}

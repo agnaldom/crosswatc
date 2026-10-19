@@ -65,11 +65,16 @@ type fakeGitOps struct {
 	reqs     []gitops.Request
 	manifest string
 	canceled []int
+	deletes  []gitops.DeleteRequest
 }
 
 func (f *fakeGitOps) Submit(_ context.Context, r gitops.Request) (gitops.Result, error) {
 	f.reqs = append(f.reqs, r)
 	return gitops.Result{Branch: "update/x/dev/y/rev-3", CommitSHA: "c1", PRNumber: 173, PRURL: "https://gh/pr/173"}, f.err
+}
+func (f *fakeGitOps) SubmitDelete(_ context.Context, r gitops.DeleteRequest) (gitops.Result, error) {
+	f.deletes = append(f.deletes, r)
+	return gitops.Result{Branch: "delete/x", CommitSHA: "c2", PRNumber: 181, PRURL: "https://gh/pr/181"}, f.err
 }
 func (f *fakeGitOps) Manifest(context.Context, string, string) ([]byte, error) {
 	if f.manifest == "" {

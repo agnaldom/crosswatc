@@ -219,3 +219,14 @@ export interface DriftState {
   differences?: { field: string; desired: unknown; observed: unknown }[];
   detectedAt?: string;
 }
+
+export interface DecommissionPreview {
+  allowed: boolean;
+  reason?: string;
+  environment: string;
+  approvalRequired: boolean;
+  confirmName: string;
+  deleted: { kind: string; name: string; provider?: string; externalName?: string }[];
+  orphaned: { kind: string; name: string; provider?: string; externalName?: string }[];
+  warnings: string[];
+}

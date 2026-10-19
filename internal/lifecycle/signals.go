@@ -94,6 +94,7 @@ type Signals struct {
 	Argo      ArgoSignal
 
 	EverOperational bool
+	DeleteRequested bool // the revision being evaluated removes the Claim (kind DELETE)
 	OpenRevision    *OpenRevision
 	CreateFailed    bool // a CREATE revision ended FAILED
 	DeleteSucceeded bool // a DELETE revision ended SUCCEEDED

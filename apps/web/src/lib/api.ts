@@ -1,4 +1,5 @@
 import type {
+  DecommissionPreview,
   AuditEntry,
   ChangeCreated,
   ChangePreview,
@@ -71,6 +72,9 @@ export const api = {
   form: (id: string) => get<ResourceForm>(`/resources/${id}/form`),
   audit: (id: string) => get<Page<AuditEntry>>(`/resources/${id}/audit?limit=100`),
   preview: (id: string, changes: Record<string, unknown>) => post<ChangePreview>(`/resources/${id}/changes/preview`, { changes }),
+  decommissionPreview: (id: string) => post<DecommissionPreview>(`/resources/${id}/decommission/preview`, {}),
+  decommission: (id: string, confirmName: string, justification: string) =>
+    post<ChangeCreated>(`/resources/${id}/decommission`, { confirmName, justification }),
   cancelRevision: (id: string, rev: number, reason: string) =>
     fetch(`/api/v1/resources/${id}/revisions/${rev}/cancel`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }),

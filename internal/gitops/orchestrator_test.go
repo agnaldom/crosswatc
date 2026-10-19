@@ -13,13 +13,14 @@ type fakeRepo struct {
 	files    map[string][]byte
 	branches map[string]string
 	commits  map[string][]byte // branch → content
+	deleted  map[string]string // branch → path
 	prs      []string
 	closed   []int
 	failOn   string
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{files: map[string][]byte{"claims/dev/vm.yaml": []byte(claim)}, branches: map[string]string{"main": "base1"}, commits: map[string][]byte{}}
+	return &fakeRepo{files: map[string][]byte{"claims/dev/vm.yaml": []byte(claim)}, branches: map[string]string{"main": "base1"}, commits: map[string][]byte{}, deleted: map[string]string{}}
 }
 
 func (f *fakeRepo) err(op string) error {
@@ -47,6 +48,13 @@ func (f *fakeRepo) CommitFile(_ context.Context, _, branch, _ string, content []
 	}
 	f.commits[branch] = content
 	return "commit1", f.err("commit")
+}
+func (f *fakeRepo) DeleteFile(_ context.Context, _, branch, path, fileSHA, _ string) (string, error) {
+	if fileSHA != "blob1" {
+		return "", errors.New("bad sha")
+	}
+	f.deleted[branch] = path
+	return "commit-del", f.err("delete")
 }
 func (f *fakeRepo) OpenPullRequest(_ context.Context, _, head, base, title, body string) (int, string, error) {
 	f.prs = append(f.prs, head+"→"+base+"|"+title+"|"+body)
@@ -126,4 +134,51 @@ func TestBranchName(t *testing.T) {
 	if got := BranchName("update", "PostgreSQL Instance", "PRD", "pg_payments/../x", 3); got != "update/postgresql-instance/prd/pg_payments-..-x/rev-3" {
 		t.Fatalf("%q", got)
 	}
+}
+
+func delReq() DeleteRequest {
+	return DeleteRequest{Repository: "org/argocd", Path: "claims/dev/vm.yaml", ClaimName: "vm-payments", Kind: "VirtualMachine",
+		Environment: "dev", ResourceName: "vm-payments", Rev: 9, CorrelationID: "crosswatc-req-1", RequestedBy: "agnaldo",
+		Justification: "Serviço desativado", Deleted: []string{"LinuxVirtualMachine/vm-1"}, Orphaned: []string{"ManagedDisk/data"}}
+}
+
+func TestSubmitDeleteSingleDocDeletesFile(t *testing.T) {
+	repo := newFakeRepo()
+	res, err := (&Orchestrator{Repo: repo}).SubmitDelete(context.Background(), delReq())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Branch != "delete/virtualmachine/dev/vm-payments/rev-9" || res.CommitSHA != "commit-del" || repo.deleted[res.Branch] != "claims/dev/vm.yaml" {
+		t.Fatalf("%+v %v", res, repo.deleted)
+	}
+	pr := repo.prs[0]
+	for _, s := range []string{"DECOMMISSION vm-payments", "CAUTION", "LinuxVirtualMachine/vm-1", "ManagedDisk/data", "Serviço desativado"} {
+		if !strings.Contains(pr, s) {
+			t.Errorf("PR missing %q", s)
+		}
+	}
+}
+
+func TestSubmitDeleteMultiDocKeepsOthers(t *testing.T) {
+	repo := newFakeRepo()
+	repo.files["claims/dev/vm.yaml"] = []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: keep-me # comment\n---\n" + claim)
+	res, err := (&Orchestrator{Repo: repo}).SubmitDelete(context.Background(), delReq())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(repo.commits[res.Branch])
+	if !strings.Contains(body, "keep-me # comment") || strings.Contains(body, "vm-payments") || repo.deleted[res.Branch] != "" {
+		t.Fatalf("%s", body)
+	}
+	r := delReq()
+	r.ClaimName = "ghost"
+	if _, err := (&Orchestrator{Repo: newFakeRepoMulti()}).SubmitDelete(context.Background(), r); !errors.Is(err, ErrClaimNotFound) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func newFakeRepoMulti() *fakeRepo {
+	r := newFakeRepo()
+	r.files["claims/dev/vm.yaml"] = []byte("metadata: {name: a}\n---\nmetadata: {name: b}\n")
+	return r
 }

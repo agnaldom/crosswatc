@@ -98,6 +98,7 @@ type ChangeStore interface {
 // GitOps opens and closes change Pull Requests (satisfied by *gitops.Orchestrator).
 type GitOps interface {
 	Submit(ctx context.Context, req gitops.Request) (gitops.Result, error)
+	SubmitDelete(ctx context.Context, req gitops.DeleteRequest) (gitops.Result, error)
 	Manifest(ctx context.Context, repository, path string) ([]byte, error)
 	Cancel(ctx context.Context, repository string, number int, by, reason string) error
 }

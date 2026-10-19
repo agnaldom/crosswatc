@@ -41,6 +41,12 @@ func TestWriter(t *testing.T) {
 		got = append(got, "put:"+body["branch"].(string)+":"+body["sha"].(string))
 		write(w, map[string]any{"commit": map[string]any{"sha": "commit1"}})
 	})
+	mux.HandleFunc("DELETE /repos/org/argocd/contents/claims/dev/vm.yaml", func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		got = append(got, "del:"+body["branch"].(string)+":"+body["sha"].(string))
+		write(w, map[string]any{"commit": map[string]any{"sha": "commit-del"}})
+	})
 	mux.HandleFunc("POST /repos/org/argocd/pulls", func(w http.ResponseWriter, _ *http.Request) {
 		write(w, map[string]any{"number": 173, "html_url": "https://gh/pr/173"})
 	})
@@ -77,6 +83,9 @@ func TestWriter(t *testing.T) {
 	if err != nil || c != "commit1" {
 		t.Fatal(c, err)
 	}
+	if c, err := a.DeleteFile(ctx, "org/argocd", "update/x", "claims/dev/vm.yaml", "blob1", "rm"); err != nil || c != "commit-del" {
+		t.Fatal(c, err)
+	}
 	n, url, err := a.OpenPullRequest(ctx, "org/argocd", "update/x", "main", "t", "b")
 	if err != nil || n != 173 || url != "https://gh/pr/173" {
 		t.Fatal(n, url, err)
@@ -84,7 +93,7 @@ func TestWriter(t *testing.T) {
 	if err := a.ClosePullRequest(ctx, "org/argocd", 173, "bye"); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"get@main", `ref:{"ref":"refs/heads/update/x","sha":"base1"}`, "put:update/x:blob1", "comment", "state:closed"}
+	want := []string{"get@main", `ref:{"ref":"refs/heads/update/x","sha":"base1"}`, "put:update/x:blob1", "del:update/x:blob1", "comment", "state:closed"}
 	for i, w := range want {
 		if i >= len(got) || strings.TrimSpace(got[i]) != w {
 			t.Fatalf("calls %v, want %v", got, want)

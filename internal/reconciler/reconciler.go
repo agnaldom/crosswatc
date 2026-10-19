@@ -265,6 +265,7 @@ func (r *Reconciler) reconcile(ctx context.Context, d kube.DiscoveredResource) (
 	}
 
 	sig := r.signals(ctx, tr, d, open, revs)
+	sig.DeleteRequested = open != nil && open.Kind == string(domain.RevisionDelete)
 
 	if open != nil {
 		if err := r.advanceRevision(ctx, tr, open, sig); err != nil {
@@ -301,17 +302,46 @@ func (r *Reconciler) reconcileAbsent(ctx context.Context, tr store.TrackedResour
 		return err
 	}
 	sig := lifecycle.Signals{EverOperational: tr.EverOperational}
+	o := openRevision(revs)
+	if o != nil && o.Kind == string(domain.RevisionDelete) {
+		// Decommission in flight: the Claim disappearing is the expected outcome (spec §60).
+		sig.DeleteRequested, sig.PR = true, r.prSignal(ctx, tr, o)
+		if err := r.advanceRevision(ctx, tr, o, sig); err != nil {
+			return err
+		}
+		if domain.RevisionState(o.State).Terminal() {
+			o = nil
+		}
+	}
 	for _, rv := range revs {
 		if rv.Kind == string(domain.RevisionDelete) && rv.State == string(domain.RevisionSucceeded) {
 			sig.DeleteSucceeded = true
 		}
 	}
-	if o := openRevision(revs); o != nil {
+	if o != nil {
 		sig.OpenRevision = &lifecycle.OpenRevision{Kind: domain.RevisionKind(o.Kind), State: domain.RevisionState(o.State)}
 	}
-	r.event(ctx, tr, nil, fmt.Sprintf("claim-gone:%s:%d", tr.ID, tr.Version), events.SourceKubernetes, events.InfraClaimDeleted,
-		fmt.Sprintf("Claim %s/%s não encontrado no cluster", tr.ClaimNamespace, tr.ClaimName))
+	if !sig.DeleteSucceeded {
+		r.event(ctx, tr, nil, fmt.Sprintf("claim-gone:%s:%d", tr.ID, tr.Version), events.SourceKubernetes, events.InfraClaimDeleted,
+			fmt.Sprintf("Claim %s/%s não encontrado no cluster", tr.ClaimNamespace, tr.ClaimName))
+	}
 	return r.applyResourceState(ctx, &tr, sig)
+}
+
+// prSignal looks up the PR of the open revision (or of the resource) when GitHub is configured.
+func (r *Reconciler) prSignal(ctx context.Context, tr store.TrackedResource, open *store.Revision) lifecycle.PRSignal {
+	if r.PullRequests == nil || tr.Repository == "" {
+		return lifecycle.PRSignal{}
+	}
+	l := github.Lookup{Repository: tr.Repository, Path: tr.GitPath, CorrelationID: tr.CorrelationID}
+	if open != nil && open.PRNumber != nil {
+		l.PRNumber = *open.PRNumber
+	}
+	pr, err := r.PullRequests.PullRequest(ctx, l)
+	if err != nil {
+		r.log().Warn("github lookup failed", "resource", tr.ID, "err", err)
+	}
+	return pr
 }
 
 func openRevision(revs []store.Revision) *store.Revision {
@@ -382,17 +412,7 @@ func (r *Reconciler) signals(ctx context.Context, tr store.TrackedResource, d ku
 		}
 	}
 
-	if r.PullRequests != nil && tr.Repository != "" {
-		l := github.Lookup{Repository: tr.Repository, Path: tr.GitPath, CorrelationID: tr.CorrelationID}
-		if open != nil && open.PRNumber != nil {
-			l.PRNumber = *open.PRNumber
-		}
-		pr, err := r.PullRequests.PullRequest(ctx, l)
-		if err != nil {
-			r.log().Warn("github lookup failed", "resource", tr.ID, "err", err)
-		}
-		sig.PR = pr
-	}
+	sig.PR = r.prSignal(ctx, tr, open)
 
 	if r.Argo != nil {
 		if ref, ok := r.Argo.ResolveApp(d.Claim.Labels, d.Claim.Annotations); ok {

@@ -181,3 +181,48 @@ func ClaimParameters(manifest []byte, claimName string) (map[string]any, error) 
 	}
 	return nil, ErrClaimNotFound
 }
+
+// RemoveClaim drops the document named claimName. remaining is the number of documents left;
+// when it is 0 the caller should delete the file instead of committing empty content.
+func RemoveClaim(src []byte, claimName string) (out []byte, remaining int, err error) {
+	dec := yaml.NewDecoder(bytes.NewReader(src))
+	var docs []*yaml.Node
+	for {
+		var n yaml.Node
+		err := dec.Decode(&n)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, 0, fmt.Errorf("gitops: parse manifest: %w", err)
+		}
+		docs = append(docs, &n)
+	}
+	kept := docs[:0:0]
+	found := false
+	for _, d := range docs {
+		if !found && (len(docs) == 1 || scalarAt(root(d), "metadata", "name") == claimName) {
+			found = true
+			continue
+		}
+		kept = append(kept, d)
+	}
+	if !found {
+		return nil, 0, ErrClaimNotFound
+	}
+	if len(kept) == 0 {
+		return nil, 0, nil
+	}
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	for _, d := range kept {
+		if err := enc.Encode(d); err != nil {
+			return nil, 0, err
+		}
+	}
+	if err := enc.Close(); err != nil {
+		return nil, 0, err
+	}
+	return buf.Bytes(), len(kept), nil
+}
