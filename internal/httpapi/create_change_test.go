@@ -3,7 +3,10 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/agnaldom/crosswatc/internal/forms"
+	"github.com/agnaldom/crosswatc/internal/kube"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,4 +168,45 @@ func TestCreateChangeErrors(t *testing.T) {
 			t.Fatalf("operation must be FAILED: %+v", o)
 		}
 	}
+}
+
+// #79: new values of sensitive fields are never persisted or echoed.
+func TestSensitiveValuesNotPersisted(t *testing.T) {
+	fs, _, _ := setup()
+	p := fs.projection[payID]
+	p.AppliedState = []byte(`{"spec":{"parameters":{"adminPassword":"[REDACTED]"}}}`)
+	fs.projection[payID] = p
+	cs, g := newMemChanges(), &fakeGitOps{manifest: "metadata: {name: pgsql-payments}\nspec:\n  parameters: {}\n"}
+	h := New(Deps{Store: fs, Catalog: secretCatalog{}, Auth: auth.Dev{Mapping: auth.GroupMapping{SquadPrefix: "squad-"}}, Changes: cs, GitOps: g})
+	w := post(h, "/api/v1/resources/"+payID.String()+"/changes/preview", `{"changes":{"adminPassword":"n3w-s3cret"}}`, payments)
+	if strings.Contains(w.Body.String(), "n3w-s3cret") {
+		t.Fatalf("preview echoed the secret: %s", w.Body)
+	}
+	w = post(h, "/api/v1/resources/"+payID.String()+"/changes", `{"changes":{"adminPassword":"n3w-s3cret"},"justification":"rotação de senha"}`, payments)
+	if w.Code != 201 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	if g.reqs[0].Changes[0].To != "n3w-s3cret" {
+		t.Fatal("the manifest edit still needs the real value")
+	}
+	for _, rv := range cs.revs {
+		if strings.Contains(string(rv.Changes), "n3w-s3cret") {
+			t.Fatalf("revision.changes: %s", rv.Changes)
+		}
+	}
+	for _, a := range cs.audits {
+		if strings.Contains(string(a.After), "n3w-s3cret") || strings.Contains(string(a.Before), "n3w-s3cret") {
+			t.Fatalf("audit: %s", a.After)
+		}
+	}
+}
+
+type secretCatalog struct{}
+
+func (secretCatalog) DiscoverXRDs(context.Context) ([]kube.XRD, error) {
+	x := pgXRDWithForm()
+	x.Annotations = map[string]string{forms.MetadataAnnotation: `{"adminPassword": {"editable": true}}`}
+	x.Versions[0].Schema = map[string]any{"type": "object", "properties": map[string]any{"spec": map[string]any{"type": "object", "properties": map[string]any{
+		"parameters": map[string]any{"type": "object", "properties": map[string]any{"adminPassword": map[string]any{"type": "string"}}}}}}}
+	return []kube.XRD{x}, nil
 }

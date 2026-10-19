@@ -107,6 +107,7 @@ func (h *handlers) previewChanges(c *gin.Context) {
 		return
 	}
 	h.attachCost(c.Request.Context(), in, &res)
+	res.Changes = changes.Redacted(res.Changes)
 	c.JSON(http.StatusOK, res)
 }
 
@@ -169,6 +170,7 @@ func (h *handlers) createChange(c *gin.Context) {
 	}
 	h.attachCost(ctx, in, &pv)
 	if !pv.Valid {
+		pv.Changes = changes.Redacted(pv.Changes)
 		c.JSON(http.StatusUnprocessableEntity, pv)
 		return
 	}
@@ -200,7 +202,7 @@ func (h *handlers) createChange(c *gin.Context) {
 	cid, _ := correlation.FromContext(ctx)
 	user := principal(c).User
 	now := time.Now().UTC()
-	changesJSON, _ := json.Marshal(pv.Changes)
+	changesJSON, _ := json.Marshal(changes.Redacted(pv.Changes))
 
 	rev, err := h.changes.InsertRevision(ctx, store.Revision{ResourceID: r.ID, Rev: next, Kind: "UPDATE", State: "CREATED",
 		Changes: changesJSON, StartedAt: &now})

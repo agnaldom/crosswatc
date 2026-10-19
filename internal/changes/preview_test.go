@@ -117,3 +117,11 @@ func TestProposedSpec(t *testing.T) {
 		t.Fatal("current must not be mutated")
 	}
 }
+
+func TestRedacted(t *testing.T) {
+	cs := []SpecChange{{Field: "vmSize", From: "D2", To: "D4"}, {Field: "db.adminPassword", From: "[REDACTED]", To: "n3w"}}
+	r := Redacted(cs)
+	if r[0].To != "D4" || r[1].To != "[REDACTED]" || r[1].From != "[REDACTED]" || cs[1].To != "n3w" {
+		t.Fatalf("%+v / original %+v", r, cs)
+	}
+}
