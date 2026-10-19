@@ -14,6 +14,7 @@ import (
 
 	"github.com/agnaldom/crosswatc/internal/changes"
 	"github.com/agnaldom/crosswatc/internal/correlation"
+	"github.com/agnaldom/crosswatc/internal/cost"
 	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/gitops"
 	"github.com/agnaldom/crosswatc/internal/metrics"
@@ -50,7 +51,7 @@ func bindChange(c *gin.Context) (changeRequest, bool) {
 
 // previewInput loads form + applied spec for a change against r.
 func (h *handlers) previewInput(c *gin.Context, r store.TrackedResource, req changeRequest) (changes.Input, bool) {
-	f, _, ok := h.formFor(c, r.Kind)
+	f, x, ok := h.formFor(c, r.Kind)
 	if !ok {
 		return changes.Input{}, false
 	}
@@ -58,10 +59,33 @@ func (h *handlers) previewInput(c *gin.Context, r store.TrackedResource, req cha
 	if !ok {
 		return changes.Input{}, false
 	}
+	comps, err := cost.ParseComponents(x.Annotations[cost.Annotation])
+	if err != nil {
+		_ = c.Error(err) // a broken cost annotation must not block changes
+	}
 	return changes.Input{
 		Form: f, CurrentSpec: spec, Changes: req.Changes, Environment: r.Environment, ResourceState: r.ResourceState,
-		ResourceName: r.Name, Owner: r.Owner, Provider: r.Provider, Kind: r.Kind,
+		ResourceName: r.Name, Owner: r.Owner, Provider: r.Provider, Kind: r.Kind, CostComponents: comps,
 	}, true
+}
+
+// attachCost adds the monthly estimate (spec §60) when the type is priced and an estimator is configured.
+func (h *handlers) attachCost(ctx context.Context, in changes.Input, pv *changes.Result) {
+	if h.costs == nil || len(in.CostComponents) == 0 || len(pv.Changes) == 0 {
+		return
+	}
+	d := h.costs.Compare(ctx, in.CostComponents, in.CurrentSpec, changes.ProposedSpec(in.CurrentSpec, pv.Changes))
+	pv.Cost = &d
+	if d.Partial {
+		pv.Warnings = append(pv.Warnings, "Estimativa de custo parcial: alguns componentes não foram precificados")
+	}
+}
+
+func costSummary(d *cost.Diff) string {
+	if d == nil {
+		return ""
+	}
+	return fmt.Sprintf("%.2f → %.2f %s/mês (%+.2f)", d.Current.Monthly, d.New.Monthly, d.Currency, d.MonthlyDelta)
 }
 
 func (h *handlers) previewChanges(c *gin.Context) {
@@ -82,6 +106,7 @@ func (h *handlers) previewChanges(c *gin.Context) {
 		internalError(c, err)
 		return
 	}
+	h.attachCost(c.Request.Context(), in, &res)
 	c.JSON(http.StatusOK, res)
 }
 
@@ -142,6 +167,7 @@ func (h *handlers) createChange(c *gin.Context) {
 		internalError(c, err)
 		return
 	}
+	h.attachCost(ctx, in, &pv)
 	if !pv.Valid {
 		c.JSON(http.StatusUnprocessableEntity, pv)
 		return
@@ -199,7 +225,7 @@ func (h *handlers) createChange(c *gin.Context) {
 	res, err := h.gitops.Submit(ctx, gitops.Request{
 		Repository: r.Repository, Path: r.GitPath, ClaimName: r.ClaimName, Kind: r.Kind, Environment: r.Environment,
 		ResourceName: r.Name, Rev: next, CorrelationID: cid, RequestedBy: user, Justification: req.Justification,
-		Changes: pv.Changes, Approval: pv.Impact.ApprovalRequired,
+		Changes: pv.Changes, Approval: pv.Impact.ApprovalRequired, CostSummary: costSummary(pv.Cost),
 	})
 	if err != nil {
 		reason, _ := json.Marshal(map[string]string{"technicalCode": "GitOpsError", "userMessage": "Não foi possível abrir o Pull Request.",

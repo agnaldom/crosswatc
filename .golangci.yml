@@ -9,6 +9,7 @@ linters:
     - revive
   settings:
     misspell:
+      mode: restricted # user-facing strings are pt-BR; check comments only
       ignore-rules:
         - operacional
         - progresso

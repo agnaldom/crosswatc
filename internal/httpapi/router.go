@@ -17,6 +17,7 @@ import (
 
 	"github.com/agnaldom/crosswatc/internal/auth"
 	"github.com/agnaldom/crosswatc/internal/changes"
+	"github.com/agnaldom/crosswatc/internal/cost"
 	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/kube"
 	"github.com/agnaldom/crosswatc/internal/store"
@@ -59,6 +60,9 @@ type Deps struct {
 	GitOps   GitOps
 	Audit    AuditStore // optional: GET /audit
 
+	// Costs (optional) estimates monthly cost in change previews (spec §60).
+	Costs *cost.Estimator
+
 	// DecommissionEnvironments lists environments where the portal may open decommission PRs ("*" = all; empty disables).
 	DecommissionEnvironments []string
 
@@ -81,7 +85,7 @@ func New(d Deps) *gin.Engine {
 
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
 		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit,
-		decommissionEnvs: d.DecommissionEnvironments}
+		decommissionEnvs: d.DecommissionEnvironments, costs: d.Costs}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -130,6 +134,7 @@ type handlers struct {
 	auditStore AuditStore
 
 	decommissionEnvs []string
+	costs            *cost.Estimator
 }
 
 const resourceKey = "crosswatc.resource"

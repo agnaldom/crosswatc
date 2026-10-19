@@ -32,6 +32,8 @@ spec:
             - { name: CROSSWATC_SRE_GROUP, value: {{ .Values.auth.sreGroup | quote }} }
             - { name: CROSSWATC_OIDC_GROUPS_CLAIM, value: {{ .Values.auth.groupsClaim | quote }} }
             - { name: CROSSWATC_DECOMMISSION_ENVIRONMENTS, value: {{ .Values.decommission.environments | quote }} }
+            - { name: CROSSWATC_COST_PROVIDER, value: {{ .Values.cost.provider | quote }} }
+            - { name: CROSSWATC_COST_CURRENCY, value: {{ .Values.cost.currency | quote }} }
             {{- with .Values.webhooks.existingSecret }}
             - name: CROSSWATC_GITHUB_WEBHOOK_SECRET
               valueFrom: { secretKeyRef: { name: {{ . }}, key: github-webhook-secret, optional: true } }

@@ -104,3 +104,16 @@ func TestPreviewPolicies(t *testing.T) {
 		t.Fatalf("%+v", r.Policy)
 	}
 }
+
+func TestProposedSpec(t *testing.T) {
+	cur := map[string]any{"parameters": map[string]any{"vmSize": "D2", "network": map[string]any{"subnet": "a"}}}
+	out := ProposedSpec(cur, []SpecChange{{Path: "spec.parameters.vmSize", To: "D4"}, {Path: "spec.parameters.network.subnet", To: "b"},
+		{Path: "spec.parameters.tags.env", To: "dev"}})
+	p := out["parameters"].(map[string]any)
+	if p["vmSize"] != "D4" || p["network"].(map[string]any)["subnet"] != "b" || p["tags"].(map[string]any)["env"] != "dev" {
+		t.Fatalf("%v", out)
+	}
+	if cur["parameters"].(map[string]any)["vmSize"] != "D2" || cur["parameters"].(map[string]any)["network"].(map[string]any)["subnet"] != "a" {
+		t.Fatal("current must not be mutated")
+	}
+}

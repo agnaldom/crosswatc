@@ -9,7 +9,9 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/agnaldom/crosswatc/internal/cost"
 	"github.com/agnaldom/crosswatc/internal/forms"
 )
 
@@ -57,6 +59,7 @@ type Result struct {
 	Policy   PolicyResult  `json:"policy"`
 	Impact   ImpactSummary `json:"impact"`
 	Warnings []string      `json:"warnings"`
+	Cost     *cost.Diff    `json:"cost,omitempty"` // spec §60: current vs new monthly estimate
 }
 
 // Input is everything needed to preview a change.
@@ -72,6 +75,8 @@ type Input struct {
 	Kind          string
 	Phase         string // "preview" | "submit" (policies may be stricter on submit)
 	Justification string
+	// CostComponents come from the XRD crosswatc.io/cost annotation (empty: not priced).
+	CostComponents []cost.Component
 }
 
 // Policy adds organisation rules (naming, tags, security — spec §31 stage 3). Implemented by P4.5.
@@ -156,6 +161,37 @@ func Preview(ctx context.Context, in Input, policies ...Policy) (Result, error) 
 		res.Policy.Result = "FAIL"
 	}
 	return res, nil
+}
+
+// ProposedSpec returns a deep copy of current with the accepted changes applied at their paths.
+func ProposedSpec(current map[string]any, cs []SpecChange) map[string]any {
+	out := deepCopy(current)
+	for _, c := range cs {
+		parts := strings.Split(strings.TrimPrefix(c.Path, "spec."), ".")
+		m := out
+		for _, p := range parts[:len(parts)-1] {
+			next, ok := m[p].(map[string]any)
+			if !ok {
+				next = map[string]any{}
+				m[p] = next
+			}
+			m = next
+		}
+		m[parts[len(parts)-1]] = c.To
+	}
+	return out
+}
+
+func deepCopy(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		if mm, ok := v.(map[string]any); ok {
+			out[k] = deepCopy(mm)
+		} else {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // coerce converts JSON input to the field type (forms send numbers as strings or float64).

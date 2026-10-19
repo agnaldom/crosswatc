@@ -42,6 +42,7 @@ type Request struct {
 	Justification string
 	Changes       []changes.SpecChange
 	Approval      bool
+	CostSummary   string // e.g. "146.00 → 292.00 USD/mês (+146.00)"
 }
 
 // Result is what was created on the Git host.
@@ -214,6 +215,9 @@ func prBody(r Request) string {
 		r.ResourceName, r.Kind, r.Environment, r.Rev, r.RequestedBy, r.CorrelationID)
 	if r.Approval {
 		b.WriteString("| Aprovação | obrigatória |\n")
+	}
+	if r.CostSummary != "" {
+		fmt.Fprintf(&b, "| Custo estimado | %s |\n", r.CostSummary)
 	}
 	b.WriteString("\n### Alterações\n\n| Campo | Antes | Depois | Impacto |\n|---|---|---|---|\n")
 	for _, c := range r.Changes {

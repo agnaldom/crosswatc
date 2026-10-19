@@ -186,6 +186,22 @@ export interface ChangePreview {
   policy: { result: "PASS" | "FAIL"; violations: { field?: string; rule: string; message: string }[] };
   impact: { replacementRequired: boolean; possibleDowntime: boolean; approvalRequired: boolean };
   warnings: string[];
+  cost?: CostDiff;
+}
+
+export interface CostEstimate {
+  monthly: number;
+  currency: string;
+  lines: { component: string; sku: string; region: string; unitPrice: number; quantity: number; monthly: number }[];
+  unknown?: string[];
+}
+
+export interface CostDiff {
+  current: CostEstimate;
+  new: CostEstimate;
+  monthlyDelta: number;
+  currency: string;
+  partial: boolean;
 }
 
 export interface ChangeCreated {

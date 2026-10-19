@@ -1,5 +1,26 @@
 import { Badge } from "@/components/Badge";
-import type { ChangePreview } from "@/lib/types";
+import type { ChangePreview, CostDiff } from "@/lib/types";
+
+function money(v: number, currency: string) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "USD" }).format(v);
+}
+
+function CostLine({ cost }: { cost: CostDiff }) {
+  const up = cost.monthlyDelta > 0;
+  return (
+    <div className="rounded-md border border-zinc-200 p-3">
+      <p className="text-xs uppercase tracking-wide text-zinc-500">Custo estimado (mensal)</p>
+      <p className="mt-1">
+        {money(cost.current.monthly, cost.currency)} → <strong>{money(cost.new.monthly, cost.currency)}</strong>{" "}
+        <span className={up ? "text-rose-700" : "text-emerald-700"}>
+          ({up ? "+" : ""}{money(cost.monthlyDelta, cost.currency)}/mês)
+        </span>
+      </p>
+      {cost.partial && <p className="mt-1 text-xs text-amber-700">Estimativa parcial: alguns componentes não foram precificados.</p>}
+      <p className="mt-1 text-xs text-zinc-500">Preço de lista on-demand; não inclui descontos, reservas ou impostos.</p>
+    </div>
+  );
+}
 
 const fmt = (v: unknown) => (v === undefined || v === null || v === "" ? "—" : String(v));
 
@@ -31,6 +52,8 @@ export function PreviewPanel({ preview }: { preview: ChangePreview }) {
           </tbody>
         </table>
       )}
+
+      {preview.cost && <CostLine cost={preview.cost} />}
 
       {preview.policy.violations.length > 0 && (
         <ul className="space-y-1 rounded-md bg-rose-50 p-3 text-rose-800" role="alert">

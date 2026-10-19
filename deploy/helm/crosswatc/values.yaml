@@ -123,3 +123,7 @@ notifications:
     user: ""
     # Secret with key smtp-password
     passwordSecret: ""
+
+cost:
+  provider: azure   # azure | none — the API calls https://prices.azure.com (public, no credentials)
+  currency: USD

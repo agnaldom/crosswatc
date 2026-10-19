@@ -45,6 +45,10 @@ type Config struct {
 	MutationsPerMinute int    // per-user limit on change requests (0 → 10, negative disables)
 	Notify             NotifyConfig
 
+	// CostProvider enables cost estimates in previews ("azure" or "none"); CostCurrency e.g. USD, BRL.
+	CostProvider string
+	CostCurrency string
+
 	// DecommissionEnvironments where the portal may open decommission PRs (comma list, "*" all, "none" disables).
 	DecommissionEnvironments []string
 	ArgoCDWebhookToken       string // bearer token of POST /webhooks/argocd (§35.1)
@@ -136,6 +140,8 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 		GitOpsBaseBranch:   r.str("CROSSWATC_GITOPS_BASE_BRANCH", "main"),
 		PolicyDir:          r.str("CROSSWATC_POLICY_DIR", ""),
 		MutationsPerMinute: int(r.int64("CROSSWATC_MUTATIONS_PER_MINUTE", 0)),
+		CostProvider:       r.str("CROSSWATC_COST_PROVIDER", "azure"),
+		CostCurrency:       r.str("CROSSWATC_COST_CURRENCY", "USD"),
 		Notify: NotifyConfig{
 			RoutesPath:   r.str("CROSSWATC_NOTIFY_CONFIG", ""),
 			PortalURL:    r.str("CROSSWATC_PORTAL_URL", ""),

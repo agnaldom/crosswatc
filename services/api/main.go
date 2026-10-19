@@ -15,6 +15,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/auth"
 	"github.com/agnaldom/crosswatc/internal/changes"
 	"github.com/agnaldom/crosswatc/internal/config"
+	"github.com/agnaldom/crosswatc/internal/cost"
 	"github.com/agnaldom/crosswatc/internal/gitops"
 	"github.com/agnaldom/crosswatc/internal/httpapi"
 	"github.com/agnaldom/crosswatc/internal/kube"
@@ -100,6 +101,9 @@ func run() error {
 	}
 	log.Info("policies loaded", "modules", engine.Modules())
 	deps.Policies = []changes.Policy{engine}
+	if cfg.CostProvider == "azure" {
+		deps.Costs = &cost.Estimator{Prices: &cost.Azure{Currency: cfg.CostCurrency}}
+	}
 
 	if cfg.GitHub.AppID != 0 {
 		gh, err := github.New(github.Config{APIURL: cfg.GitHub.APIURL, AppID: cfg.GitHub.AppID,
