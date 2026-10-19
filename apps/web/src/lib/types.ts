@@ -312,3 +312,11 @@ export interface PlatformXRD {
   version: string;
   established: boolean;
 }
+
+export interface DashboardSummary {
+  total: number;
+  byState: Partial<Record<ResourceState, number>>;
+  attention: { id: string; name: string; kind: string; resourceState: ResourceState; drift: boolean; synced?: boolean; ready?: boolean }[];
+  openRevisions: { resourceId: string; resourceName: string; rev: number; kind: string; state: string; prUrl?: string; startedAt?: string }[];
+  recentEvents: (TrackerEvent & { resourceId?: string; resourceName: string })[];
+}

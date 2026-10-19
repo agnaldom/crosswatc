@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 const nav = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/infrastructure", label: "My Infrastructure" },
   { href: "/infrastructure?view=requests", label: "Requests", disabled: true },
   { href: "/infrastructure?view=changes", label: "Changes", disabled: true },
