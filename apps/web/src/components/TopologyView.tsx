@@ -22,9 +22,10 @@ export function statusOf(n: TopologyNode): { tone: Tone; label: string; detail?:
   return n.conditions?.length ? normalizeConditions(n.conditions, n.kind) : { tone: "muted", label: n.status, detail: n.message };
 }
 
-export function TopologyView({ topology, nodeActions }: {
+export function TopologyView({ topology, nodeActions, nodeExtraActions }: {
   topology: Topology;
   nodeActions?: (n: TopologyNode) => React.ReactNode;
+  nodeExtraActions?: (n: TopologyNode) => React.ReactNode;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const { nodes, edges } = useMemo(() => {
@@ -56,7 +57,7 @@ export function TopologyView({ topology, nodeActions }: {
           <Background />
           <Controls showInteractive={false} />
         </ReactFlow>
-        {node && <NodeDetails node={node} onClose={() => setSelected(null)} actions={nodeActions?.(node)} />}
+        {node && <NodeDetails node={node} onClose={() => setSelected(null)} actions={<>{nodeActions?.(node)}{nodeExtraActions?.(node)}</>} />}
       </div>
     </div>
   );

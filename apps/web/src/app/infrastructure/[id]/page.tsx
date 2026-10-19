@@ -6,6 +6,7 @@ import { use, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { DriftBanner } from "@/components/DriftBanner";
 import { KubeEvents } from "@/components/KubeEvents";
+import { ManifestTab } from "@/components/ManifestTab";
 import { Lifecycle } from "@/components/Lifecycle";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus, Timeline } from "@/components/Timeline";
@@ -14,13 +15,18 @@ import { api } from "@/lib/api";
 import { healthTone, resourceStateLabel, resourceStateTone, revisionStateTone } from "@/lib/labels";
 import type { Health, Revision, TrackedResource } from "@/lib/types";
 
-const tabs = ["Overview", "Lifecycle", "Topology", "Changes", "Events", "Kubernetes", "Audit"] as const;
+const tabs = ["Overview", "Lifecycle", "Topology", "Changes", "Events", "Kubernetes", "Manifest", "Audit"] as const;
 type Tab = (typeof tabs)[number];
 
 export default function ResourcePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [tab, setTab] = useState<Tab>("Overview");
   const [kubeFilter, setKubeFilter] = useState("");
+  const [manifestObject, setManifestObject] = useState("");
+  const showManifest = (nodeId: string) => {
+    setManifestObject(nodeId);
+    setTab("Manifest");
+  };
   const showEvents = (filter: string) => {
     setKubeFilter(filter);
     setTab("Kubernetes");
@@ -82,7 +88,8 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
       <section className="mt-5">
         {tab === "Overview" && <Overview resource={r} />}
         {tab === "Lifecycle" && (state.isError ? <ErrorState error={state.error} /> : state.data ? <Lifecycle stages={state.data.stages} /> : <Loading />)}
-        {tab === "Topology" && <TopologyTab id={id} onEvents={showEvents} />}
+        {tab === "Topology" && <TopologyTab id={id} onEvents={showEvents} onManifest={showManifest} />}
+        {tab === "Manifest" && <ManifestTab id={id} object={manifestObject} onObject={setManifestObject} />}
         {tab === "Kubernetes" && <KubeEvents id={id} filter={kubeFilter} onFilter={setKubeFilter} />}
         {tab === "Changes" && <Changes id={id} />}
         {tab === "Events" && <Events id={id} />}
@@ -150,7 +157,7 @@ function Overview({ resource: r }: { resource: TrackedResource }) {
   );
 }
 
-function TopologyTab({ id, onEvents }: { id: string; onEvents: (filter: string) => void }) {
+function TopologyTab({ id, onEvents, onManifest }: { id: string; onEvents: (filter: string) => void; onManifest: (nodeId: string) => void }) {
   const q = useQuery({ queryKey: ["topology", id], queryFn: () => api.topology(id) });
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
@@ -158,6 +165,9 @@ function TopologyTab({ id, onEvents }: { id: string; onEvents: (filter: string) 
     <TopologyView topology={q.data} nodeActions={(n) => (
       <button type="button" onClick={() => onEvents(`${n.kind}/${n.name}`)}
         className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-50">Ver eventos do cluster</button>
+    )} nodeExtraActions={(n) => n.status !== "missing" && (
+      <button type="button" onClick={() => onManifest(n.id)}
+        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-50">Ver manifest</button>
     )} />
   );
 }

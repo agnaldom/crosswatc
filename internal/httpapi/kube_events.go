@@ -19,6 +19,7 @@ import (
 // Cluster reads live objects and events from the single control cluster (read-only; satisfied by *kube.Client).
 type Cluster interface {
 	EventsFor(ctx context.Context, ref kube.Ref) ([]kube.Event, error)
+	Manifest(ctx context.Context, ref kube.Ref) ([]byte, error)
 }
 
 const (
