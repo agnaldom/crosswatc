@@ -182,3 +182,11 @@ func newFakeRepoMulti() *fakeRepo {
 	r.files["claims/dev/vm.yaml"] = []byte("metadata: {name: a}\n---\nmetadata: {name: b}\n")
 	return r
 }
+
+func TestPRBodyMasksSensitiveValues(t *testing.T) {
+	r := req()
+	r.Changes = append(r.Changes, changes.SpecChange{Field: "adminPassword", Path: "spec.parameters.adminPassword", From: "[REDACTED]", To: "n3w"})
+	if strings.Contains(prBody(r), "n3w") {
+		t.Fatal("PR body must not contain the secret")
+	}
+}

@@ -65,6 +65,8 @@ type Deps struct {
 
 	// DecommissionEnvironments lists environments where the portal may open decommission PRs ("*" = all; empty disables).
 	DecommissionEnvironments []string
+	// ProductionEnvironments names production environments (default prd, prod, production).
+	ProductionEnvironments []string
 
 	// MutationsPerMinute limits POSTs per user: 0 → default 10/min (burst 5), negative → disabled.
 	MutationsPerMinute int
@@ -85,7 +87,8 @@ func New(d Deps) *gin.Engine {
 
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
 		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit,
-		decommissionEnvs: d.DecommissionEnvironments, costs: d.Costs}
+		decommissionEnvs: d.DecommissionEnvironments, costs: d.Costs,
+		productionEnvs: productionEnvs(d.ProductionEnvironments)}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -135,6 +138,17 @@ type handlers struct {
 
 	decommissionEnvs []string
 	costs            *cost.Estimator
+	productionEnvs   []string
+}
+
+// DefaultProductionEnvironments is shared with the default Rego policies (prd/*).
+var DefaultProductionEnvironments = []string{"prd", "prod", "production"}
+
+func productionEnvs(v []string) []string {
+	if len(v) == 0 {
+		return DefaultProductionEnvironments
+	}
+	return v
 }
 
 const resourceKey = "crosswatc.resource"

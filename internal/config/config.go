@@ -51,6 +51,7 @@ type Config struct {
 
 	// DecommissionEnvironments where the portal may open decommission PRs (comma list, "*" all, "none" disables).
 	DecommissionEnvironments []string
+	ProductionEnvironments   []string
 	ArgoCDWebhookToken       string // bearer token of POST /webhooks/argocd (§35.1)
 	InboxPollInterval        time.Duration
 
@@ -150,6 +151,7 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 			SMTPUser:     r.str("CROSSWATC_SMTP_USER", ""),
 			SMTPPassword: r.str("CROSSWATC_SMTP_PASSWORD", ""),
 		},
+		ProductionEnvironments:   splitList(r.str("CROSSWATC_PRODUCTION_ENVIRONMENTS", "prd,prod,production")),
 		DecommissionEnvironments: splitList(r.str("CROSSWATC_DECOMMISSION_ENVIRONMENTS", "dev,hlg")),
 		ArgoCDWebhookToken:       r.str("CROSSWATC_ARGOCD_WEBHOOK_TOKEN", ""),
 		InboxPollInterval:        r.duration("CROSSWATC_INBOX_POLL_INTERVAL", time.Second),

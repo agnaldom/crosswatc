@@ -48,39 +48,46 @@ var cfg = Config{
 func TestDispatcherRouting(t *testing.T) {
 	teams, mail := &rec{channel: "teams"}, &rec{channel: "email"}
 	d := &Dispatcher{Config: cfg, Teams: teams, Email: mail, PortalURL: "https://crosswatc.corp/"}
-	if err := d.Handle(context.Background(), notification("payments", KindFailed)); err != nil {
+	delivered, err := d.Handle(context.Background(), notification("payments", KindFailed))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if len(teams.calls) != 1 || strings.Join(mail.calls[0], ",") != "payments@corp.com,plataforma@corp.com" {
-		t.Fatalf("recipients must merge squad + default without duplicates: %v %v", teams.calls, mail.calls)
+	if strings.Join(delivered, ",") != "teams:https://teams/hook,email:payments@corp.com,email:plataforma@corp.com" {
+		t.Fatalf("one target per recipient, squad + default without duplicates: %v", delivered)
 	}
 	m := mail.msgs[0]
 	if m.Link != "https://crosswatc.corp/infrastructure/11111111-1111-1111-1111-111111111111" || m.Title() != "Falha — vm-a (prd)" || m.Owner != "payments" {
 		t.Fatalf("%+v", m)
 	}
-
-	mail.calls = nil
-	if err := d.Handle(context.Background(), notification("cards", KindOperational)); !errors.Is(err, store.ErrSkip) {
+	if _, err := d.Handle(context.Background(), notification("cards", KindOperational)); !errors.Is(err, store.ErrSkip) {
 		t.Fatalf("filtered kind with no default route must skip, got %v", err)
 	}
-	if err := d.Handle(context.Background(), notification("unknown", KindFailed)); err != nil || strings.Join(mail.calls[0], ",") != "plataforma@corp.com" {
+	mail.calls = nil
+	if _, err := d.Handle(context.Background(), notification("unknown", KindFailed)); err != nil || strings.Join(mail.calls[0], ",") != "plataforma@corp.com" {
 		t.Fatalf("default route: %v %v", err, mail.calls)
 	}
 }
 
-func TestDispatcherFailures(t *testing.T) {
-	teams, mail := &rec{channel: "teams", err: errors.New("down")}, &rec{channel: "email"}
+// #81: a failing target never blocks the others, and a retry only resends to targets that failed.
+func TestDispatcherPerTargetRetry(t *testing.T) {
+	teams := &rec{channel: "teams", err: errors.New("down")}
+	mail := &rec{channel: "email"}
 	d := &Dispatcher{Config: cfg, Teams: teams, Email: mail}
-	if err := d.Handle(context.Background(), notification("payments", KindFailed)); err != nil {
-		t.Fatalf("partial success must not retry: %v", err)
+	n := notification("payments", KindFailed)
+	delivered, err := d.Handle(context.Background(), n)
+	if err == nil || len(delivered) != 2 {
+		t.Fatalf("partial failure must be retried with the delivered targets recorded: %v %v", delivered, err)
 	}
-	mail.err = errors.New("smtp down")
-	if err := d.Handle(context.Background(), notification("payments", KindFailed)); err == nil || errors.Is(err, store.ErrSkip) {
-		t.Fatalf("all channels failing must retry: %v", err)
+	// retry: e-mails already delivered are skipped, Teams is tried again
+	n.SentTargets = delivered
+	teams.err, mail.calls = nil, nil
+	delivered, err = d.Handle(context.Background(), n)
+	if err != nil || strings.Join(delivered, ",") != "teams:https://teams/hook" || len(mail.calls) != 0 {
+		t.Fatalf("retry resent delivered targets: %v %v %v", delivered, err, mail.calls)
 	}
 	bad := notification("payments", KindFailed)
 	bad.Payload = []byte(`{`)
-	if err := d.Handle(context.Background(), bad); !errors.Is(err, store.ErrPermanent) {
+	if _, err := d.Handle(context.Background(), bad); !errors.Is(err, store.ErrPermanent) {
 		t.Fatalf("bad payload is permanent: %v", err)
 	}
 }
@@ -105,8 +112,12 @@ func TestTeamsCard(t *testing.T) {
 	}
 	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(400) }))
 	defer fail.Close()
-	if err := (Teams{}).Send(context.Background(), []string{fail.URL}, m); err == nil {
+	got = nil
+	if err := (Teams{}).Send(context.Background(), []string{fail.URL, srv.URL}, m); err == nil {
 		t.Fatal("HTTP 400 must error")
+	}
+	if got == nil {
+		t.Fatal("#81: the webhook after a failing one must still be called")
 	}
 }
 

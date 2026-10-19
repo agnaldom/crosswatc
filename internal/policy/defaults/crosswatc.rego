@@ -15,13 +15,16 @@ name_pattern := `^[a-z][a-z0-9-]{1,61}[a-z0-9]$`
 
 required_tags := {"cost-center", "owner"}
 
+# Keep in sync with httpapi.DefaultProductionEnvironments.
+production := {"prd", "prod", "production"}
+
 deny contains v if {
 	not regex.match(name_pattern, input.resource.name)
 	v := {"rule": "naming/resource-name", "message": sprintf("Nome %q fora do padrão DNS (minúsculas, números e '-', 3–63 chars)", [input.resource.name])}
 }
 
 deny contains v if {
-	input.resource.environment in {"prd", "production"}
+	input.resource.environment in production
 	some c in input.changes
 	c.impact == "REPLACEMENT"
 	v := {"rule": "prd/no-replacement", "field": c.field,
@@ -30,7 +33,7 @@ deny contains v if {
 
 deny contains v if {
 	input.phase == "submit"
-	input.resource.environment in {"prd", "production"}
+	input.resource.environment in production
 	count(trim_space(object.get(input, "justification", ""))) < 15
 	v := {"rule": "prd/justification", "message": "Em produção a justificativa precisa ter ao menos 15 caracteres"}
 }

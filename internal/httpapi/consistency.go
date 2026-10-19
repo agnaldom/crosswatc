@@ -17,6 +17,7 @@ import (
 	"github.com/agnaldom/crosswatc/internal/domain"
 	"github.com/agnaldom/crosswatc/internal/forms"
 	"github.com/agnaldom/crosswatc/internal/gitops"
+	"github.com/agnaldom/crosswatc/internal/redact"
 	"github.com/agnaldom/crosswatc/internal/store"
 )
 
@@ -74,12 +75,18 @@ func (h *handlers) syncedWithGit(ctx context.Context, r store.TrackedResource) (
 	return *applied.SyncedWithGit, true
 }
 
+// diverging compares only fields declared in Git: fields present only on the Claim are API-server
+// defaults or late-initialized values, not drift (same rule as drift.Compare). Redacted/sensitive
+// values cannot be compared and are skipped.
 func diverging(f forms.Form, git, cluster map[string]any) []Divergence {
 	var out []Divergence
 	for _, fl := range f.Fields {
 		g, gok := forms.Lookup(git, fl.Key)
-		k, kok := forms.Lookup(cluster, fl.Key)
-		if !gok && !kok {
+		if !gok {
+			continue
+		}
+		k, _ := forms.Lookup(cluster, fl.Key)
+		if k == redact.Placeholder || redact.Sensitive(lastKey(fl.Key)) {
 			continue
 		}
 		if fmt.Sprint(g) != fmt.Sprint(k) {
@@ -164,4 +171,11 @@ func (h *handlers) endRevision(ctx context.Context, r store.TrackedResource, rev
 	h.emit(ctx, r, &rev, fmt.Sprintf("rev:%s:%s", rev.ID, state), "crosswatc", "GITOPS.PR.CLOSED", "warning",
 		fmt.Sprintf("Revision %d %s por %s", rev.Rev, strings.ToLower(string(state)), by))
 	return nil
+}
+
+func lastKey(k string) string {
+	if i := strings.LastIndex(k, "."); i >= 0 {
+		return k[i+1:]
+	}
+	return k
 }

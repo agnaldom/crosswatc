@@ -49,3 +49,11 @@ test_public_access_denied if {
 	inp := object.union(base, {"changes": [{"field": "network.publicNetworkAccess", "to": "Enabled", "impact": "IN_PLACE"}]})
 	"security/no-public-access" in rules(inp)
 }
+
+test_prod_alias_is_production if {
+	inp := object.union(base, {
+		"resource": object.union(base.resource, {"environment": "prod"}),
+		"changes": [{"field": "diskGb", "from": 64, "to": 128, "impact": "REPLACEMENT"}],
+	})
+	"prd/no-replacement" in rules(inp)
+}

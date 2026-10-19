@@ -74,7 +74,7 @@ func (e *Engine) Modules() []string { return e.modules }
 func Document(in changes.Input, cs []changes.SpecChange) map[string]any {
 	params, _ := in.CurrentSpec["parameters"].(map[string]any)
 	list := make([]map[string]any, len(cs))
-	for i, c := range cs {
+	for i, c := range changes.Redacted(cs) {
 		list[i] = map[string]any{"field": c.Field, "path": c.Path, "from": c.From, "to": c.To, "impact": string(c.Impact)}
 	}
 	phase := in.Phase

@@ -95,9 +95,12 @@ type Signals struct {
 
 	EverOperational bool
 	DeleteRequested bool // the revision being evaluated removes the Claim (kind DELETE)
-	OpenRevision    *OpenRevision
-	CreateFailed    bool // a CREATE revision ended FAILED
-	DeleteSucceeded bool // a DELETE revision ended SUCCEEDED
+	// AllowClusterOnly lets a revision without a PR succeed from healthy cluster state alone
+	// (pre-existing resources discovered without a PR). Never set for portal-opened revisions.
+	AllowClusterOnly bool
+	OpenRevision     *OpenRevision
+	CreateFailed     bool // a CREATE revision ended FAILED
+	DeleteSucceeded  bool // a DELETE revision ended SUCCEEDED
 }
 
 func (s Signals) mrsHealthy() bool {

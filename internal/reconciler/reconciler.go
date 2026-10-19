@@ -264,12 +264,15 @@ func (r *Reconciler) reconcile(ctx context.Context, d kube.DiscoveredResource) (
 		revs = []store.Revision{rev}
 	}
 
-	sig := r.signals(ctx, tr, d, open, revs)
+	sig, prOK := r.signals(ctx, tr, d, open, revs)
 	sig.DeleteRequested = open != nil && open.Kind == string(domain.RevisionDelete)
+	sig.AllowClusterOnly = allowClusterOnly(open)
 
 	if open != nil {
-		if err := r.advanceRevision(ctx, tr, open, sig); err != nil {
-			return err
+		if prOK {
+			if err := r.advanceRevision(ctx, tr, open, sig); err != nil {
+				return err
+			}
 		}
 		if domain.RevisionState(open.State).Terminal() {
 			sig.OpenRevision = nil
@@ -305,9 +308,13 @@ func (r *Reconciler) reconcileAbsent(ctx context.Context, tr store.TrackedResour
 	o := openRevision(revs)
 	if o != nil && o.Kind == string(domain.RevisionDelete) {
 		// Decommission in flight: the Claim disappearing is the expected outcome (spec §60).
-		sig.DeleteRequested, sig.PR = true, r.prSignal(ctx, tr, o)
-		if err := r.advanceRevision(ctx, tr, o, sig); err != nil {
-			return err
+		var prOK bool
+		sig.PR, prOK = r.prSignal(ctx, tr, o)
+		sig.DeleteRequested = true
+		if prOK {
+			if err := r.advanceRevision(ctx, tr, o, sig); err != nil {
+				return err
+			}
 		}
 		if domain.RevisionState(o.State).Terminal() {
 			o = nil
@@ -329,19 +336,30 @@ func (r *Reconciler) reconcileAbsent(ctx context.Context, tr store.TrackedResour
 }
 
 // prSignal looks up the PR of the open revision (or of the resource) when GitHub is configured.
-func (r *Reconciler) prSignal(ctx context.Context, tr store.TrackedResource, open *store.Revision) lifecycle.PRSignal {
+// ok=false means the lookup failed: callers must not advance the revision on an empty signal.
+// Revisions opened by the portal (UPDATE/DELETE) are only matched by their own PR number: before the
+// API records it, falling back to correlation/path would pick the previous merged PR.
+func (r *Reconciler) prSignal(ctx context.Context, tr store.TrackedResource, open *store.Revision) (lifecycle.PRSignal, bool) {
 	if r.PullRequests == nil || tr.Repository == "" {
-		return lifecycle.PRSignal{}
+		return lifecycle.PRSignal{}, true
 	}
 	l := github.Lookup{Repository: tr.Repository, Path: tr.GitPath, CorrelationID: tr.CorrelationID}
 	if open != nil && open.PRNumber != nil {
 		l.PRNumber = *open.PRNumber
+	} else if open != nil && open.Kind != string(domain.RevisionCreate) {
+		return lifecycle.PRSignal{}, true
 	}
 	pr, err := r.PullRequests.PullRequest(ctx, l)
 	if err != nil {
-		r.log().Warn("github lookup failed", "resource", tr.ID, "err", err)
+		r.log().Warn("github lookup failed; revision not advanced this pass", "resource", tr.ID, "err", err)
+		return lifecycle.PRSignal{}, false
 	}
-	return pr
+	return pr, true
+}
+
+// allowClusterOnly: only a discovered CREATE revision without a known PR may succeed from cluster state alone.
+func allowClusterOnly(open *store.Revision) bool {
+	return open != nil && open.Kind == string(domain.RevisionCreate) && open.PRNumber == nil
 }
 
 func openRevision(revs []store.Revision) *store.Revision {
@@ -377,7 +395,7 @@ func (r *Reconciler) startCreateRevision(ctx context.Context, tr store.TrackedRe
 }
 
 // signals collects external state. Adapter failures degrade to empty signals and are logged.
-func (r *Reconciler) signals(ctx context.Context, tr store.TrackedResource, d kube.DiscoveredResource, open *store.Revision, revs []store.Revision) lifecycle.Signals {
+func (r *Reconciler) signals(ctx context.Context, tr store.TrackedResource, d kube.DiscoveredResource, open *store.Revision, revs []store.Revision) (lifecycle.Signals, bool) {
 	sig := lifecycle.Signals{
 		InvalidMetadata: len(d.MetadataErrors) > 0,
 		Claim:           objectSignal(d.Claim),
@@ -412,7 +430,8 @@ func (r *Reconciler) signals(ctx context.Context, tr store.TrackedResource, d ku
 		}
 	}
 
-	sig.PR = r.prSignal(ctx, tr, open)
+	var prOK bool
+	sig.PR, prOK = r.prSignal(ctx, tr, open)
 
 	if r.Argo != nil {
 		if ref, ok := r.Argo.ResolveApp(d.Claim.Labels, d.Claim.Annotations); ok {
@@ -423,7 +442,7 @@ func (r *Reconciler) signals(ctx context.Context, tr store.TrackedResource, d ku
 			sig.Argo = as
 		}
 	}
-	return sig
+	return sig, prOK
 }
 
 func objectSignal(o kube.Object) lifecycle.ObjectSignal {
@@ -503,6 +522,7 @@ func (r *Reconciler) advanceRevision(ctx context.Context, tr store.TrackedResour
 	if res.State.Terminal() {
 		now := r.now()
 		rev.CompletedAt, finished = &now, &now
+		r.invalidateManifest(tr) // merged changes make the cached desired state stale (drift §47)
 		if rev.StartedAt != nil {
 			metrics.RevisionDuration.WithLabelValues(rev.Kind, rev.State).Observe(now.Sub(*rev.StartedAt).Seconds())
 		}
@@ -629,7 +649,9 @@ func projection(tr store.TrackedResource, d kube.DiscoveredResource, sig lifecyc
 	desired := map[string]any{"repository": tr.Repository, "path": tr.GitPath, "commitSha": sig.PR.MergeCommitSHA}
 	applied := map[string]any{
 		"generation": d.Claim.Generation, "spec": redact.Map(d.Claim.Spec), // never persist secret material (§49)
-		"syncedWithGit": sig.Argo.Found && sig.Argo.SyncStatus == "Synced",
+	}
+	if sig.Argo.Found { // unknown when the Application could not be resolved: do not claim "not synced"
+		applied["syncedWithGit"] = sig.Argo.SyncStatus == "Synced"
 	}
 	observed := map[string]any{"ready": d.Claim.Ready(), "synced": d.Claim.Synced(), "lastReconcileAt": now}
 	health := map[string]any{

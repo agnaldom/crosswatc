@@ -31,7 +31,7 @@ const (
 // beforeAfter splits SpecChanges into before/after maps.
 func beforeAfter(cs []changes.SpecChange) (json.RawMessage, json.RawMessage) {
 	before, after := map[string]any{}, map[string]any{}
-	for _, c := range cs {
+	for _, c := range changes.Redacted(cs) {
 		before[c.Field], after[c.Field] = c.From, c.To
 	}
 	b, _ := json.Marshal(before)

@@ -9,12 +9,12 @@ import (
 
 // NotificationStore is the outbox (satisfied by *store.Store).
 type NotificationStore interface {
-	ProcessNotifications(ctx context.Context, limit, maxAttempts int, fn func(store.Notification) error) (int, error)
+	ProcessNotifications(ctx context.Context, limit, maxAttempts int, fn func(store.Notification) ([]string, error)) (int, error)
 }
 
 // Notifier delivers one notification (satisfied by *notify.Dispatcher).
 type Notifier interface {
-	Handle(ctx context.Context, n store.Notification) error
+	Handle(ctx context.Context, n store.Notification) ([]string, error)
 }
 
 const (
@@ -32,7 +32,7 @@ func (r *Runner) consumeNotifications(ctx context.Context) {
 	defer t.Stop()
 	for {
 		for {
-			n, err := r.Notifications.ProcessNotifications(ctx, notifyBatch, notifyMaxAttempts, func(it store.Notification) error {
+			n, err := r.Notifications.ProcessNotifications(ctx, notifyBatch, notifyMaxAttempts, func(it store.Notification) ([]string, error) {
 				return r.Notifier.Handle(ctx, it)
 			})
 			if err != nil && ctx.Err() == nil {

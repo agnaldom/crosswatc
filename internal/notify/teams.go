@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -25,22 +26,25 @@ func (t Teams) Send(ctx context.Context, to []string, m Message) error {
 	if hc == nil {
 		hc = &http.Client{Timeout: 10 * time.Second}
 	}
+	var errs []error // try every webhook; one bad channel must not starve the others
 	for _, url := range to {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := hc.Do(req)
 		if err != nil {
-			return fmt.Errorf("teams webhook: %w", err)
+			errs = append(errs, fmt.Errorf("teams webhook: %w", err))
+			continue
 		}
 		_ = resp.Body.Close()
 		if resp.StatusCode >= 300 {
-			return fmt.Errorf("teams webhook: HTTP %d", resp.StatusCode)
+			errs = append(errs, fmt.Errorf("teams webhook: HTTP %d", resp.StatusCode))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 var colors = map[string]string{KindFailed: "Attention", KindDriftDetected: "Warning", KindOperational: "Good", KindWaitingApproval: "Accent"}

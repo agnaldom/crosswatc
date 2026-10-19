@@ -220,7 +220,7 @@ func prBody(r Request) string {
 		fmt.Fprintf(&b, "| Custo estimado | %s |\n", r.CostSummary)
 	}
 	b.WriteString("\n### Alterações\n\n| Campo | Antes | Depois | Impacto |\n|---|---|---|---|\n")
-	for _, c := range r.Changes {
+	for _, c := range changes.Redacted(r.Changes) {
 		fmt.Fprintf(&b, "| `%s` | `%v` | `%v` | %s |\n", c.Field, c.From, c.To, c.Impact)
 	}
 	if r.Justification != "" {

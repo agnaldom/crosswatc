@@ -13,6 +13,7 @@ import (
 
 	"github.com/agnaldom/crosswatc/internal/cost"
 	"github.com/agnaldom/crosswatc/internal/forms"
+	"github.com/agnaldom/crosswatc/internal/redact"
 )
 
 // Impact of a single field change.
@@ -161,6 +162,24 @@ func Preview(ctx context.Context, in Input, policies ...Policy) (Result, error) 
 		res.Policy.Result = "FAIL"
 	}
 	return res, nil
+}
+
+// Redacted returns a copy of cs with From/To masked for sensitive fields (password, token, keys…).
+// Use it for anything persisted or shown (revision.changes, audit, PR body, API responses); the
+// manifest edit itself needs the real value.
+func Redacted(cs []SpecChange) []SpecChange {
+	out := make([]SpecChange, len(cs))
+	for i, c := range cs {
+		key := c.Field
+		if j := strings.LastIndex(key, "."); j >= 0 {
+			key = key[j+1:]
+		}
+		if redact.Sensitive(key) {
+			c.From, c.To = redact.Placeholder, redact.Placeholder
+		}
+		out[i] = c
+	}
+	return out
 }
 
 // ProposedSpec returns a deep copy of current with the accepted changes applied at their paths.
