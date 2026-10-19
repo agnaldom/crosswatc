@@ -60,6 +60,9 @@ type Deps struct {
 	GitOps   GitOps
 	Audit    AuditStore // optional: GET /audit
 
+	// Platform (optional) reads the Crossplane installation (SRE catalog).
+	Platform Platform
+
 	// Cluster (optional) reads live Kubernetes objects/events for inspection tabs.
 	Cluster Cluster
 
@@ -91,7 +94,7 @@ func New(d Deps) *gin.Engine {
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
 		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit,
 		decommissionEnvs: d.DecommissionEnvironments, costs: d.Costs,
-		productionEnvs: productionEnvs(d.ProductionEnvironments), cluster: d.Cluster}
+		productionEnvs: productionEnvs(d.ProductionEnvironments), cluster: d.Cluster, platform: d.Platform}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -100,6 +103,13 @@ func New(d Deps) *gin.Engine {
 
 	v1 := r.Group("/api/v1", authenticate(d.Auth), limitMutations(mutationLimiter(d.MutationsPerMinute)))
 	v1.GET("/stream", h.stream)
+	v1.GET("/me", h.me)
+	plat := v1.Group("/platform", requireSRE)
+	plat.GET("/providers", h.listPackages("Provider"))
+	plat.GET("/functions", h.listPackages("Function"))
+	plat.GET("/configurations", h.listPackages("Configuration"))
+	plat.GET("/xrds", h.listPlatformXRDs)
+	plat.GET("/compositions", h.listCompositions)
 	v1.GET("/catalog/resource-types", h.listResourceTypes)
 	v1.GET("/catalog/resource-types/:kind", h.getResourceType)
 	v1.GET("/catalog/resource-types/:kind/schema", h.getResourceTypeSchema)
@@ -145,6 +155,7 @@ type handlers struct {
 	costs            *cost.Estimator
 	productionEnvs   []string
 	cluster          Cluster
+	platform         Platform
 }
 
 // DefaultProductionEnvironments is shared with the default Rego policies (prd/*).
