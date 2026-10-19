@@ -813,3 +813,62 @@ func TestListResourcesSyncedReadyAndKinds(t *testing.T) {
 		t.Fatalf("kinds %v %+v", err, ks)
 	}
 }
+
+func TestDashboard(t *testing.T) {
+	ctx := context.Background()
+	up := func(name, state string) TrackedResource {
+		r, err := testStore.UpsertResourceByClaim(ctx, newResource(name, "dashteam", "dev"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := testStore.UpdateResourceState(ctx, r.ID, r.Version, state, false); err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	ok := up("dash-ok", "OPERATIONAL")
+	deg := up("dash-degraded", "DEGRADED")
+	drifted := up("dash-drift", "OPERATIONAL")
+	must(testStore.UpsertProjection(ctx, Projection{ResourceID: drifted.ID, DriftState: json.RawMessage(`{"detected":true}`)}))
+	must(testStore.UpsertProjection(ctx, Projection{ResourceID: ok.ID, ObservedState: json.RawMessage(`{"synced":true,"ready":true}`)}))
+	if _, err := testStore.InsertRevision(ctx, Revision{ResourceID: ok.ID, Rev: 2, Kind: "UPDATE", State: "VALIDATING"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testStore.InsertEvent(ctx, Event{DedupeKey: "dash:" + uuid.NewString(), ResourceID: &deg.ID, Source: "crosswatc",
+		Type: "RESOURCE.DEGRADED", Level: "warning", CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	other, err := testStore.UpsertResourceByClaim(ctx, newResource("dash-other", "otherteam", "dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testStore.InsertEvent(ctx, Event{DedupeKey: "dash:" + uuid.NewString(), ResourceID: &other.ID, Source: "crosswatc",
+		Type: "X", Level: "info", CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+
+	d, err := testStore.GetDashboard(ctx, []string{"dashteam"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.ByState["OPERATIONAL"] != 2 || d.ByState["DEGRADED"] != 1 || len(d.ByState) != 2 {
+		t.Fatalf("byState %+v", d.ByState)
+	}
+	att := map[string]AttentionItem{}
+	for _, a := range d.Attention {
+		att[a.Name] = a
+	}
+	if len(att) != 2 || att["dash-degraded"].State != "DEGRADED" || !att["dash-drift"].Drift {
+		t.Fatalf("attention %+v", d.Attention)
+	}
+	if len(d.OpenRevisions) != 1 || d.OpenRevisions[0].ResourceName != "dash-ok" || d.OpenRevisions[0].Rev != 2 {
+		t.Fatalf("revisions %+v", d.OpenRevisions)
+	}
+	if len(d.RecentEvents) != 1 || d.RecentEvents[0].ResourceName != "dash-degraded" {
+		t.Fatalf("events must be owner-scoped: %+v", d.RecentEvents)
+	}
+	all, err := testStore.GetDashboard(ctx, nil)
+	if err != nil || len(all.RecentEvents) < 2 {
+		t.Fatalf("SRE scope: %v %d", err, len(all.RecentEvents))
+	}
+}

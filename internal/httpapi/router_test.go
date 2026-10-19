@@ -28,6 +28,7 @@ type fakeStore struct {
 	revisions    []store.Revision
 	operations   []store.Operation
 	lastFilter   store.ResourceFilter
+	dashboard    store.Dashboard
 	lastOpFilter store.OperationFilter
 	pingErr      error
 }
@@ -69,6 +70,10 @@ func (f *fakeStore) CountResourcesByKind(_ context.Context, owners []string) ([]
 		out = append(out, store.KindCount{Kind: k, Count: c})
 	}
 	return out, nil
+}
+func (f *fakeStore) GetDashboard(_ context.Context, owners []string) (store.Dashboard, error) {
+	f.lastFilter = store.ResourceFilter{Owners: owners}
+	return f.dashboard, nil
 }
 func contains(s []string, v string) bool {
 	for _, x := range s {

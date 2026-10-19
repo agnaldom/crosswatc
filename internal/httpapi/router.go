@@ -29,6 +29,7 @@ type ReadStore interface {
 	GetResource(ctx context.Context, id uuid.UUID) (store.TrackedResource, error)
 	ListResources(ctx context.Context, f store.ResourceFilter, p store.Page) ([]store.TrackedResource, string, error)
 	CountResourcesByKind(ctx context.Context, owners []string) ([]store.KindCount, error)
+	GetDashboard(ctx context.Context, owners []string) (store.Dashboard, error)
 	GetProjection(ctx context.Context, id uuid.UUID) (store.Projection, error)
 	GetTopology(ctx context.Context, id uuid.UUID) (store.Topology, error)
 	ListEvents(ctx context.Context, id uuid.UUID, p store.Page) ([]store.Event, string, error)
@@ -121,6 +122,7 @@ func New(d Deps) *gin.Engine {
 
 	v1.GET("/resources", h.listResources)
 	v1.GET("/resources/kinds", h.resourceKinds)
+	v1.GET("/dashboard", h.dashboard)
 	v1.GET("/audit", h.listAudit)
 	res := v1.Group("/resources/:id", h.loadResource)
 	res.GET("", h.getResource)

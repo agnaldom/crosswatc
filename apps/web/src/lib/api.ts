@@ -18,6 +18,7 @@ import type {
   RevisionDetail,
   Topology,
   KindCount,
+  DashboardSummary,
   TrackedResource,
   TrackerEvent,
 } from "./types";
@@ -73,6 +74,7 @@ export const api = {
     const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]));
     return get<Page<TrackedResource>>(`/resources${qs.size ? `?${qs}` : ""}`);
   },
+  dashboard: () => get<DashboardSummary>("/dashboard"),
   resourceKinds: () => get<{ items: KindCount[] }>("/resources/kinds"),
   resource: (id: string) => get<TrackedResource>(`/resources/${id}`),
   state: (id: string) => get<ResourceStateView>(`/resources/${id}/state`),
