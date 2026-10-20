@@ -313,27 +313,12 @@ export interface PlatformXRD {
   established: boolean;
 }
 
-export interface PlatformMRD {
-  name: string;
-  group: string;
-  kind: string;
-  scope?: string;
-  state?: string;
-  active: boolean;
-  established: boolean;
-  conditions: CrossplanePackage["conditions"];
-}
-
-export interface PlatformMRAP {
-  name: string;
-  activate: string[];
-  conditions: CrossplanePackage["conditions"];
-}
-
-/** Crossplane v2 lists: available=false when the API is not served (Crossplane v1). */
-export interface V2List<T> {
-  items: T[];
-  available: boolean;
+export interface Condition {
+  type: string;
+  status: string;
+  reason?: string;
+  message?: string;
+  lastTransitionTime?: string;
 }
 
 export interface DashboardSummary {

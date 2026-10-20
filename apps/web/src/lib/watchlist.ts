@@ -52,10 +52,18 @@ function subscribe(cb: () => void) {
 const empty: WatchedResource[] = [];
 
 export function useWatchlist() {
-  const list = useSyncExternalStore(subscribe, read, () => empty);
+  const list = useSyncExternalStore<WatchedResource[]>(subscribe, read, () => empty);
   const toggle = useCallback((r: WatchedResource) => {
     window.localStorage.setItem(WATCHLIST_KEY, JSON.stringify(toggleWatch(read(), r)));
     window.dispatchEvent(new Event(EVENT));
   }, []);
-  return { list, toggle, isWatched: (id: string) => list.some((x) => x.id === id) };
+  const remove = useCallback((id: string) => {
+    window.localStorage.setItem(WATCHLIST_KEY, JSON.stringify(read().filter((x) => x.id !== id)));
+    window.dispatchEvent(new Event(EVENT));
+  }, []);
+  const clearAll = useCallback(() => {
+    window.localStorage.setItem(WATCHLIST_KEY, JSON.stringify([]));
+    window.dispatchEvent(new Event(EVENT));
+  }, []);
+  return { list, toggle, remove, clearAll, isWatched: (id: string) => list.some((x) => x.id === id) };
 }

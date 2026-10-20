@@ -39,12 +39,10 @@ export function TopologyView({ topology, nodeActions, nodeExtraActions }: {
         data: { node: n, tone: st.tone, label: st.label, detail: st.detail, selected: n.id === selected },
       };
     });
-    const isComposition = new Set(topology.nodes.filter((n) => n.type === "composition").map((n) => n.id));
     const edges: Edge[] = topology.edges.map((e) => ({
       id: `${e.source}->${e.target}`, source: e.source, target: e.target, type: "floating",
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#a1a1aa" },
-      // "uses" (XR → Composition) is dashed; composition edges are solid
-      style: isComposition.has(e.target) ? { stroke: "#a1a1aa", strokeDasharray: "5 4" } : { stroke: "#a1a1aa" },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: "#38bdf8" },
+      style: { stroke: "#38bdf8", strokeDasharray: "4 4", strokeWidth: 1.8 },
     }));
     return { nodes, edges };
   }, [topology, selected]);

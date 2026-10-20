@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="apps/web/public/logo.svg" alt="Crosswatc Logo" width="380" />
+</p>
+
 # crosswatc
 
 Developer Experience e Lifecycle Management sobre GitOps (GitHub → Argo CD → Crossplane → Cloud).

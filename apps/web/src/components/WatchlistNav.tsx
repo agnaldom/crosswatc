@@ -5,22 +5,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { resourceStateLabel, resourceStateTone, toneDot } from "@/lib/labels";
-import { useWatchlist } from "@/lib/watchlist";
+import type { TrackedResource } from "@/lib/types";
+import { useWatchlist, type WatchedResource } from "@/lib/watchlist";
 
 /** Sidebar "Watching" section: pinned resources with their live state (SSE invalidates ["resource", id]). */
 export function WatchlistNav() {
   const { list } = useWatchlist();
   const pathname = usePathname();
   const states = useQueries({
-    queries: list.map((w) => ({ queryKey: ["resource", w.id], queryFn: () => api.resource(w.id) })),
+    queries: list.map((w: WatchedResource) => ({ queryKey: ["resource", w.id], queryFn: () => api.resource(w.id) })),
   });
   if (!list.length) return null;
   return (
     <>
       <p className="mt-6 text-xs font-medium uppercase tracking-wide text-zinc-500">Watching</p>
       <nav className="mt-2 flex flex-col gap-0.5 text-sm" aria-label="Watching">
-        {list.map((w, i) => {
-          const r = states[i]?.data;
+        {list.map((w: WatchedResource, i: number) => {
+          const r = states[i]?.data as TrackedResource | undefined;
           const href = `/infrastructure/${w.id}`;
           const tone = r ? resourceStateTone[r.resourceState] : "muted";
           const gone = states[i]?.isError;
