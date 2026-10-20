@@ -39,7 +39,7 @@ export function GlobalSearch() {
   }, []);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}
+      <button type="button" onClick={() => setOpen(true)} aria-label="Buscar recursos"
         className="mt-5 flex w-full items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100">
         <span>Buscar…</span>
         <kbd className="rounded border border-zinc-200 bg-white px-1 text-[10px] font-medium">⌘K</kbd>

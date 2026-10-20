@@ -27,17 +27,29 @@ export function OnWatchDrawer({
     })),
   });
 
+  // Resolve effective resource to inspect (passed or first watched)
+  const firstWatched = list[0]
+    ? ((watchedQueries[0]?.data as TrackedResource | undefined) ?? ({
+        id: list[0].id,
+        name: list[0].name,
+        kind: list[0].kind,
+        synced: true,
+        ready: true,
+      } as unknown as TrackedResource))
+    : null;
+  const effectiveResource = selectedResource ?? firstWatched;
+
   // Query topology to get real Crossplane status conditions for the selected resource
   const topologyQuery = useQuery({
-    queryKey: ["topology", selectedResource?.id],
-    queryFn: () => api.topology(selectedResource!.id),
-    enabled: !!selectedResource?.id && isOpen,
+    queryKey: ["topology", effectiveResource?.id],
+    queryFn: () => api.topology(effectiveResource!.id),
+    enabled: !!effectiveResource?.id && isOpen,
     staleTime: 30_000,
   });
 
   // Resolve condition list from selected resource and topology
   const centralNode = topologyQuery.data?.nodes.find(
-    (n) => n.kind.toLowerCase() === selectedResource?.kind.toLowerCase() || n.type === "composite" || n.type === "claim",
+    (n) => n.kind.toLowerCase() === effectiveResource?.kind.toLowerCase() || n.type === "composite" || n.type === "claim",
   );
   const rawConditions = centralNode?.conditions ?? [];
 
@@ -48,23 +60,23 @@ export function OnWatchDrawer({
       status: "True",
       reason: "WatchCircuitClosed",
       message: "Resource informer active and responsive in cluster control plane.",
-      lastTransitionTime: selectedResource?.updatedAt,
+      lastTransitionTime: effectiveResource?.updatedAt,
     },
     {
       type: "Synced",
-      status: selectedResource?.synced ? "True" : selectedResource?.synced === false ? "False" : "Unknown",
-      reason: selectedResource?.synced ? "ReconcileSuccess" : "ReconcilePending",
-      message: selectedResource?.synced === false
-        ? `[cannot compose resources: ${selectedResource.name} pending reconciliation or configuration sync]`
+      status: effectiveResource?.synced ? "True" : effectiveResource?.synced === false ? "False" : "Unknown",
+      reason: effectiveResource?.synced ? "ReconcileSuccess" : "ReconcilePending",
+      message: effectiveResource?.synced === false
+        ? `[cannot compose resources: ${effectiveResource.name} pending reconciliation or configuration sync]`
         : undefined,
-      lastTransitionTime: selectedResource?.updatedAt,
+      lastTransitionTime: effectiveResource?.updatedAt,
     },
     {
       type: "Ready",
-      status: selectedResource?.ready ? "True" : selectedResource?.ready === false ? "False" : "Unknown",
-      reason: selectedResource?.ready ? "Available" : "CreatingOrPending",
-      message: selectedResource?.ready === false ? "Underlying managed resources are being provisioned by Crossplane provider." : undefined,
-      lastTransitionTime: selectedResource?.updatedAt,
+      status: effectiveResource?.ready ? "True" : effectiveResource?.ready === false ? "False" : "Unknown",
+      reason: effectiveResource?.ready ? "Available" : "CreatingOrPending",
+      message: effectiveResource?.ready === false ? "Underlying managed resources are being provisioned by Crossplane provider." : undefined,
+      lastTransitionTime: effectiveResource?.updatedAt,
     },
   ];
 
@@ -101,8 +113,9 @@ export function OnWatchDrawer({
 
       {/* Slideout Panel */}
       <aside
+        aria-hidden={!isOpen}
         className={`fixed bottom-0 right-0 top-0 z-50 flex w-80 sm:w-96 flex-col border-l border-zinc-200 bg-white shadow-2xl transition-transform duration-200 dark:border-zinc-800 dark:bg-[#161b22] ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+          isOpen ? "translate-x-0" : "translate-x-full invisible pointer-events-none"
         }`}
         aria-label="OnWatch and Resource Inspector"
       >
@@ -133,6 +146,7 @@ export function OnWatchDrawer({
             <button
               type="button"
               onClick={() => setIsOpen(false)}
+              aria-label="Fechar OnWatch"
               className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
             >
               ✕
@@ -206,13 +220,13 @@ export function OnWatchDrawer({
           </div>
 
           {/* Status Conditions Inspector */}
-          {selectedResource && (
+          {effectiveResource && (
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                   Status Conditions
                 </h3>
-                <span className="text-[11px] text-zinc-400 truncate max-w-[140px]">{selectedResource.name}</span>
+                <span className="text-[11px] text-zinc-400 truncate max-w-[140px]">{effectiveResource.name}</span>
               </div>
 
               <div className="space-y-2.5">

@@ -10,7 +10,7 @@ const items = [
 
 export function Legend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-600" aria-label="Legenda">
+    <div role="region" aria-label="Legenda" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-600">
       {items.map((i) => (
         <span key={i.tone} className="inline-flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-sm" style={{ border: `2px solid ${toneBorder[i.tone]}` }} />

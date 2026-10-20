@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:test": "node --experimental-strip-types tests/dev-server.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "e2e run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -21,13 +23,16 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@e2e-dev/web": "^0.15.2",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "e2e": "^0.21.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "playwright": "^1.64.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"

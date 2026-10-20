@@ -313,6 +313,14 @@ export interface PlatformXRD {
   established: boolean;
 }
 
+export interface Condition {
+  type: string;
+  status: string;
+  reason?: string;
+  message?: string;
+  lastTransitionTime?: string;
+}
+
 export interface DashboardSummary {
   total: number;
   byState: Partial<Record<ResourceState, number>>;

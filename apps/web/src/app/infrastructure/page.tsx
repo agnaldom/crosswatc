@@ -202,7 +202,11 @@ function InfrastructureContent() {
 
       {/* Selected Resource Detail Pane (Split View below table) */}
       {selectedResource && (
-        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#161b22]">
+        <div
+          role="region"
+          aria-label="Detalhes do recurso selecionado"
+          className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#161b22]"
+        >
           {/* Header of Detail Pane */}
           <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
             <div>
@@ -318,7 +322,7 @@ function StatusTabContent({ resource }: { resource: TrackedResource }) {
     queryFn: () => api.topology(resource.id),
   });
 
-  const centralNode = topologyQuery.data?.nodes.find((n) => n.id.includes(resource.name));
+  const centralNode = topologyQuery.data?.nodes.find((n) => n.id.includes(resource.name) || n.name === resource.name || n.type === "composite");
   const conditions = centralNode?.conditions ?? [
     {
       type: "Responsive",

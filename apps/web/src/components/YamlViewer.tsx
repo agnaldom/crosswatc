@@ -22,7 +22,11 @@ export function YamlViewer({ yaml }: { yaml: string }) {
         {query && <span className="text-xs text-zinc-400">{hits} linha(s)</span>}
         <button type="button" className="ml-auto rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-700"
           onClick={async () => {
-            await navigator.clipboard.writeText(yaml);
+            try {
+              await navigator.clipboard?.writeText(yaml);
+            } catch {
+              /* clipboard permissions fallback */
+            }
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}>

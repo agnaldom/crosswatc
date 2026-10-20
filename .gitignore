@@ -9,3 +9,4 @@ out/
 .DS_Store
 *.tsbuildinfo
 .claude/
+.e2e/

@@ -275,6 +275,7 @@ export function Sidebar() {
                   <button
                     type="button"
                     onClick={toggleTheme}
+                    aria-label="Alternar tema de aparência"
                     className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                   >
                     <span>Appearance</span>
