@@ -68,6 +68,8 @@ export interface ResourceFilters {
   /** "true" | "false" | "unknown" */
   synced?: string;
   ready?: string;
+  responsive?: string;
+  composition?: string;
   q?: string;
   limit?: number;
   cursor?: string;

@@ -3,15 +3,15 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { Lifecycle } from "@/components/Lifecycle";
 import { KubeEvents } from "@/components/KubeEvents";
-import { Empty, ErrorState, Loading } from "@/components/States";
+import { ErrorState, Loading } from "@/components/States";
 import { TopologyView } from "@/components/TopologyView";
 import { WatchButton } from "@/components/WatchButton";
 import { YamlViewer } from "@/components/YamlViewer";
 import { api, type ResourceFilters } from "@/lib/api";
-import type { ResourceState, TrackedResource } from "@/lib/types";
+import type { TrackedResource } from "@/lib/types";
 
 export default function InfrastructurePage() {
   return (
@@ -23,83 +23,91 @@ export default function InfrastructurePage() {
 
 function InfrastructureContent() {
   const searchParams = useSearchParams();
-  const kind = searchParams.get("kind") ?? undefined;
+  const kindParam = searchParams.get("kind") ?? undefined;
   const rawView = searchParams.get("view");
   const view: "claims" | "composites" | "managed" =
     rawView === "claims" ? "claims" : rawView === "managed" ? "managed" : "composites";
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [kindFilter, setKindFilter] = useState(kindParam || "");
+  const [syncedFilter, setSyncedFilter] = useState("");
+  const [readyFilter, setReadyFilter] = useState("");
+  const [responsiveFilter, setResponsiveFilter] = useState("");
+  const [compositionFilter, setCompositionFilter] = useState("");
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDetailCollapsed, setIsDetailCollapsed] = useState(false);
   const [detailTab, setDetailTab] = useState<"Overview" | "Lifecycle" | "YAML" | "Status" | "Relations" | "Events">("Relations");
   const [kubeFilter, setKubeFilter] = useState("");
 
+  const kindsQuery = useQuery({
+    queryKey: ["resource-kinds"],
+    queryFn: api.resourceKinds,
+    staleTime: 60_000,
+  });
+
+  const compositionsQuery = useQuery({
+    queryKey: ["platform-compositions"],
+    queryFn: () => api.platformCompositions().catch(() => ({ items: [], nextCursor: null })),
+    staleTime: 60_000,
+  });
+
   const filters: ResourceFilters = {
     view,
-    kind,
+    kind: kindFilter || kindParam || undefined,
     q: searchQuery || undefined,
-    status: statusFilter && !["synced", "not_synced", "ready", "not_ready"].includes(statusFilter)
-      ? (statusFilter as ResourceState)
-      : undefined,
-    synced: statusFilter === "synced" ? "true" : statusFilter === "not_synced" ? "false" : undefined,
-    ready: statusFilter === "ready" ? "true" : statusFilter === "not_ready" ? "false" : undefined,
+    synced: syncedFilter || undefined,
+    ready: readyFilter || undefined,
+    responsive: responsiveFilter || undefined,
+    composition: compositionFilter || undefined,
   };
 
   const listQuery = useQuery({
-    queryKey: ["resources", view, kind, filters],
+    queryKey: ["resources", view, kindParam, filters],
     queryFn: () => api.listResources({ ...filters, limit: 50 }),
   });
 
-  const items = listQuery.data?.items ?? [];
+  const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const selectedResource = items.find((r) => r.id === selectedId) ?? items[0] ?? null;
 
+  // Derive unique options
+  const availableKinds = useMemo(() => {
+    const fromApi = kindsQuery.data?.items?.map((k) => k.kind) || [];
+    const fromItems = Array.from(new Set(items.map((r) => r.kind)));
+    return Array.from(new Set([...fromApi, ...fromItems])).filter(Boolean);
+  }, [kindsQuery.data, items]);
+
+  const availableCompositions = useMemo(() => {
+    const fromApi = compositionsQuery.data?.items?.map((c) => c.name) || [];
+    const fromItems = Array.from(
+      new Set(items.map((r) => r.composition?.name).filter(Boolean) as string[])
+    );
+    return Array.from(new Set([...fromApi, ...fromItems])).filter(Boolean);
+  }, [compositionsQuery.data, items]);
+
   const pageTitle =
-    kind ||
-    (view === "claims"
+    view === "claims"
       ? "Claims"
       : view === "managed"
       ? "Managed Resources"
-      : "Composite Resources");
-
-  const pageDescription =
-    view === "claims"
-      ? "Namespace-scoped developer requests for infrastructure, bound to Composite Resources."
-      : view === "managed"
-      ? "Granular cloud infrastructure primitives (Azure, AWS, GCP) reconciled directly by Crossplane Provider controllers."
-      : "Cluster-scoped composite instances defined by XRDs and orchestrated via Compositions.";
-
-  const viewBadge =
-    view === "claims"
-      ? "Developer View (DevEx / XRC)"
-      : view === "managed"
-      ? "Cloud Provider Resources (MR)"
-      : "Platform Architecture (XR)";
+      : kindParam || "Composite Resources";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      {/* Page Title & View Switcher */}
+      {/* Header and View Navigation */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-              {pageTitle}
-            </h1>
-            <span className="rounded-md border border-cyan-800/40 bg-cyan-950/40 px-2 py-0.5 text-[11px] font-semibold text-cyan-400">
-              {viewBadge}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {pageDescription}
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+            {pageTitle}
+          </h1>
         </div>
 
-        {/* View Switcher Tabs */}
+        {/* View Switcher Pills */}
         <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100/80 p-1 dark:border-zinc-800 dark:bg-zinc-900/80">
           <Link
             href="/infrastructure?view=composites"
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              view === "composites" && !kind
+              view === "composites" && !kindParam
                 ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white"
                 : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
@@ -144,239 +152,341 @@ function InfrastructureContent() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search Box */}
-          <div className="relative">
-            <svg
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
-                clipRule="evenodd"
+      {/* Filter Bar with Search and Dropdowns */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Search Box */}
+            <div className="relative">
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                aria-label="Search resources"
+                className="h-9 w-60 rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100"
               />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              aria-label="Search resources"
-              className="h-9 w-64 rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100"
-            />
+            </div>
+
+            {/* Dropdown: All Kinds */}
+            <select
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value)}
+              aria-label="Filter by Kind"
+              className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300"
+            >
+              <option value="">All Kinds</option>
+              {availableKinds.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+
+            {/* Dropdown: All Synced */}
+            <select
+              value={syncedFilter}
+              onChange={(e) => setSyncedFilter(e.target.value)}
+              aria-label="Filter by Synced"
+              className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300"
+            >
+              <option value="">All Synced</option>
+              <option value="true">Synced</option>
+              <option value="false">Not Synced</option>
+            </select>
+
+            {/* Dropdown: All Ready */}
+            <select
+              value={readyFilter}
+              onChange={(e) => setReadyFilter(e.target.value)}
+              aria-label="Filter by Ready"
+              className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300"
+            >
+              <option value="">All Ready</option>
+              <option value="true">Ready</option>
+              <option value="false">Not Ready</option>
+            </select>
+
+            {/* Dropdown: All Responsive */}
+            <select
+              value={responsiveFilter}
+              onChange={(e) => setResponsiveFilter(e.target.value)}
+              aria-label="Filter by Responsive"
+              className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300"
+            >
+              <option value="">All Responsive</option>
+              <option value="true">Responsive</option>
+              <option value="false">Not Responsive</option>
+            </select>
+
+            {/* Dropdown: All Compositions */}
+            <select
+              value={compositionFilter}
+              onChange={(e) => setCompositionFilter(e.target.value)}
+              aria-label="Filter by Composition"
+              className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300"
+            >
+              <option value="">All Compositions</option>
+              {availableCompositions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Status Dropdown */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter by Status"
-            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-700 focus:border-cyan-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300"
-          >
-            <option value="">All Statuses</option>
-            <option value="synced">Synced</option>
-            <option value="not_synced">Not Synced</option>
-            <option value="ready">Ready</option>
-            <option value="not_ready">Not Ready</option>
-            <option value="OPERATIONAL">Operational</option>
-            <option value="DEGRADED">Degraded</option>
-            <option value="FAILED">Failed</option>
-          </select>
-        </div>
-
-        {/* Results Counter */}
-        <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          {items.length} {items.length === 1 ? "result" : "results"}
+          {/* Results Counter aligned to right */}
+          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            {items.length} {items.length === 1 ? "result" : "results"}
+          </div>
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Table Card */}
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#161b22]">
         {listQuery.isPending && <Loading />}
         {listQuery.isError && <ErrorState error={listQuery.error} />}
+
         {!listQuery.isPending && items.length === 0 && (
-          <Empty>Nenhum recurso encontrado.</Empty>
+          <div className="py-16 text-center text-sm font-medium text-zinc-400 dark:text-zinc-500">
+            No data found
+          </div>
         )}
 
         {items.length > 0 && (
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-zinc-200 bg-zinc-50/75 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50">
-              <tr>
-                <th className="px-5 py-3 font-semibold">Name</th>
-                <th className="px-5 py-3 font-semibold">Kind</th>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-zinc-200 bg-zinc-50/75 text-[11px] font-bold uppercase tracking-wider text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
+                <tr>
+                  <th className="px-5 py-3 font-bold">NAME</th>
+                  <th className="px-5 py-3 font-bold">KIND</th>
 
-                {/* Specific view columns */}
-                {view === "claims" && (
-                  <>
-                    <th className="px-5 py-3 font-semibold">Namespace</th>
-                    <th className="px-5 py-3 font-semibold">Owner / Squad</th>
-                    <th className="px-5 py-3 font-semibold">Composite Target</th>
-                  </>
-                )}
+                  {view === "claims" ? (
+                    <>
+                      <th className="px-5 py-3 font-bold">NAMESPACE</th>
+                      <th className="px-5 py-3 font-bold">OWNER / SQUAD</th>
+                      <th className="px-5 py-3 font-bold">COMPOSITE TARGET</th>
+                    </>
+                  ) : view === "managed" ? (
+                    <>
+                      <th className="px-5 py-3 font-bold">PROVIDER</th>
+                      <th className="px-5 py-3 font-bold">PARENT COMPOSITE</th>
+                      <th className="px-5 py-3 font-bold">DELETION POLICY</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-5 py-3 font-bold">SYNCED</th>
+                      <th className="px-5 py-3 font-bold">READY</th>
+                      <th className="px-5 py-3 font-bold">RESPONSIVE</th>
+                      <th className="px-5 py-3 font-bold">COMPOSITION</th>
+                      <th className="px-5 py-3 font-bold">CLAIM REF</th>
+                      <th className="px-5 py-3 font-bold">RESOURCE REFS</th>
+                    </>
+                  )}
 
-                {view === "managed" && (
-                  <>
-                    <th className="px-5 py-3 font-semibold">Provider</th>
-                    <th className="px-5 py-3 font-semibold">Parent Composite</th>
-                    <th className="px-5 py-3 font-semibold">Deletion Policy</th>
-                  </>
-                )}
+                  {view !== "composites" && (
+                    <>
+                      <th className="px-5 py-3 font-bold">SYNCED</th>
+                      <th className="px-5 py-3 font-bold">READY</th>
+                      <th className="px-5 py-3 font-bold">RESPONSIVE</th>
+                    </>
+                  )}
 
-                {view === "composites" && (
-                  <>
-                    <th className="px-5 py-3 font-semibold">Composition</th>
-                    <th className="px-5 py-3 font-semibold">Environment</th>
-                  </>
-                )}
+                  <th className="px-5 py-3 font-bold">CREATED</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+                {items.map((r) => {
+                  const isSelected = selectedResource?.id === r.id;
+                  const displayName =
+                    view === "claims" ? r.claimRef?.name || r.name : r.name;
+                  const displayKind =
+                    view === "claims" ? r.claimRef?.kind || r.kind : r.kind;
 
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3 font-semibold">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
-              {items.map((r) => {
-                const isSelected = selectedResource?.id === r.id;
+                  return (
+                    <tr
+                      key={r.id}
+                      onClick={() => setSelectedId(r.id)}
+                      className={`cursor-pointer transition ${
+                        isSelected
+                          ? "bg-zinc-100/90 font-medium dark:bg-zinc-800/60"
+                          : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30"
+                      }`}
+                    >
+                      {/* NAME */}
+                      <td className="whitespace-nowrap px-5 py-3 text-zinc-900 dark:text-zinc-100">
+                        <div className="flex items-center gap-2">
+                          <WatchButton resource={r} />
+                          <span className="truncate font-semibold">{displayName}</span>
+                        </div>
+                      </td>
 
-                // Value resolution according to view
-                const displayName =
-                  view === "claims" ? r.claimRef?.name || r.name : r.name;
-                const displayKind =
-                  view === "claims" ? r.claimRef?.kind || r.kind : r.kind;
+                      {/* KIND */}
+                      <td className="px-5 py-3 font-mono text-zinc-700 dark:text-zinc-300">
+                        {displayKind}
+                      </td>
 
-                return (
-                  <tr
-                    key={r.id}
-                    onClick={() => setSelectedId(r.id)}
-                    className={`cursor-pointer transition ${
-                      isSelected
-                        ? "bg-zinc-100/90 font-medium dark:bg-zinc-800/60"
-                        : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30"
-                    }`}
-                  >
-                    {/* Name Column */}
-                    <td className="whitespace-nowrap px-5 py-3 text-zinc-900 dark:text-zinc-100">
-                      <div className="flex items-center gap-2">
-                        <WatchButton resource={r} />
-                        <span className="truncate font-semibold">{displayName}</span>
-                      </div>
-                    </td>
+                      {/* SPECIFIC COLUMNS */}
+                      {view === "claims" && (
+                        <>
+                          <td className="px-5 py-3">
+                            <span className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                              {r.claimRef?.namespace || "default"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-zinc-600 dark:text-zinc-300">
+                            {r.owner || "—"}
+                          </td>
+                          <td className="px-5 py-3 font-mono text-[11px] text-cyan-600 dark:text-cyan-400">
+                            {r.name}
+                          </td>
+                        </>
+                      )}
 
-                    {/* Kind Column */}
-                    <td className="px-5 py-3 font-mono text-zinc-600 dark:text-zinc-300">
-                      {displayKind}
-                    </td>
+                      {view === "managed" && (
+                        <>
+                          <td className="px-5 py-3">
+                            <span className="inline-flex items-center rounded-md border border-sky-800/40 bg-sky-950/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-400">
+                              {r.provider || "cloud"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {r.parentResource || r.claimRef?.name || r.name}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                r.deletionPolicy === "Orphan"
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
+                                  : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                              }`}
+                            >
+                              {r.deletionPolicy || "Delete"}
+                            </span>
+                          </td>
+                        </>
+                      )}
 
-                    {/* Claims View: Namespace, Squad, Target */}
-                    {view === "claims" && (
-                      <>
-                        <td className="px-5 py-3">
-                          <span className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                            {r.claimRef?.namespace || "default"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-zinc-600 dark:text-zinc-300">
-                          {r.owner || "—"}
-                        </td>
-                        <td className="px-5 py-3 font-mono text-[11px] text-cyan-600 dark:text-cyan-400">
-                          {r.name}
-                        </td>
-                      </>
-                    )}
+                      {view === "composites" && (
+                        <>
+                          {/* SYNCED */}
+                          <td className="px-5 py-3">
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                                r.synced
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400 dark:border dark:border-emerald-800/50"
+                                  : "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-400 dark:border dark:border-rose-800/50"
+                              }`}
+                            >
+                              {r.synced ? "Synced" : "Not Synced"}
+                            </span>
+                          </td>
 
-                    {/* Managed View: Provider, Parent, Deletion Policy */}
-                    {view === "managed" && (
-                      <>
-                        <td className="px-5 py-3">
-                          <span className="inline-flex items-center rounded-md border border-sky-800/40 bg-sky-950/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-400">
-                            {r.provider || "cloud"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-                          {r.parentResource || r.claimRef?.name || r.name}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span
-                            className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
-                              r.deletionPolicy === "Orphan"
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
-                                : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                            }`}
-                          >
-                            {r.deletionPolicy || "Delete"}
-                          </span>
-                        </td>
-                      </>
-                    )}
+                          {/* READY */}
+                          <td className="px-5 py-3">
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                                r.ready
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400 dark:border dark:border-emerald-800/50"
+                                  : "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-400 dark:border dark:border-rose-800/50"
+                              }`}
+                            >
+                              {r.ready ? "Ready" : "Not Ready"}
+                            </span>
+                          </td>
 
-                    {/* Composites View: Composition, Environment */}
-                    {view === "composites" && (
-                      <>
-                        <td className="px-5 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
-                          {r.composition?.name || "—"}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                            {r.environment || "default"}
-                          </span>
-                        </td>
-                      </>
-                    )}
+                          {/* RESPONSIVE */}
+                          <td className="px-5 py-3">
+                            <span className="rounded border border-emerald-700/50 bg-emerald-900/60 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                              Responsive
+                            </span>
+                          </td>
 
-                    {/* Status Column */}
-                    <td className="px-5 py-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {/* Synced status pill */}
-                        <span
-                          className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                            r.synced
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400 dark:border dark:border-emerald-800/50"
-                              : "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-400 dark:border dark:border-rose-800/50"
-                          }`}
-                        >
-                          {r.synced ? "Synced" : "Not Synced"}
-                        </span>
+                          {/* COMPOSITION */}
+                          <td className="px-5 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                            {r.composition?.name || "—"}
+                          </td>
 
-                        {/* Ready status pill */}
-                        <span
-                          className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                            r.ready
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400 dark:border dark:border-emerald-800/50"
-                              : "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-400 dark:border dark:border-rose-800/50"
-                          }`}
-                        >
-                          {r.ready ? "Ready" : "Not Ready"}
-                        </span>
+                          {/* CLAIM REF */}
+                          <td className="px-5 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                            {r.claimRef
+                              ? `${r.claimRef.namespace} / ${r.claimRef.name}`
+                              : "—"}
+                          </td>
 
-                        {/* Responsive pill */}
-                        <span className="rounded bg-emerald-900/60 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-700/50">
-                          Responsive
-                        </span>
-                      </div>
-                    </td>
+                          {/* RESOURCE REFS */}
+                          <td className="px-5 py-3">
+                            <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                              {r.resourceRefsCount || 2} resources
+                            </span>
+                          </td>
+                        </>
+                      )}
 
-                    {/* Created Column */}
-                    <td className="whitespace-nowrap px-5 py-3 text-zinc-500">
-                      {r.createdAt
-                        ? new Date(r.createdAt).toLocaleString("en-US", {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "numeric",
-                            second: "numeric",
-                            hour12: true,
-                          })
-                        : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {/* NON-COMPOSITES STATUS COLUMNS */}
+                      {view !== "composites" && (
+                        <>
+                          <td className="px-5 py-3">
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                                r.synced
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400"
+                                  : "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-400"
+                              }`}
+                            >
+                              {r.synced ? "Synced" : "Not Synced"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                                r.ready
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400"
+                                  : "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-400"
+                              }`}
+                            >
+                              {r.ready ? "Ready" : "Not Ready"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="rounded border border-emerald-700/50 bg-emerald-900/60 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                              Responsive
+                            </span>
+                          </td>
+                        </>
+                      )}
+
+                      {/* CREATED */}
+                      <td className="whitespace-nowrap px-5 py-3 text-zinc-500">
+                        {r.createdAt
+                          ? new Date(r.createdAt).toLocaleString("en-US", {
+                              month: "numeric",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "numeric",
+                              second: "numeric",
+                              hour12: true,
+                            })
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
