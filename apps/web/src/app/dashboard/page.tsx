@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
+import { PlatformHealthCard } from "@/components/PlatformHealthCard";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus } from "@/components/Timeline";
 import { api } from "@/lib/api";
@@ -53,6 +54,8 @@ function Summary({ d }: { d: DashboardSummary }) {
         <Distribution title="Por provider" counts={d.byProvider} param="provider" />
         <Distribution title="Por environment" counts={d.byEnvironment} param="environment" />
       </div>
+
+      <PlatformHealthCard />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card title="Precisam de atenção" count={d.attention.length}>
