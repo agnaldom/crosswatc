@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: crosswatc
       POSTGRES_DB: crosswatc
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432-5499}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U crosswatc"]
       interval: 5s
@@ -14,5 +14,125 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  kubeconfig:
+    image: rancher/k3s:v1.36.1-k3s1
+    entrypoint: /bin/sh
+    environment:
+      KUBE_CONTEXT: ${KUBE_CONTEXT:-kind-crossplane-poc}
+      KUBE_SERVER: ${KUBE_SERVER:-https://crossplane-poc-control-plane:6443}
+    command:
+      - -ec
+      - |
+        kubectl config view --kubeconfig=/input/config --context="$$KUBE_CONTEXT" --minify --flatten --raw > /output/config
+        cluster=$$(kubectl config view --kubeconfig=/output/config -o jsonpath='{.clusters[0].name}')
+        kubectl config set-cluster "$$cluster" --kubeconfig=/output/config --server="$$KUBE_SERVER"
+        chmod 644 /output/config
+        kubectl --kubeconfig=/output/config --request-timeout=15s get --raw=/readyz
+    volumes:
+      - ${CROSSWATC_KUBECONFIG:-~/.kube/config}:/input/config:ro
+      - kubeconfig:/output
+    networks:
+      - cluster
+
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/docker/go.Dockerfile
+      args:
+        SERVICE: dbtool
+    command: ["migrate"]
+    environment:
+      CROSSWATC_DATABASE_URL: postgres://crosswatc:crosswatc@postgres:5432/crosswatc?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/go.Dockerfile
+      args:
+        SERVICE: api
+    environment:
+      CROSSWATC_ENV: development
+      CROSSWATC_AUTH_MODE: dev
+      CROSSWATC_LOG_FORMAT: text
+      CROSSWATC_DATABASE_URL: postgres://crosswatc:crosswatc@postgres:5432/crosswatc?sslmode=disable
+      KUBECONFIG: /kubeconfig/config
+    volumes:
+      - kubeconfig:/kubeconfig:ro
+    networks:
+      - default
+      - cluster
+    ports:
+      - "127.0.0.1:${API_PORT:-8080-8099}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      kubeconfig:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/go.Dockerfile
+      args:
+        SERVICE: worker
+    environment:
+      CROSSWATC_ENV: development
+      CROSSWATC_LOG_FORMAT: text
+      CROSSWATC_DATABASE_URL: postgres://crosswatc:crosswatc@postgres:5432/crosswatc?sslmode=disable
+      CROSSWATC_LEADER_ELECTION: "false"
+      KUBECONFIG: /kubeconfig/config
+    volumes:
+      - kubeconfig:/kubeconfig:ro
+    networks:
+      - default
+      - cluster
+    ports:
+      - "127.0.0.1:${WORKER_PORT:-8181-8199}:8081"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      kubeconfig:
+        condition: service_completed_successfully
+
+  policy:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: deploy/docker/go.Dockerfile
+      args:
+        SERVICE: policy
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/web.Dockerfile
+    environment:
+      CROSSWATC_API_URL: http://api:8080
+      CROSSWATC_DEV_USER: ${CROSSWATC_DEV_USER:-agnaldo}
+      CROSSWATC_DEV_SQUADS: ${CROSSWATC_DEV_SQUADS:-payments,cards}
+      CROSSWATC_DEV_SRE: "true"
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000-3099}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "Promise.all(['http://127.0.0.1:3000','http://api:8080/readyz','http://worker:8081/readyz'].map(u => fetch(u))).then(rs => process.exit(rs.every(r => r.ok) ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 15s
+    depends_on:
+      api:
+        condition: service_started
+      worker:
+        condition: service_started
+
 volumes:
   pgdata:
+  kubeconfig:
+
+networks:
+  cluster:
+    external: true
+    name: ${KUBE_DOCKER_NETWORK:-kind}

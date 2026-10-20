@@ -10,9 +10,21 @@ export const mockResources = [
     namespace: "default",
     environment: "prod",
     squad: "payments",
+    owner: "payments",
+    provider: "azure",
+    region: "brazilsouth",
+    resourceGroup: "rg-prod-crossplane-01",
+    repository: "crosswatc-org/argocd",
+    gitPath: "claims/prod/db-payments.yaml",
+    correlationId: "crosswatc-req-01JCA950C40227DXJM556P8M5T",
+    claimRef: { namespace: "payments", name: "payments-db-claim", kind: "PostgreSQLInstance", apiVersion: "database.example.org/v1alpha1" },
+    composition: { name: "postgresql-azure-v3" },
+    resourceState: "OPERATIONAL",
+    currentRevision: 1,
     synced: true,
     ready: true,
     state: "healthy",
+    createdAt: "2026-10-17T12:53:46Z",
     updatedAt: "2026-10-19T18:00:00Z",
     conditions: [
       {
@@ -47,9 +59,21 @@ export const mockResources = [
     namespace: "default",
     environment: "staging",
     squad: "platform",
+    owner: "platform",
+    provider: "azure",
+    region: "eastus2",
+    resourceGroup: "rg-staging-crossplane-01",
+    repository: "crosswatc-org/argocd",
+    gitPath: "claims/staging/redis-session.yaml",
+    correlationId: "crosswatc-req-02JCA950C40227DXJM556P8M5T",
+    claimRef: { namespace: "platform", name: "redis-cache-claim", kind: "RedisCluster", apiVersion: "cache.example.org/v1alpha1" },
+    composition: { name: "redis-azure-v2" },
+    resourceState: "PROVISIONING",
+    currentRevision: 1,
     synced: true,
     ready: false,
     state: "progressing",
+    createdAt: "2026-10-18T10:00:00Z",
     updatedAt: "2026-10-19T18:10:00Z",
     conditions: [
       {
@@ -84,9 +108,21 @@ export const mockResources = [
     namespace: "default",
     environment: "prod",
     squad: "platform",
+    owner: "platform",
+    provider: "azure",
+    region: "eastus2",
+    resourceGroup: "rg-prod-crossplane-01",
+    repository: "crosswatc-org/argocd",
+    gitPath: "claims/prod/storage-assets.yaml",
+    correlationId: "crosswatc-req-03JCA950C40227DXJM556P8M5T",
+    claimRef: { namespace: "platform", name: "storage-bucket-claim", kind: "Bucket", apiVersion: "storage.example.org/v1alpha1" },
+    composition: { name: "bucket-azure-v1" },
+    resourceState: "DEGRADED",
+    currentRevision: 1,
     synced: false,
     ready: false,
     state: "drifted",
+    createdAt: "2026-10-14T12:53:45Z",
     updatedAt: "2026-10-19T18:15:00Z",
     conditions: [
       {
@@ -327,6 +363,77 @@ export function createMockServer() {
     if (kubeEventsMatch) {
       res.writeHead(200);
       res.end(JSON.stringify(mockKubeEvents));
+      return;
+    }
+
+    const stateMatch = pathname.match(/^\/api\/v1\/resources\/([^/]+)\/state$/);
+    if (stateMatch) {
+      const id = stateMatch[1];
+      const r = mockResources.find((resItem) => resItem.id === id || resItem.name === id) || mockResources[0];
+      const isOperational = r.resourceState === "OPERATIONAL" || r.ready;
+      res.writeHead(200);
+      res.end(
+        JSON.stringify({
+          resourceState: r.resourceState,
+          currentRevision: {
+            rev: r.currentRevision ?? 1,
+            state: isOperational ? "SUCCEEDED" : "RECONCILING",
+            prUrl: `https://github.com/${r.repository}/pull/112`,
+          },
+          stages: [
+            {
+              stage: "REQUEST",
+              status: "SUCCEEDED",
+              actionOwner: "platform",
+              message: "Solicitação validada e gerada via Backstage Scaffolder",
+            },
+            {
+              stage: "PULL_REQUEST",
+              status: "SUCCEEDED",
+              actionOwner: "platform",
+              message: "Pull Request #112 criado e aprovado pelos CODEOWNERS",
+            },
+            {
+              stage: "CI_POLICIES",
+              status: "SUCCEEDED",
+              actionOwner: "platform",
+              message: "GitHub Actions e validações OPA / Kyverno aprovados",
+            },
+            {
+              stage: "ARGO_CD",
+              status: "SUCCEEDED",
+              actionOwner: "platform",
+              message: "ApplicationSet sincronizado com cluster de controle (Prune=false)",
+            },
+            {
+              stage: "CROSSPLANE",
+              status: isOperational ? "SUCCEEDED" : "IN_PROGRESS",
+              actionOwner: "platform",
+              message: isOperational
+                ? "Composition expandida e Managed Resources gerados"
+                : "Reconciliando Composition corporativa",
+            },
+            {
+              stage: "CLOUD",
+              status: isOperational ? "SUCCEEDED" : "IN_PROGRESS",
+              actionOwner: "platform",
+              message: isOperational
+                ? `Recursos físicos provisionados no provedor ${r.provider}`
+                : `Aguardando provisionamento físico na nuvem ${r.provider}`,
+            },
+            {
+              stage: "OPERATIONAL",
+              status: isOperational ? "SUCCEEDED" : "PENDING",
+              actionOwner: "platform",
+              message: isOperational
+                ? "Recurso 100% operacional; connection secret injetado"
+                : "Aguardando conclusão das etapas anteriores",
+            },
+          ],
+          drift: { detected: false },
+          lastReconcileAt: r.updatedAt,
+        })
+      );
       return;
     }
 

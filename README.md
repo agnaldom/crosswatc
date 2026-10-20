@@ -28,6 +28,61 @@ make build test       # compila e testa o backend Go
 pnpm install          # dependências da UI
 ```
 
+## Rodando tudo com Docker Compose
+
+```bash
+docker compose up                    # constrói as imagens na primeira execução e sobe toda a aplicação
+# ou, em segundo plano, aguardando a aplicação ficar pronta:
+docker compose up -d --build --wait
+```
+
+Sobe `apps/web`, API, worker e PostgreSQL. O serviço `migrate` aplica as migrations antes dos
+serviços Go; `kubeconfig` prepara o acesso ao Kubernetes local. O Compose usa o cluster existente
+`kind-crossplane-poc`, com Crossplane instalado, pela rede Docker `kind`. O cluster precisa estar
+rodando. O contexto atual do seu `kubectl` não é alterado.
+
+As portas são escolhidas automaticamente dentro de faixas para evitar conflitos com outros
+projetos: web `3000–3099`, API `8080–8099`, worker `8181–8199` e PostgreSQL `5432–5499`.
+A comunicação entre os contêineres usa os nomes dos serviços e independe da porta escolhida.
+Consulte os endereços publicados:
+
+```bash
+docker compose ps
+docker compose port web 3000
+docker compose port api 8080
+docker compose port postgres 5432
+docker compose logs -f api worker web
+docker compose down                  # para os serviços, preservando o banco e o cluster existente
+```
+
+Para fixar uma porta livre, use `WEB_PORT=3100 docker compose up -d` (também existem
+`API_PORT`, `WORKER_PORT` e `POSTGRES_PORT`). Uma porta fixa ocupada causa erro;
+remova a variável para voltar à seleção automática. As portas são publicadas apenas em localhost.
+
+Para outro cluster local, configure as variáveis em `.env`:
+
+```dotenv
+CROSSWATC_KUBECONFIG=/caminho/absoluto/kubeconfig
+KUBE_CONTEXT=kind-crossplane-poc
+KUBE_SERVER=https://crossplane-poc-control-plane:6443
+KUBE_DOCKER_NETWORK=kind
+```
+
+`KUBE_SERVER` deve ser acessível pela rede Docker indicada e estar coberto pelo certificado do
+cluster. O kubeconfig do contexto selecionado deve conter credenciais utilizáveis no contêiner
+(sem plugins de autenticação externos). O arquivo original é montado somente para leitura.
+
+O ambiente usa autenticação dev com usuário `agnaldo`, squads `payments,cards` e acesso SRE.
+O healthcheck da web também aguarda a API e o worker ficarem prontos. GitHub App e integrações
+externas continuam dependendo das suas credenciais. O avaliador `services/policy` é uma CLI de CI,
+disponível sob demanda, sem processo permanente:
+
+```bash
+docker compose run --build --rm -v "$PWD:/work:ro" policy -head /work/claim.yaml -name minha-claim
+```
+
+Depois de alterar o código, execute `docker compose up -d --build --wait` para reconstruir as imagens.
+
 ## Rodando o backend
 
 O backend são dois binários que compartilham o PostgreSQL:

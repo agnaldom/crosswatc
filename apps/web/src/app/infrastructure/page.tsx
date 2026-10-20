@@ -2,8 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { Lifecycle } from "@/components/Lifecycle";
 import { KubeEvents } from "@/components/KubeEvents";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { TopologyView } from "@/components/TopologyView";
@@ -29,7 +30,7 @@ function InfrastructureContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDetailCollapsed, setIsDetailCollapsed] = useState(false);
-  const [detailTab, setDetailTab] = useState<"Overview" | "YAML" | "Status" | "Relations" | "Events">("Relations");
+  const [detailTab, setDetailTab] = useState<"Overview" | "Lifecycle" | "YAML" | "Status" | "Relations" | "Events">("Relations");
   const [kubeFilter, setKubeFilter] = useState("");
 
   const filters: ResourceFilters = {
@@ -240,7 +241,7 @@ function InfrastructureContent() {
             <div>
               {/* Tab Navigation */}
               <div className="flex border-b border-zinc-200 px-6 dark:border-zinc-800">
-                {(["Overview", "YAML", "Status", "Relations", "Events"] as const).map((tab) => {
+                {(["Overview", "Lifecycle", "YAML", "Status", "Relations", "Events"] as const).map((tab) => {
                   const isActive = detailTab === tab;
                   return (
                     <button
@@ -261,6 +262,11 @@ function InfrastructureContent() {
 
               {/* Tab Contents */}
               <div className="p-6">
+                {/* Lifecycle Tab */}
+                {detailTab === "Lifecycle" && (
+                  <LifecycleTabContent resource={selectedResource} />
+                )}
+
                 {/* Relations Tab */}
                 {detailTab === "Relations" && (
                   <RelationsTabContent resourceId={selectedResource.id} />
@@ -283,7 +289,10 @@ function InfrastructureContent() {
 
                 {/* Overview Tab */}
                 {detailTab === "Overview" && (
-                  <OverviewTabContent resource={selectedResource} />
+                  <OverviewTabContent
+                    resource={selectedResource}
+                    onOpenLifecycle={() => setDetailTab("Lifecycle")}
+                  />
                 )}
               </div>
             </div>
@@ -394,7 +403,25 @@ function StatusTabContent({ resource }: { resource: TrackedResource }) {
   );
 }
 
-function OverviewTabContent({ resource: r }: { resource: TrackedResource }) {
+function LifecycleTabContent({ resource }: { resource: TrackedResource }) {
+  const stateQuery = useQuery({
+    queryKey: ["state", resource.id],
+    queryFn: () => api.state(resource.id),
+  });
+
+  if (stateQuery.isPending) return <Loading />;
+  if (stateQuery.isError) return <ErrorState error={stateQuery.error} />;
+
+  return <Lifecycle stages={stateQuery.data?.stages} resource={resource} />;
+}
+
+function OverviewTabContent({
+  resource: r,
+  onOpenLifecycle,
+}: {
+  resource: TrackedResource;
+  onOpenLifecycle?: () => void;
+}) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/30">
@@ -421,12 +448,21 @@ function OverviewTabContent({ resource: r }: { resource: TrackedResource }) {
           <dt className="text-zinc-400">Correlation ID</dt>
           <dd className="break-all font-mono text-[10px] text-zinc-500">{r.correlationId}</dd>
         </dl>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
+          {onOpenLifecycle && (
+            <button
+              type="button"
+              onClick={onOpenLifecycle}
+              className="rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-500"
+            >
+              Ver Lifecycle no Painel ↓
+            </button>
+          )}
           <Link
-            href={`/infrastructure/${r.id}`}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+            href={`/infrastructure/${r.id}?tab=Lifecycle`}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
-            Abrir Lifecycle Completo →
+            Abrir Lifecycle Completo ↗
           </Link>
         </div>
       </div>

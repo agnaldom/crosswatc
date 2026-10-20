@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { use, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, use, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { ConditionCards } from "@/components/ConditionCards";
 import { DriftBanner } from "@/components/DriftBanner";
@@ -22,16 +23,28 @@ type Tab = (typeof tabs)[number];
 
 export default function ResourcePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [tab, setTab] = useState<Tab>("Overview");
+  return (
+    <Suspense fallback={<Loading />}>
+      <ResourceContent id={id} />
+    </Suspense>
+  );
+}
+
+function ResourceContent({ id }: { id: string }) {
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const [selectedTab, setSelectedTab] = useState<Tab | null>(null);
+  const tab: Tab = selectedTab ?? (urlTab && (tabs as readonly string[]).includes(urlTab) ? (urlTab as Tab) : "Overview");
+
   const [kubeFilter, setKubeFilter] = useState("");
   const [manifestObject, setManifestObject] = useState("");
   const showManifest = (nodeId: string) => {
     setManifestObject(nodeId);
-    setTab("Manifest");
+    setSelectedTab("Manifest");
   };
   const showEvents = (filter: string) => {
     setKubeFilter(filter);
-    setTab("Kubernetes");
+    setSelectedTab("Kubernetes");
   };
   const resource = useQuery({ queryKey: ["resource", id], queryFn: () => api.resource(id) });
   const state = useQuery({ queryKey: ["state", id], queryFn: () => api.state(id), enabled: resource.isSuccess });
@@ -83,7 +96,7 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
 
       <nav className="mt-6 flex gap-1 border-b border-zinc-200" role="tablist">
         {tabs.map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} type="button" onClick={() => setTab(t)}
+          <button key={t} role="tab" aria-selected={tab === t} type="button" onClick={() => setSelectedTab(t)}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t ? "border-zinc-900 font-medium" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}>
             {t}
           </button>
@@ -92,7 +105,9 @@ export default function ResourcePage({ params }: { params: Promise<{ id: string 
 
       <section className="mt-5">
         {tab === "Overview" && <Overview resource={r} />}
-        {tab === "Lifecycle" && (state.isError ? <ErrorState error={state.error} /> : state.data ? <Lifecycle stages={state.data.stages} /> : <Loading />)}
+        {tab === "Lifecycle" && (
+          state.isError ? <ErrorState error={state.error} /> : <Lifecycle stages={state.data?.stages} resource={r} />
+        )}
         {tab === "Topology" && <TopologyTab id={id} onEvents={showEvents} onManifest={showManifest} />}
         {tab === "Manifest" && <ManifestTab id={id} object={manifestObject} onObject={setManifestObject} />}
         {tab === "Kubernetes" && <KubeEvents id={id} filter={kubeFilter} onFilter={setKubeFilter} />}

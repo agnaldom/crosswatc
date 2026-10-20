@@ -313,6 +313,28 @@ export interface PlatformXRD {
   established: boolean;
 }
 
+export interface V2List<T> {
+  items: T[];
+  available: boolean;
+}
+
+export interface PlatformMRD {
+  name: string;
+  group: string;
+  kind: string;
+  scope?: string;
+  state?: string;
+  active: boolean;
+  established: boolean;
+  conditions: Condition[];
+}
+
+export interface PlatformMRAP {
+  name: string;
+  activate: string[];
+  conditions: Condition[];
+}
+
 export interface Condition {
   type: string;
   status: string;
