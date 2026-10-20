@@ -32,9 +32,18 @@ type dashboardEventDTO struct {
 	ResourceName string `json:"resourceName"`
 }
 
+type healthDTO struct {
+	Ready    int `json:"ready"`
+	NotReady int `json:"notReady"`
+	Unknown  int `json:"unknown"`
+}
+
 type dashboardDTO struct {
 	Total         int                 `json:"total"`
 	ByState       map[string]int      `json:"byState"`
+	Health        healthDTO           `json:"health"`
+	ByProvider    map[string]int      `json:"byProvider"`
+	ByEnvironment map[string]int      `json:"byEnvironment"`
 	Attention     []attentionDTO      `json:"attention"`
 	OpenRevisions []openRevisionDTO   `json:"openRevisions"`
 	RecentEvents  []dashboardEventDTO `json:"recentEvents"`
@@ -47,7 +56,8 @@ func (h *handlers) dashboard(c *gin.Context) {
 		internalError(c, err)
 		return
 	}
-	out := dashboardDTO{ByState: d.ByState, Attention: []attentionDTO{}, OpenRevisions: []openRevisionDTO{},
+	out := dashboardDTO{ByState: nonNil(d.ByState), ByProvider: nonNil(d.ByProvider), ByEnvironment: nonNil(d.ByEnvironment),
+		Health: healthDTO{Ready: d.Health.Ready, NotReady: d.Health.NotReady, Unknown: d.Health.Unknown}, Attention: []attentionDTO{}, OpenRevisions: []openRevisionDTO{},
 		RecentEvents: []dashboardEventDTO{}}
 	for _, n := range d.ByState {
 		out.Total += n
@@ -64,4 +74,11 @@ func (h *handlers) dashboard(c *gin.Context) {
 		out.RecentEvents = append(out.RecentEvents, dashboardEventDTO{eventDTO: toEventDTO(e.Event), ResourceName: e.ResourceName})
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+func nonNil(m map[string]int) map[string]int {
+	if m == nil {
+		return map[string]int{}
+	}
+	return m
 }

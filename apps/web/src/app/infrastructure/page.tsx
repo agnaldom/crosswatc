@@ -29,19 +29,27 @@ const conditionOptions = [
 export default function InfrastructurePage() {
   return (
     <Suspense fallback={<Loading />}>
-      <KindScoped />
+      <UrlScoped />
     </Suspense>
   );
 }
 
-/** The sidebar Kind menu links to ?kind=…; remount the list per kind so paging resets. */
-function KindScoped() {
-  const kind = useSearchParams().get("kind") ?? undefined;
-  return <InfrastructureList key={kind ?? ""} kind={kind} />;
+const urlFilters = ["q", "environment", "provider", "status", "synced", "ready"] as const;
+
+/** Filters from the URL (?kind=…, ?ready=false, …: sidebar and dashboard links); remount on change so paging resets. */
+function UrlScoped() {
+  const params = useSearchParams();
+  const kind = params.get("kind") ?? undefined;
+  const initial: ResourceFilters = {};
+  for (const k of urlFilters) {
+    const v = params.get(k);
+    if (v) initial[k] = v;
+  }
+  return <InfrastructureList key={params.toString()} kind={kind} initial={initial} />;
 }
 
-function InfrastructureList({ kind }: { kind?: string }) {
-  const [filters, setFilters] = useState<ResourceFilters>({});
+function InfrastructureList({ kind, initial }: { kind?: string; initial: ResourceFilters }) {
+  const [filters, setFilters] = useState<ResourceFilters>(initial);
   const [cursors, setCursors] = useState<string[]>([]);
   const cursor = cursors.at(-1);
   const q = useQuery({
@@ -66,24 +74,24 @@ function InfrastructureList({ kind }: { kind?: string }) {
       <p className="mt-1 text-sm text-zinc-600">Recursos das suas squads, do Git até a Cloud.</p>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <input aria-label="Buscar por nome" placeholder="Buscar por nome" onChange={set("q")}
+        <input aria-label="Buscar por nome" placeholder="Buscar por nome" value={filters.q ?? ""} onChange={set("q")}
           className="w-64 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm" />
-        <input aria-label="Environment" placeholder="Environment" onChange={set("environment")}
+        <input aria-label="Environment" placeholder="Environment" value={filters.environment ?? ""} onChange={set("environment")}
           className="w-36 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm" />
-        <select aria-label="Provider" onChange={set("provider")} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
+        <select aria-label="Provider" value={filters.provider ?? ""} onChange={set("provider")} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
           <option value="">Todos providers</option>
           <option value="azure">Azure</option>
           <option value="aws">AWS</option>
           <option value="huawei">Huawei</option>
         </select>
-        <select aria-label="Status" onChange={set("status")} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
+        <select aria-label="Status" value={filters.status ?? ""} onChange={set("status")} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
           <option value="">Todos status</option>
           {states.map((s) => (
             <option key={s} value={s}>{resourceStateLabel[s]}</option>
           ))}
         </select>
         {(["synced", "ready"] as const).map((k) => (
-          <select key={k} aria-label={k === "synced" ? "Synced" : "Ready"} onChange={set(k)}
+          <select key={k} aria-label={k === "synced" ? "Synced" : "Ready"} value={filters[k] ?? ""} onChange={set(k)}
             className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
             <option value="">{k === "synced" ? "Synced: todos" : "Ready: todos"}</option>
             {conditionOptions.map((o) => (
