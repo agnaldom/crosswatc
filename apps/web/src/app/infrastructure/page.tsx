@@ -2,17 +2,45 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus } from "@/components/Timeline";
 import { WatchButton } from "@/components/WatchButton";
 import { api, type ResourceFilters } from "@/lib/api";
+import { isQuickActive, quickFilters, toggleQuick } from "@/lib/quick-filters";
 import { resourceStateLabel, resourceStateTone } from "@/lib/labels";
 import type { ResourceState } from "@/lib/types";
 
 const states = Object.keys(resourceStateLabel) as ResourceState[];
+
+const chipTone = {
+  error: "border-rose-300 bg-rose-50 text-rose-700",
+  warn: "border-amber-300 bg-amber-50 text-amber-800",
+} as const;
+
+/** One-click filters in the URL; the list remounts from the new params (UrlScoped). */
+function QuickFilterChips() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  return (
+    <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filtros rápidos">
+      {quickFilters.map((f) => {
+        const on = isQuickActive(params, f);
+        const qs = toggleQuick(params, f);
+        return (
+          <button key={f.id} type="button" aria-pressed={on}
+            onClick={() => router.replace(qs ? `${pathname}?${qs}` : pathname)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${on ? chipTone[f.tone] : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"}`}>
+            {f.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /** Synced/Ready pill: True, False or unknown (no observed state yet). */
 function ConditionPill({ value }: { value?: boolean }) {
@@ -72,6 +100,7 @@ function InfrastructureList({ kind, initial }: { kind?: string; initial: Resourc
         <LiveStatus />
       </div>
       <p className="mt-1 text-sm text-zinc-600">Recursos das suas squads, do Git até a Cloud.</p>
+      <QuickFilterChips />
 
       <div className="mt-6 flex flex-wrap gap-3">
         <input aria-label="Buscar por nome" placeholder="Buscar por nome" value={filters.q ?? ""} onChange={set("q")}
