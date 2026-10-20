@@ -10,11 +10,16 @@ describe("Infrastructure Master-Detail Component", () => {
     const table = screen.getByRole("table");
     await expect(table.getByText("db-payments-prod")).toBeVisible();
 
-    // Table headings
-    await expect(screen.getByRole("columnheader", "Name")).toBeVisible();
-    await expect(screen.getByRole("columnheader", "Kind")).toBeVisible();
-    await expect(screen.getByRole("columnheader", "Status")).toBeVisible();
-    await expect(screen.getByRole("columnheader", "Created")).toBeVisible();
+    // Table headings matching user UI design
+    await expect(screen.getByRole("columnheader", "NAME")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "KIND")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "SYNCED")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "READY")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "RESPONSIVE")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "COMPOSITION")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "CLAIM REF")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "RESOURCE REFS")).toBeVisible();
+    await expect(screen.getByRole("columnheader", "CREATED")).toBeVisible();
 
     // Multi-status pills
     await expect(table.getByText("Synced").first()).toBeVisible();
@@ -51,7 +56,7 @@ describe("Infrastructure Master-Detail Component", () => {
     const table = screen.getByRole("table");
     await expect(table.getByText("redis-session-cache")).toBeVisible();
 
-    const statusDropdown = screen.getByRole("combobox", "Filter by Status");
+    const statusDropdown = screen.getByRole("combobox", "Filter by Synced");
     await expect(statusDropdown).toBeVisible();
 
     // Select synced filter using label

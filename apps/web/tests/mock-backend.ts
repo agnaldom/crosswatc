@@ -19,6 +19,8 @@ export const mockResources = [
     correlationId: "crosswatc-req-01JCA950C40227DXJM556P8M5T",
     claimRef: { namespace: "payments", name: "payments-db-claim", kind: "PostgreSQLInstance", apiVersion: "database.example.org/v1alpha1" },
     composition: { name: "postgresql-azure-v3" },
+    resourceRefsCount: 2,
+    responsive: true,
     resourceState: "OPERATIONAL",
     currentRevision: 1,
     synced: true,
@@ -68,6 +70,8 @@ export const mockResources = [
     correlationId: "crosswatc-req-02JCA950C40227DXJM556P8M5T",
     claimRef: { namespace: "platform", name: "redis-cache-claim", kind: "RedisCluster", apiVersion: "cache.example.org/v1alpha1" },
     composition: { name: "redis-azure-v2" },
+    resourceRefsCount: 1,
+    responsive: true,
     resourceState: "PROVISIONING",
     currentRevision: 1,
     synced: true,
@@ -117,6 +121,8 @@ export const mockResources = [
     correlationId: "crosswatc-req-03JCA950C40227DXJM556P8M5T",
     claimRef: { namespace: "platform", name: "storage-bucket-claim", kind: "Bucket", apiVersion: "storage.example.org/v1alpha1" },
     composition: { name: "bucket-azure-v1" },
+    resourceRefsCount: 1,
+    responsive: true,
     resourceState: "DEGRADED",
     currentRevision: 1,
     synced: false,
@@ -176,6 +182,8 @@ export const mockManagedResources = [
     state: "healthy",
     claimRef: { namespace: "payments", name: "payments-db-claim", kind: "PostgreSQLInstance", apiVersion: "database.example.org/v1alpha1" },
     composition: { name: "postgresql-azure-v3" },
+    resourceRefsCount: 2,
+    responsive: true,
     createdAt: "2026-10-17T12:55:10Z",
     updatedAt: "2026-10-19T18:00:00Z",
     conditions: [
@@ -227,6 +235,8 @@ export const mockManagedResources = [
     state: "healthy",
     claimRef: { namespace: "payments", name: "payments-db-claim", kind: "PostgreSQLInstance", apiVersion: "database.example.org/v1alpha1" },
     composition: { name: "postgresql-azure-v3" },
+    resourceRefsCount: 2,
+    responsive: true,
     createdAt: "2026-10-17T12:56:00Z",
     updatedAt: "2026-10-19T18:00:00Z",
     conditions: [
@@ -278,6 +288,8 @@ export const mockManagedResources = [
     state: "progressing",
     claimRef: { namespace: "platform", name: "redis-cache-claim", kind: "RedisCluster", apiVersion: "cache.example.org/v1alpha1" },
     composition: { name: "redis-azure-v2" },
+    resourceRefsCount: 1,
+    responsive: true,
     createdAt: "2026-10-18T10:05:00Z",
     updatedAt: "2026-10-19T18:10:00Z",
     conditions: [
@@ -623,6 +635,8 @@ export function createMockServer() {
       const kind = url.searchParams.get("kind");
       const synced = url.searchParams.get("synced");
       const ready = url.searchParams.get("ready");
+      const responsive = url.searchParams.get("responsive");
+      const composition = url.searchParams.get("composition");
       const view = url.searchParams.get("view");
 
       const source = view === "managed" ? mockManagedResources : mockResources;
@@ -640,6 +654,12 @@ export function createMockServer() {
       }
       if (ready !== null && ready !== undefined && ready !== "") {
         filtered = filtered.filter((r) => String(r.ready) === ready);
+      }
+      if (responsive !== null && responsive !== undefined && responsive !== "") {
+        filtered = filtered.filter((r) => String(r.responsive ?? true) === responsive);
+      }
+      if (composition) {
+        filtered = filtered.filter((r) => r.composition?.name === composition);
       }
 
       res.writeHead(200);

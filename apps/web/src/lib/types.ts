@@ -54,6 +54,8 @@ export interface TrackedResource {
   updatedAt: string;
   parentResource?: string;
   deletionPolicy?: "Delete" | "Orphan";
+  resourceRefsCount?: number;
+  responsive?: boolean;
 }
 
 export interface KindCount {
