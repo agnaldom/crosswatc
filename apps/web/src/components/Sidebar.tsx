@@ -165,7 +165,7 @@ export function Sidebar() {
                 type="button"
                 onClick={() => setCompositeOpen((prev) => !prev)}
                 className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 transition ${
-                  pathname === "/infrastructure" && currentKind
+                  pathname === "/infrastructure" && (!currentView || currentView === "composites")
                     ? "font-semibold text-zinc-900 dark:text-white"
                     : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
                 }`}
@@ -189,13 +189,23 @@ export function Sidebar() {
               {/* Submenu Kinds List */}
               {compositeOpen && (
                 <div className="ml-5 mt-1 flex flex-col gap-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+                  <Link
+                    href="/infrastructure?view=composites"
+                    className={`flex items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
+                      pathname === "/infrastructure" && (!currentView || currentView === "composites") && !currentKind
+                        ? "bg-zinc-200/70 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-cyan-400"
+                        : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    <span>All Composites</span>
+                  </Link>
                   {kinds.length > 0 ? (
                     kinds.map((k) => {
                       const isActive = pathname === "/infrastructure" && currentKind === k.kind;
                       return (
                         <Link
                           key={k.kind}
-                          href={`/infrastructure?kind=${encodeURIComponent(k.kind)}`}
+                          href={`/infrastructure?view=composites&kind=${encodeURIComponent(k.kind)}`}
                           className={`flex items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
                             isActive
                               ? "bg-zinc-200/70 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-cyan-400"
@@ -232,9 +242,9 @@ export function Sidebar() {
 
             {/* Managed Resources */}
             <Link
-              href="/infrastructure"
+              href="/infrastructure?view=managed"
               className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                pathname === "/infrastructure" && !currentKind && !currentView
+                pathname === "/infrastructure" && currentView === "managed"
                   ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
                   : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
               }`}

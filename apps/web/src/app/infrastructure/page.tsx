@@ -24,7 +24,9 @@ export default function InfrastructurePage() {
 function InfrastructureContent() {
   const searchParams = useSearchParams();
   const kind = searchParams.get("kind") ?? undefined;
-  const view = searchParams.get("view") ?? undefined;
+  const rawView = searchParams.get("view");
+  const view: "claims" | "composites" | "managed" =
+    rawView === "claims" ? "claims" : rawView === "managed" ? "managed" : "composites";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -34,6 +36,7 @@ function InfrastructureContent() {
   const [kubeFilter, setKubeFilter] = useState("");
 
   const filters: ResourceFilters = {
+    view,
     kind,
     q: searchQuery || undefined,
     status: statusFilter && !["synced", "not_synced", "ready", "not_ready"].includes(statusFilter)
@@ -44,22 +47,101 @@ function InfrastructureContent() {
   };
 
   const listQuery = useQuery({
-    queryKey: ["resources", kind, filters],
+    queryKey: ["resources", view, kind, filters],
     queryFn: () => api.listResources({ ...filters, limit: 50 }),
   });
 
   const items = listQuery.data?.items ?? [];
   const selectedResource = items.find((r) => r.id === selectedId) ?? items[0] ?? null;
 
-  const pageTitle = kind || (view === "claims" ? "Claims" : "Composite Resources");
+  const pageTitle =
+    kind ||
+    (view === "claims"
+      ? "Claims"
+      : view === "managed"
+      ? "Managed Resources"
+      : "Composite Resources");
+
+  const pageDescription =
+    view === "claims"
+      ? "Namespace-scoped developer requests for infrastructure, bound to Composite Resources."
+      : view === "managed"
+      ? "Granular cloud infrastructure primitives (Azure, AWS, GCP) reconciled directly by Crossplane Provider controllers."
+      : "Cluster-scoped composite instances defined by XRDs and orchestrated via Compositions.";
+
+  const viewBadge =
+    view === "claims"
+      ? "Developer View (DevEx / XRC)"
+      : view === "managed"
+      ? "Cloud Provider Resources (MR)"
+      : "Platform Architecture (XR)";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      {/* Page Title */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          {pageTitle}
-        </h1>
+      {/* Page Title & View Switcher */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+              {pageTitle}
+            </h1>
+            <span className="rounded-md border border-cyan-800/40 bg-cyan-950/40 px-2 py-0.5 text-[11px] font-semibold text-cyan-400">
+              {viewBadge}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {pageDescription}
+          </p>
+        </div>
+
+        {/* View Switcher Tabs */}
+        <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100/80 p-1 dark:border-zinc-800 dark:bg-zinc-900/80">
+          <Link
+            href="/infrastructure?view=composites"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              view === "composites" && !kind
+                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+            </svg>
+            <span>Composites (XRs)</span>
+          </Link>
+
+          <Link
+            href="/infrastructure?view=claims"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              view === "claims"
+                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+            </svg>
+            <span>Claims (XRCs)</span>
+          </Link>
+
+          <Link
+            href="/infrastructure?view=managed"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              view === "managed"
+                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            <span>Managed (MRs)</span>
+          </Link>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -126,6 +208,31 @@ function InfrastructureContent() {
               <tr>
                 <th className="px-5 py-3 font-semibold">Name</th>
                 <th className="px-5 py-3 font-semibold">Kind</th>
+
+                {/* Specific view columns */}
+                {view === "claims" && (
+                  <>
+                    <th className="px-5 py-3 font-semibold">Namespace</th>
+                    <th className="px-5 py-3 font-semibold">Owner / Squad</th>
+                    <th className="px-5 py-3 font-semibold">Composite Target</th>
+                  </>
+                )}
+
+                {view === "managed" && (
+                  <>
+                    <th className="px-5 py-3 font-semibold">Provider</th>
+                    <th className="px-5 py-3 font-semibold">Parent Composite</th>
+                    <th className="px-5 py-3 font-semibold">Deletion Policy</th>
+                  </>
+                )}
+
+                {view === "composites" && (
+                  <>
+                    <th className="px-5 py-3 font-semibold">Composition</th>
+                    <th className="px-5 py-3 font-semibold">Environment</th>
+                  </>
+                )}
+
                 <th className="px-5 py-3 font-semibold">Status</th>
                 <th className="px-5 py-3 font-semibold">Created</th>
               </tr>
@@ -133,6 +240,13 @@ function InfrastructureContent() {
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
               {items.map((r) => {
                 const isSelected = selectedResource?.id === r.id;
+
+                // Value resolution according to view
+                const displayName =
+                  view === "claims" ? r.claimRef?.name || r.name : r.name;
+                const displayKind =
+                  view === "claims" ? r.claimRef?.kind || r.kind : r.kind;
+
                 return (
                   <tr
                     key={r.id}
@@ -143,13 +257,76 @@ function InfrastructureContent() {
                         : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30"
                     }`}
                   >
+                    {/* Name Column */}
                     <td className="whitespace-nowrap px-5 py-3 text-zinc-900 dark:text-zinc-100">
                       <div className="flex items-center gap-2">
                         <WatchButton resource={r} />
-                        <span className="truncate">{r.name}</span>
+                        <span className="truncate font-semibold">{displayName}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-zinc-600 dark:text-zinc-300">{r.kind}</td>
+
+                    {/* Kind Column */}
+                    <td className="px-5 py-3 font-mono text-zinc-600 dark:text-zinc-300">
+                      {displayKind}
+                    </td>
+
+                    {/* Claims View: Namespace, Squad, Target */}
+                    {view === "claims" && (
+                      <>
+                        <td className="px-5 py-3">
+                          <span className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                            {r.claimRef?.namespace || "default"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-zinc-600 dark:text-zinc-300">
+                          {r.owner || "—"}
+                        </td>
+                        <td className="px-5 py-3 font-mono text-[11px] text-cyan-600 dark:text-cyan-400">
+                          {r.name}
+                        </td>
+                      </>
+                    )}
+
+                    {/* Managed View: Provider, Parent, Deletion Policy */}
+                    {view === "managed" && (
+                      <>
+                        <td className="px-5 py-3">
+                          <span className="inline-flex items-center rounded-md border border-sky-800/40 bg-sky-950/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-400">
+                            {r.provider || "cloud"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {r.parentResource || r.claimRef?.name || r.name}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                              r.deletionPolicy === "Orphan"
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
+                                : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                            }`}
+                          >
+                            {r.deletionPolicy || "Delete"}
+                          </span>
+                        </td>
+                      </>
+                    )}
+
+                    {/* Composites View: Composition, Environment */}
+                    {view === "composites" && (
+                      <>
+                        <td className="px-5 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                          {r.composition?.name || "—"}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                            {r.environment || "default"}
+                          </span>
+                        </td>
+                      </>
+                    )}
+
+                    {/* Status Column */}
                     <td className="px-5 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {/* Synced status pill */}
@@ -180,6 +357,8 @@ function InfrastructureContent() {
                         </span>
                       </div>
                     </td>
+
+                    {/* Created Column */}
                     <td className="whitespace-nowrap px-5 py-3 text-zinc-500">
                       {r.createdAt
                         ? new Date(r.createdAt).toLocaleString("en-US", {
@@ -213,13 +392,26 @@ function InfrastructureContent() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  {selectedResource.kind}
+                  {view === "claims"
+                    ? selectedResource.claimRef?.kind || selectedResource.kind
+                    : selectedResource.kind}
                 </span>
                 <span className="font-mono text-xs text-zinc-400">
                   {selectedResource.claimRef?.apiVersion || "example.org/v1alpha1"}
                 </span>
+                <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  {view === "claims"
+                    ? "Claim"
+                    : view === "managed"
+                    ? "Managed Resource"
+                    : "Composite"}
+                </span>
               </div>
-              <div className="text-xs text-zinc-500">{selectedResource.name}</div>
+              <div className="text-xs text-zinc-500">
+                {view === "claims"
+                  ? `${selectedResource.claimRef?.namespace || "default"} / ${selectedResource.claimRef?.name || selectedResource.name}`
+                  : selectedResource.name}
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
@@ -291,6 +483,7 @@ function InfrastructureContent() {
                 {detailTab === "Overview" && (
                   <OverviewTabContent
                     resource={selectedResource}
+                    view={view}
                     onOpenLifecycle={() => setDetailTab("Lifecycle")}
                   />
                 )}
@@ -322,79 +515,71 @@ function YamlTabContent({ resourceId }: { resourceId: string }) {
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
-  return <YamlViewer yaml={q.data.yaml} />;
+  return (
+    <div className="space-y-4">
+      <div className="text-xs text-zinc-500">
+        Manifesto bruto sincronizado do cluster Kubernetes:
+      </div>
+      <YamlViewer yaml={q.data?.yaml || ""} />
+    </div>
+  );
 }
 
-function StatusTabContent({ resource }: { resource: TrackedResource }) {
-  const topologyQuery = useQuery({
-    queryKey: ["topology", resource.id],
-    queryFn: () => api.topology(resource.id),
-  });
-
-  const centralNode = topologyQuery.data?.nodes.find((n) => n.id.includes(resource.name) || n.name === resource.name || n.type === "composite");
-  const conditions = centralNode?.conditions ?? [
+function StatusTabContent({ resource: r }: { resource: TrackedResource }) {
+  const conditions = (r as unknown as { conditions?: { type: string; status: string; reason?: string; message?: string; lastTransitionTime?: string }[] }).conditions || [
     {
       type: "Responsive",
       status: "True",
       reason: "WatchCircuitClosed",
       message: "Resource informer active and responsive in cluster control plane.",
-      lastTransitionTime: resource.updatedAt,
     },
     {
       type: "Synced",
-      status: resource.synced ? "True" : resource.synced === false ? "False" : "Unknown",
-      reason: resource.synced ? "ReconcileSuccess" : "ReconcilePending",
-      message: resource.synced === false ? `[cannot compose resources: ${resource.name} pending synchronization]` : undefined,
-      lastTransitionTime: resource.updatedAt,
+      status: r.synced ? "True" : "False",
+      reason: r.synced ? "ReconcileSuccess" : "ReconcileError",
+      message: r.synced ? "Successfully reconciled." : "Waiting for reconciliation.",
     },
     {
       type: "Ready",
-      status: resource.ready ? "True" : resource.ready === false ? "False" : "Unknown",
-      reason: resource.ready ? "Available" : "CreatingOrPending",
-      message: resource.ready === false ? "Managed resources pending deployment in target cloud provider." : undefined,
-      lastTransitionTime: resource.updatedAt,
+      status: r.ready ? "True" : "False",
+      reason: r.ready ? "Available" : "CreatingOrPending",
+      message: r.ready ? "Resource is ready and healthy." : "Resource is not ready yet.",
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-      {conditions.map((c, i) => {
-        const isTrue = c.status?.toLowerCase() === "true" || c.status === "True";
+    <div className="space-y-3">
+      {conditions.map((c) => {
+        const isTrue = c.status === "True";
         return (
           <div
-            key={i}
-            className={`rounded-xl border p-4 text-left transition ${
-              isTrue
-                ? "border-emerald-200/80 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                : "border-rose-200/80 bg-rose-50/30 dark:border-rose-900/40 dark:bg-rose-950/20"
-            }`}
+            key={c.type}
+            className="flex items-start justify-between rounded-lg border border-zinc-200 bg-zinc-50/50 p-3.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/40"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{c.type}</span>
-              <span
-                className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                  isTrue
-                    ? "bg-emerald-600 text-white dark:bg-emerald-500"
-                    : "bg-rose-600 text-white dark:bg-rose-500"
-                }`}
-              >
-                {c.status}
-              </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{c.type}</span>
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    isTrue
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400"
+                      : "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-400"
+                  }`}
+                >
+                  {c.status}
+                </span>
+                {c.reason && (
+                  <span className="font-mono text-[11px] text-zinc-400">({c.reason})</span>
+                )}
+              </div>
+              {c.message && (
+                <p className="mt-1 text-zinc-600 dark:text-zinc-300">{c.message}</p>
+              )}
             </div>
-            {c.reason && (
-              <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-                <span className="font-medium text-zinc-500">Reason:</span> {c.reason}
-              </div>
-            )}
-            {c.message && (
-              <div className="mt-2 max-h-28 overflow-y-auto rounded bg-zinc-100 p-2 font-mono text-[10px] text-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300">
-                {c.message}
-              </div>
-            )}
             {c.lastTransitionTime && (
-              <div className="mt-2 text-[10px] text-zinc-400">
-                Last Transition: {new Date(c.lastTransitionTime).toLocaleString("pt-BR")}
-              </div>
+              <span className="text-[10px] text-zinc-400">
+                {new Date(c.lastTransitionTime).toLocaleTimeString()}
+              </span>
             )}
           </div>
         );
@@ -417,24 +602,55 @@ function LifecycleTabContent({ resource }: { resource: TrackedResource }) {
 
 function OverviewTabContent({
   resource: r,
+  view,
   onOpenLifecycle,
 }: {
   resource: TrackedResource;
+  view: "claims" | "composites" | "managed";
   onOpenLifecycle?: () => void;
 }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/30">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Metadados</h3>
-        <dl className="mt-3 grid grid-cols-[7rem_1fr] gap-y-2 text-xs">
-          <dt className="text-zinc-400">Owner</dt>
-          <dd className="font-medium text-zinc-900 dark:text-zinc-100">{r.owner}</dd>
-          <dt className="text-zinc-400">Region</dt>
-          <dd>{r.region || "—"}</dd>
-          <dt className="text-zinc-400">Claim</dt>
-          <dd className="font-mono text-[11px]">{r.claimRef?.namespace}/{r.claimRef?.name}</dd>
-          <dt className="text-zinc-400">Composition</dt>
-          <dd className="font-mono text-[11px]">{r.composition?.name || "—"}</dd>
+        <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-2 text-xs">
+          <dt className="text-zinc-400">Owner / Squad</dt>
+          <dd className="font-medium text-zinc-900 dark:text-zinc-100">{r.owner || "—"}</dd>
+
+          <dt className="text-zinc-400">Environment</dt>
+          <dd>{r.environment || "—"}</dd>
+
+          <dt className="text-zinc-400">Provider</dt>
+          <dd className="capitalize">{r.provider || "—"}</dd>
+
+          {view === "claims" && (
+            <>
+              <dt className="text-zinc-400">Claim Namespace</dt>
+              <dd className="font-mono text-[11px]">{r.claimRef?.namespace || "default"}</dd>
+              <dt className="text-zinc-400">Claim Name</dt>
+              <dd className="font-mono text-[11px]">{r.claimRef?.name || r.name}</dd>
+              <dt className="text-zinc-400">Bound Composite</dt>
+              <dd className="font-mono text-[11px] text-cyan-500">{r.name}</dd>
+            </>
+          )}
+
+          {view === "managed" && (
+            <>
+              <dt className="text-zinc-400">Parent Composite</dt>
+              <dd className="font-mono text-[11px]">{r.parentResource || r.claimRef?.name || r.name}</dd>
+              <dt className="text-zinc-400">Deletion Policy</dt>
+              <dd className="font-mono text-[11px]">{r.deletionPolicy || "Delete"}</dd>
+            </>
+          )}
+
+          {view === "composites" && (
+            <>
+              <dt className="text-zinc-400">Claim Ref</dt>
+              <dd className="font-mono text-[11px]">{r.claimRef?.namespace}/{r.claimRef?.name}</dd>
+              <dt className="text-zinc-400">Composition</dt>
+              <dd className="font-mono text-[11px]">{r.composition?.name || "—"}</dd>
+            </>
+          )}
         </dl>
       </div>
 

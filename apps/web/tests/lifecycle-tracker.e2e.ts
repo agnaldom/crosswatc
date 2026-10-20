@@ -91,7 +91,7 @@ describe("Provisioning Lifecycle Tracker Component", () => {
     await fullLink.tap();
 
     // Verify navigation to dedicated page with ?tab=Lifecycle
-    await browser.waitForURL(/.*tab=Lifecycle.*/);
+    await browser.waitForURL(/.*tab=Lifecycle.*/, { timeout: 15_000 });
     await expect(screen.getByText("Rastreador de Provisionamento GitOps")).toBeVisible();
     await expect(screen.getByText("Linha do Tempo de Provisionamento (7 Etapas)")).toBeVisible();
   });

@@ -60,6 +60,7 @@ const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
 
 export interface ResourceFilters {
+  view?: "claims" | "composites" | "managed" | string;
   environment?: string;
   provider?: string;
   status?: string;
@@ -74,7 +75,11 @@ export interface ResourceFilters {
 
 export const api = {
   listResources: (f: ResourceFilters = {}) => {
-    const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]));
+    const qs = new URLSearchParams(
+      Object.entries(f)
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(([k, v]) => [k, String(v)])
+    );
     return get<Page<TrackedResource>>(`/resources${qs.size ? `?${qs}` : ""}`);
   },
   dashboard: () => get<DashboardSummary>("/dashboard"),

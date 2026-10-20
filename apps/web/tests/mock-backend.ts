@@ -150,6 +150,162 @@ export const mockResources = [
   },
 ];
 
+export const mockManagedResources = [
+  {
+    id: "mr-1",
+    name: "payments-primary-instance",
+    kind: "FlexibleServer",
+    group: "dbforpostgresql.azure.upbound.io",
+    version: "v1beta1",
+    namespace: "crossplane-system",
+    environment: "prod",
+    squad: "payments",
+    owner: "payments",
+    provider: "azure",
+    region: "brazilsouth",
+    resourceGroup: "rg-prod-crossplane-01",
+    parentResource: "db-payments-prod",
+    deletionPolicy: "Delete",
+    resourceState: "OPERATIONAL",
+    currentRevision: 1,
+    repository: "crosswatc-org/argocd",
+    gitPath: "claims/prod/db-payments.yaml",
+    correlationId: "crosswatc-req-mr-01",
+    synced: true,
+    ready: true,
+    state: "healthy",
+    claimRef: { namespace: "payments", name: "payments-db-claim", kind: "PostgreSQLInstance", apiVersion: "database.example.org/v1alpha1" },
+    composition: { name: "postgresql-azure-v3" },
+    createdAt: "2026-10-17T12:55:10Z",
+    updatedAt: "2026-10-19T18:00:00Z",
+    conditions: [
+      {
+        type: "Responsive",
+        status: "True",
+        reason: "WatchCircuitClosed",
+        message: "Resource informer active and responsive in cluster control plane.",
+        lastTransitionTime: "2026-10-19T18:00:00Z",
+      },
+      {
+        type: "Synced",
+        status: "True",
+        reason: "ReconcileSuccess",
+        message: "Successfully reconciled Azure PostgreSQL Flexible Server.",
+        lastTransitionTime: "2026-10-19T18:00:00Z",
+      },
+      {
+        type: "Ready",
+        status: "True",
+        reason: "Available",
+        message: "Azure Flexible Server is ready and accepting connections.",
+        lastTransitionTime: "2026-10-19T18:00:00Z",
+      },
+    ],
+  },
+  {
+    id: "mr-2",
+    name: "payments-firewall-rule",
+    kind: "FirewallRule",
+    group: "dbforpostgresql.azure.upbound.io",
+    version: "v1beta1",
+    namespace: "crossplane-system",
+    environment: "prod",
+    squad: "payments",
+    owner: "payments",
+    provider: "azure",
+    region: "brazilsouth",
+    resourceGroup: "rg-prod-crossplane-01",
+    parentResource: "db-payments-prod",
+    deletionPolicy: "Delete",
+    resourceState: "OPERATIONAL",
+    currentRevision: 1,
+    repository: "crosswatc-org/argocd",
+    gitPath: "claims/prod/db-payments.yaml",
+    correlationId: "crosswatc-req-mr-01",
+    synced: true,
+    ready: true,
+    state: "healthy",
+    claimRef: { namespace: "payments", name: "payments-db-claim", kind: "PostgreSQLInstance", apiVersion: "database.example.org/v1alpha1" },
+    composition: { name: "postgresql-azure-v3" },
+    createdAt: "2026-10-17T12:56:00Z",
+    updatedAt: "2026-10-19T18:00:00Z",
+    conditions: [
+      {
+        type: "Responsive",
+        status: "True",
+        reason: "WatchCircuitClosed",
+        message: "Resource informer active and responsive.",
+        lastTransitionTime: "2026-10-19T18:00:00Z",
+      },
+      {
+        type: "Synced",
+        status: "True",
+        reason: "ReconcileSuccess",
+        message: "Firewall rule reconciled.",
+        lastTransitionTime: "2026-10-19T18:00:00Z",
+      },
+      {
+        type: "Ready",
+        status: "True",
+        reason: "Available",
+        message: "Firewall rule active.",
+        lastTransitionTime: "2026-10-19T18:00:00Z",
+      },
+    ],
+  },
+  {
+    id: "mr-3",
+    name: "redis-node-pool",
+    kind: "RedisCluster",
+    group: "cache.azure.upbound.io",
+    version: "v1beta1",
+    namespace: "crossplane-system",
+    environment: "staging",
+    squad: "platform",
+    owner: "platform",
+    provider: "azure",
+    region: "eastus2",
+    resourceGroup: "rg-staging-crossplane-01",
+    parentResource: "redis-session-cache",
+    deletionPolicy: "Delete",
+    resourceState: "PROVISIONING",
+    currentRevision: 1,
+    repository: "crosswatc-org/argocd",
+    gitPath: "claims/staging/redis-session.yaml",
+    correlationId: "crosswatc-req-mr-03",
+    synced: true,
+    ready: false,
+    state: "progressing",
+    claimRef: { namespace: "platform", name: "redis-cache-claim", kind: "RedisCluster", apiVersion: "cache.example.org/v1alpha1" },
+    composition: { name: "redis-azure-v2" },
+    createdAt: "2026-10-18T10:05:00Z",
+    updatedAt: "2026-10-19T18:10:00Z",
+    conditions: [
+      {
+        type: "Responsive",
+        status: "True",
+        reason: "WatchCircuitClosed",
+        message: "Resource informer active.",
+        lastTransitionTime: "2026-10-19T18:10:00Z",
+      },
+      {
+        type: "Synced",
+        status: "True",
+        reason: "ReconcileSuccess",
+        message: "Azure Redis cluster manifest applied.",
+        lastTransitionTime: "2026-10-19T18:10:00Z",
+      },
+      {
+        type: "Ready",
+        status: "False",
+        reason: "CreatingOrPending",
+        message: "Azure Redis nodes provisioning in region eastus2.",
+        lastTransitionTime: "2026-10-19T18:10:00Z",
+      },
+    ],
+  },
+];
+
 export const mockTopology = {
   nodes: [
     {
@@ -369,7 +525,9 @@ export function createMockServer() {
     const stateMatch = pathname.match(/^\/api\/v1\/resources\/([^/]+)\/state$/);
     if (stateMatch) {
       const id = stateMatch[1];
-      const r = mockResources.find((resItem) => resItem.id === id || resItem.name === id) || mockResources[0];
+      const r = mockResources.find((resItem) => resItem.id === id || resItem.name === id)
+        || mockManagedResources.find((resItem) => resItem.id === id || resItem.name === id)
+        || mockResources[0];
       const isOperational = r.resourceState === "OPERATIONAL" || r.ready;
       res.writeHead(200);
       res.end(
@@ -441,7 +599,8 @@ export function createMockServer() {
     const singleMatch = pathname.match(/^\/api\/v1\/resources\/([^/]+)$/);
     if (singleMatch) {
       const id = singleMatch[1];
-      const r = mockResources.find((resItem) => resItem.id === id || resItem.name === id);
+      const r = mockResources.find((resItem) => resItem.id === id || resItem.name === id)
+        || mockManagedResources.find((resItem) => resItem.id === id || resItem.name === id);
       if (r) {
         res.writeHead(200);
         res.end(JSON.stringify(r));
@@ -464,8 +623,10 @@ export function createMockServer() {
       const kind = url.searchParams.get("kind");
       const synced = url.searchParams.get("synced");
       const ready = url.searchParams.get("ready");
+      const view = url.searchParams.get("view");
 
-      let filtered = [...mockResources];
+      const source = view === "managed" ? mockManagedResources : mockResources;
+      let filtered = [...source];
       if (q) {
         filtered = filtered.filter(
           (r) => r.name.toLowerCase().includes(q) || r.kind.toLowerCase().includes(q)

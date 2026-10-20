@@ -24,27 +24,27 @@ export function LogoIcon({ className = "h-8 w-8" }: { className?: string }) {
     <svg viewBox="0 0 128 128" fill="none" className={className} xmlns="http://www.w3.org/2000/svg" aria-label="Crosswatc Icon">
       <defs>
         <linearGradient id="cwBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#090d16" />
-          <stop offset="100%" stop-color="#0f172a" />
+          <stop offset="0%" stopColor="#090d16" />
+          <stop offset="100%" stopColor="#0f172a" />
         </linearGradient>
         <linearGradient id="cwBrandCyan" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#22d3ee" />
-          <stop offset="50%" stop-color="#06b6d4" />
-          <stop offset="100%" stop-color="#0284c7" />
+          <stop offset="0%" stopColor="#22d3ee" />
+          <stop offset="50%" stopColor="#06b6d4" />
+          <stop offset="100%" stopColor="#0284c7" />
         </linearGradient>
         <linearGradient id="cwBrandBlue" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#38bdf8" />
-          <stop offset="50%" stop-color="#2563eb" />
-          <stop offset="100%" stop-color="#4f46e5" />
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="50%" stopColor="#2563eb" />
+          <stop offset="100%" stopColor="#4f46e5" />
         </linearGradient>
         <radialGradient id="cwCenterGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.9" />
-          <stop offset="50%" stop-color="#0284c7" stop-opacity="0.4" />
-          <stop offset="100%" stop-color="#0284c7" stop-opacity="0" />
+          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.9" />
+          <stop offset="50%" stopColor="#0284c7" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="cwBorderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4" />
-          <stop offset="100%" stop-color="#1e293b" stop-opacity="0.2" />
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#1e293b" stopOpacity="0.2" />
         </linearGradient>
       </defs>
 
