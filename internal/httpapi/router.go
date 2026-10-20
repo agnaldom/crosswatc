@@ -112,6 +112,8 @@ func New(d Deps) *gin.Engine {
 	plat.GET("/configurations", h.listPackages("Configuration"))
 	plat.GET("/xrds", h.listPlatformXRDs)
 	plat.GET("/compositions", h.listCompositions)
+	plat.GET("/mrds", h.listMRDs())
+	plat.GET("/mraps", h.listMRAPs())
 	v1.GET("/catalog/resource-types", h.listResourceTypes)
 	v1.GET("/catalog/resource-types/:kind", h.getResourceType)
 	v1.GET("/catalog/resource-types/:kind/schema", h.getResourceTypeSchema)
