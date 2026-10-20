@@ -1,0 +1,33 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Release Name: {{ .Release.Name }}
+Namespace:    {{ .Release.Namespace }}
+
+1. Accessing the Crosswatc Portal:
+{{- if .Values.ingress.enabled }}
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else if .Values.gatewayAPI.enabled }}
+{{- range $host := .Values.gatewayAPI.hostnames }}
+  http://{{ $host }}/
+{{- end }}
+  (Traffic is routed via the Gateway referenced in gatewayAPI.parentRefs)
+{{- else }}
+  To access the Crosswatc web portal locally, port-forward the web service:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/crosswatc-web 3000:80
+
+  Then navigate to:
+  http://localhost:3000
+{{- end }}
+
+2. Crosswatc API & Observability:
+  Health & Probes:
+    kubectl --namespace {{ .Release.Namespace }} port-forward svc/crosswatc-api 8080:80
+    curl http://localhost:8080/healthz
+
+  Metrics:
+    kubectl --namespace {{ .Release.Namespace }} port-forward svc/crosswatc-api 9090:9090
+    curl http://localhost:9090/metrics
+
+3. Documentation & Guides:
+  Architecture and GitOps lifecycle: https://github.com/agnaldom/crosswatc

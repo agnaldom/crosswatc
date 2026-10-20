@@ -64,6 +64,13 @@ webhooks:
   # disables that endpoint. When set, the ingress routes /webhooks to the API (spec §35.1).
   existingSecret: ""
 
+serviceAccount:
+  create: true
+  name: ""
+  # Annotations for Azure Workload Identity (azure.workload.identity/client-id),
+  # AWS IRSA (eks.amazonaws.com/role-arn), or GCP Workload Identity
+  annotations: {}
+
 rbac:
   # API groups of platform Claims/XRs (from your XRDs) and provider Managed Resources.
   # Kubernetes RBAC has no wildcard per group suffix, so list them explicitly.
@@ -80,6 +87,19 @@ ingress:
   className: ""
   host: crosswatc.example.com
   tls: []
+
+gatewayAPI:
+  enabled: false
+  apiVersion: gateway.networking.k8s.io/v1
+  annotations: {}
+  parentRefs: []
+    # - name: eg
+    #   namespace: envoy-gateway-system
+    #   sectionName: https
+  hostnames: []
+    # - crosswatc.example.com
+
+extraManifests: []
 
 networkPolicy:
   enabled: true

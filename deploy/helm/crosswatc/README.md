@@ -23,6 +23,68 @@ helm install crosswatc deploy/helm/crosswatc \
   stage will report the secret as unavailable).
 - The only write permission is a namespaced `Role` on `coordination.k8s.io/leases` for leader election (§35.2).
 
+## ServiceAccount & Workload Identity
+
+Configure cloud IAM integration via ServiceAccount annotations:
+
+```yaml
+serviceAccount:
+  create: true
+  name: "crosswatc"
+  annotations:
+    # Azure Workload Identity (AKS):
+    azure.workload.identity/client-id: "00000000-0000-0000-0000-000000000000"
+    # AWS IRSA (EKS):
+    # eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/crosswatc-role"
+    # GCP Workload Identity (GKE):
+    # iam.gke.io/gcp-service-account: "crosswatc@PROJECT_ID.iam.gserviceaccount.com"
+```
+
+## Ingress & Gateway API
+
+Crosswatc supports both classic Kubernetes `Ingress` and modern `Gateway API` (`HTTPRoute` v1):
+
+### Classic Ingress
+```yaml
+ingress:
+  enabled: true
+  className: "nginx"
+  host: "crosswatc.example.com"
+  tls:
+    - secretName: crosswatc-tls
+      hosts: ["crosswatc.example.com"]
+```
+
+### Gateway API (HTTPRoute)
+```yaml
+gatewayAPI:
+  enabled: true
+  apiVersion: gateway.networking.k8s.io/v1
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+  hostnames:
+    - "crosswatc.example.com"
+```
+
+## Extra Manifests & Health Test
+
+Deploy arbitrary supporting resources (e.g. `SealedSecret`, `ConfigMap`):
+```yaml
+extraManifests:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: crosswatc-custom-branding
+    data:
+      WELCOME_BANNER: "Crosswatc Internal DevEx Portal"
+```
+
+Verify the release anytime with `helm test`:
+```bash
+helm test crosswatc
+```
+
 ## Webhooks (spec §35.1)
 
 ```bash

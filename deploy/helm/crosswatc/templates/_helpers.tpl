@@ -27,6 +27,14 @@ securityContext:
     drop: ["ALL"]
 {{- end }}
 
+{{- define "crosswatc.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+    {{ default "crosswatc" .Values.serviceAccount.name }}
+{{- else -}}
+    {{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
+{{- end }}
+
 {{- define "crosswatc.otelEnv" -}}
 {{- with .Values.observability.otlpEndpoint }}
 - name: OTEL_EXPORTER_OTLP_ENDPOINT

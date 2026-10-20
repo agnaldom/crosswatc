@@ -1,0 +1,54 @@
+{{- if .Values.gatewayAPI.enabled }}
+apiVersion: {{ .Values.gatewayAPI.apiVersion | default "gateway.networking.k8s.io/v1" }}
+kind: HTTPRoute
+metadata:
+  name: crosswatc
+  labels: {{- include "crosswatc.labels" . | nindent 4 }}
+  {{- with .Values.gatewayAPI.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- range .Values.gatewayAPI.parentRefs }}
+    - name: {{ .name }}
+      {{- with .namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      {{- with .sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+      {{- with .port }}
+      port: {{ . }}
+      {{- end }}
+      {{- with .group }}
+      group: {{ . }}
+      {{- end }}
+      {{- with .kind }}
+      kind: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- with .Values.gatewayAPI.hostnames }}
+  hostnames:
+    {{- range . }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.webhooks.existingSecret }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /webhooks
+      backendRefs:
+        - name: crosswatc-api
+          port: 80
+    {{- end }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: crosswatc-web
+          port: 80
+{{- end }}

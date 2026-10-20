@@ -1,9 +1,15 @@
+{{- if .Values.serviceAccount.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: crosswatc
+  name: {{ include "crosswatc.serviceAccountName" . }}
   labels: {{- include "crosswatc.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 ---
+{{- end }}
 # Read-only access to infrastructure (spec §27). No create/update/patch/delete on any infra resource.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -55,7 +61,7 @@ roleRef:
   name: {{ .Release.Name }}-crosswatc-read
 subjects:
   - kind: ServiceAccount
-    name: crosswatc
+    name: {{ include "crosswatc.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 ---
 # Only write permission: leader-election Lease in the release namespace (spec §27, §35.2).
@@ -80,5 +86,5 @@ roleRef:
   name: crosswatc-leader-election
 subjects:
   - kind: ServiceAccount
-    name: crosswatc
+    name: {{ include "crosswatc.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
