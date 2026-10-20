@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { ErrorState, Loading } from "@/components/States";
@@ -463,8 +464,34 @@ function XRDsSection() {
                     {x.name}
                   </td>
                   <td className="px-4 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">{x.group}</td>
-                  <td className="px-4 py-3 font-medium text-zinc-800 dark:text-zinc-200">{x.kind}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{x.claimKind ?? "—"}</td>
+                  <td className="px-4 py-3 font-medium text-zinc-800 dark:text-zinc-200">
+                    <Link
+                      href={`/infrastructure?view=composites&kind=${encodeURIComponent(x.kind)}`}
+                      className="inline-flex items-center gap-1 font-semibold text-cyan-600 hover:text-cyan-500 hover:underline dark:text-cyan-400"
+                      title={`View all ${x.kind} Composite Resources`}
+                    >
+                      <span>{x.kind}</span>
+                      <svg className="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                    {x.claimKind ? (
+                      <Link
+                        href={`/infrastructure?view=claims&kind=${encodeURIComponent(x.claimKind)}`}
+                        className="inline-flex items-center gap-1 font-semibold text-cyan-600 hover:text-cyan-500 hover:underline dark:text-cyan-400"
+                        title={`View all ${x.claimKind} Claims`}
+                      >
+                        <span>{x.claimKind}</span>
+                        <svg className="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span
@@ -577,7 +604,18 @@ function CompositionsSection() {
               {filteredItems.map((c) => (
                 <tr key={c.name} className="transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30">
                   <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{c.name}</td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">{c.compositeType}</td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <Link
+                      href={`/infrastructure?view=composites&kind=${encodeURIComponent(c.compositeType)}`}
+                      className="inline-flex items-center gap-1 font-semibold text-cyan-600 hover:text-cyan-500 hover:underline dark:text-cyan-400"
+                      title={`Filter composites by ${c.compositeType}`}
+                    >
+                      <span>{c.compositeType}</span>
+                      <svg className="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
                       {c.mode}
@@ -678,7 +716,18 @@ function MRDsSection() {
                     {m.active ? "Active" : "Inactive"}
                   </span>
                 </td>
-                <td className="px-4 py-3 font-medium text-zinc-800 dark:text-zinc-200">{m.kind}</td>
+                <td className="px-4 py-3 font-medium text-zinc-800 dark:text-zinc-200">
+                  <Link
+                    href={`/infrastructure?view=managed&kind=${encodeURIComponent(m.kind)}`}
+                    className="inline-flex items-center gap-1 font-semibold text-cyan-600 hover:text-cyan-500 hover:underline dark:text-cyan-400"
+                    title={`Filter managed resources by ${m.kind}`}
+                  >
+                    <span>{m.kind}</span>
+                    <svg className="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </Link>
+                </td>
                 <td className="px-4 py-3 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">{m.group}</td>
                 <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{m.scope ?? "—"}</td>
               </tr>

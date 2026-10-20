@@ -119,4 +119,18 @@ describe("Platform Catalog Component (Providers, Functions, XRDs, Compositions)"
     // Pipeline function pill
     await expect(screen.getByText("function-patch-and-transform").first()).toBeVisible();
   });
+
+  test("allows clicking Resource Kind in XRDs to navigate to infrastructure explorer", async ({ app, screen, browser }) => {
+    await app.open("/platform");
+    await screen.getByRole("tab", { name: "XRDs" }).tap();
+
+    // Click on XPostgreSQLInstance link
+    const kindLink = screen.getByRole("link", { name: "XPostgreSQLInstance" });
+    await expect(kindLink).toBeVisible();
+    await kindLink.tap();
+
+    // Verifies navigation to infrastructure explorer with filter view=composites&kind=XPostgreSQLInstance
+    await expect(browser).toHaveURL("/infrastructure?view=composites&kind=XPostgreSQLInstance");
+    await expect(screen.getByRole("heading", { name: "XPostgreSQLInstance" }).first()).toBeVisible();
+  });
 });
