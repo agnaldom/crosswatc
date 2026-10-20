@@ -295,6 +295,8 @@ export interface CrossplanePackage {
   currentRevision?: string;
   currentIdentifier?: string;
   revisionActivationPolicy?: string;
+  healthy?: boolean;
+  installed?: boolean;
   conditions: { type: string; status: string; reason?: string; message?: string }[];
 }
 
@@ -315,6 +317,8 @@ export interface PlatformXRD {
   scope: string;
   version: string;
   established: boolean;
+  offered?: boolean;
+  conditions?: Condition[];
 }
 
 export interface V2List<T> {

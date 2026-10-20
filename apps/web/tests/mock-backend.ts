@@ -673,8 +673,32 @@ export function createMockServer() {
       res.end(
         JSON.stringify({
           items: [
-            { name: "provider-azure-db", version: "v1.2.0", healthy: true, installed: true },
-            { name: "provider-kubernetes", version: "v0.9.1", healthy: true, installed: true },
+            {
+              kind: "Provider",
+              name: "provider-azure-db",
+              package: "xpkg.upbound.io/upbound/provider-azure-db:v1.2.0",
+              currentRevision: "provider-azure-db-8f83b1",
+              revisionActivationPolicy: "Automatic",
+              healthy: true,
+              installed: true,
+              conditions: [
+                { type: "Installed", status: "True" },
+                { type: "Healthy", status: "True" },
+              ],
+            },
+            {
+              kind: "Provider",
+              name: "provider-kubernetes",
+              package: "xpkg.upbound.io/upbound/provider-kubernetes:v0.9.1",
+              currentRevision: "provider-kubernetes-9c12a4",
+              revisionActivationPolicy: "Automatic",
+              healthy: false,
+              installed: true,
+              conditions: [
+                { type: "Installed", status: "True" },
+                { type: "Healthy", status: "False", reason: "CannotConnect", message: "Failed to connect to cluster API" },
+              ],
+            },
           ],
           total: 2,
         })
@@ -687,9 +711,34 @@ export function createMockServer() {
       res.end(
         JSON.stringify({
           items: [
-            { name: "function-patch-and-transform", version: "v0.4.0", healthy: true, installed: true },
+            {
+              kind: "Function",
+              name: "function-patch-and-transform",
+              package: "xpkg.upbound.io/crossplane-contrib/function-patch-and-transform:v0.4.0",
+              currentRevision: "function-patch-and-transform-b19c2",
+              revisionActivationPolicy: "Automatic",
+              healthy: true,
+              installed: true,
+              conditions: [
+                { type: "Installed", status: "True" },
+                { type: "Healthy", status: "True" },
+              ],
+            },
+            {
+              kind: "Function",
+              name: "function-auto-ready",
+              package: "xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1",
+              currentRevision: "function-auto-ready-d41a7",
+              revisionActivationPolicy: "Automatic",
+              healthy: true,
+              installed: true,
+              conditions: [
+                { type: "Installed", status: "True" },
+                { type: "Healthy", status: "True" },
+              ],
+            },
           ],
-          total: 1,
+          total: 2,
         })
       );
       return;
@@ -700,7 +749,19 @@ export function createMockServer() {
       res.end(
         JSON.stringify({
           items: [
-            { name: "configuration-platform-ref", version: "v0.1.0", healthy: true, installed: true },
+            {
+              kind: "Configuration",
+              name: "configuration-platform-ref",
+              package: "xpkg.upbound.io/platform/ref-arch:v0.1.0",
+              currentRevision: "configuration-platform-ref-a1",
+              revisionActivationPolicy: "Automatic",
+              healthy: true,
+              installed: true,
+              conditions: [
+                { type: "Installed", status: "True" },
+                { type: "Healthy", status: "True" },
+              ],
+            },
           ],
           total: 1,
         })
@@ -716,7 +777,10 @@ export function createMockServer() {
             {
               name: "xpostgresqlinstances.database.example.org",
               group: "database.example.org",
-              names: { kind: "XPostgreSQLInstance", plural: "xpostgresqlinstances" },
+              kind: "XPostgreSQLInstance",
+              claimKind: "PostgreSQLInstance",
+              scope: "Cluster",
+              version: "v1alpha1",
               established: true,
               offered: true,
             },
@@ -733,9 +797,12 @@ export function createMockServer() {
         JSON.stringify({
           items: [
             {
-              name: "xpostgresql.azure.example.org",
-              compositeKind: "XPostgreSQLInstance",
+              name: "postgresql-azure-v3",
+              compositeType: "XPostgreSQLInstance",
               mode: "Pipeline",
+              steps: 2,
+              functions: ["function-patch-and-transform", "function-auto-ready"],
+              latestRevision: "postgresql-azure-v3-rev2",
             },
           ],
           total: 1,
