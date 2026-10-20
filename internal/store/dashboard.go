@@ -10,9 +10,19 @@ import (
 // Dashboard aggregates the home page (totals, attention, open revisions, recent events).
 type Dashboard struct {
 	ByState       map[string]int
+	Health        Health
+	ByProvider    map[string]int
+	ByEnvironment map[string]int
 	Attention     []AttentionItem
 	OpenRevisions []OpenRevision
 	RecentEvents  []DashboardEvent
+}
+
+// Health counts resources by observed Claim readiness (unknown = no observed state yet).
+type Health struct {
+	Ready    int
+	NotReady int
+	Unknown  int
 }
 
 // AttentionItem is a resource that is degraded, failed or drifted.
@@ -52,7 +62,7 @@ func (s *Store) GetDashboard(ctx context.Context, owners []string) (Dashboard, e
 	if owners != nil {
 		scope = owners
 	}
-	d := Dashboard{ByState: map[string]int{}}
+	d := Dashboard{ByState: map[string]int{}, ByProvider: map[string]int{}, ByEnvironment: map[string]int{}}
 
 	rows, err := s.pool.Query(ctx, `SELECT resource_state, count(*) FROM tracked_resource
 WHERE $1::text[] IS NULL OR owner = ANY($1) GROUP BY 1`, scope)
@@ -67,6 +77,37 @@ WHERE $1::text[] IS NULL OR owner = ANY($1) GROUP BY 1`, scope)
 			return d, err
 		}
 		d.ByState[st] = n
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return d, err
+	}
+
+	rows, err = s.pool.Query(ctx, `
+SELECT t.provider, t.environment, (p.observed_state->>'ready')::boolean, count(*)
+FROM tracked_resource t LEFT JOIN resource_projection p ON p.resource_id = t.id
+WHERE $1::text[] IS NULL OR t.owner = ANY($1) GROUP BY 1, 2, 3`, scope)
+	if err != nil {
+		return d, err
+	}
+	for rows.Next() {
+		var provider, env string
+		var ready *bool
+		var n int
+		if err := rows.Scan(&provider, &env, &ready, &n); err != nil {
+			rows.Close()
+			return d, err
+		}
+		d.ByProvider[provider] += n
+		d.ByEnvironment[env] += n
+		switch {
+		case ready == nil:
+			d.Health.Unknown += n
+		case *ready:
+			d.Health.Ready += n
+		default:
+			d.Health.NotReady += n
+		}
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
