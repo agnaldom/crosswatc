@@ -12,7 +12,7 @@ metadata:
   labels: {{- include "crosswatc.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["apiextensions.crossplane.io"]
-    resources: ["compositeresourcedefinitions", "compositions", "compositionrevisions", "managedresourcedefinitions"]
+    resources: ["compositeresourcedefinitions", "compositions", "compositionrevisions", "managedresourcedefinitions", "managedresourceactivationpolicies"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
