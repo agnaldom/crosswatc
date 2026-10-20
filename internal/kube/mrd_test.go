@@ -91,3 +91,33 @@ func TestParseCRDLikeRejectsIncomplete(t *testing.T) {
 		t.Fatal("missing group must be rejected")
 	}
 }
+
+func TestResolveMRTypeDynamic(t *testing.T) {
+	c := &Client{Dynamic: fakeDynamic(mrdListKinds,
+		crdLike("apiextensions.k8s.io/v1", "CustomResourceDefinition", "cert-manager.io",
+			"Certificate", "certificates", "Namespaced", []any{"cert-manager"}, nil),
+	)}
+
+	ix := MRIndex{}
+
+	// 1. Dynamic lookup against CRD without category=managed
+	certType, ok := c.ResolveMRType(context.Background(), ix, "cert-manager.io/v1", "Certificate")
+	if !ok {
+		t.Fatal("expected Certificate to resolve dynamically via CRD")
+	}
+	if certType.Plural != "certificates" || !certType.Namespaced || certType.Group != "cert-manager.io" {
+		t.Fatalf("unexpected resolved certType: %+v", certType)
+	}
+
+	// 2. Subsequent lookup hits cache in ix
+	cached, ok := ix.Lookup("cert-manager.io/v1", "Certificate")
+	if !ok || cached.Plural != "certificates" {
+		t.Fatalf("expected cached type in ix: %+v", cached)
+	}
+
+	// 3. When CRD does not exist, returns false
+	_, ok = c.ResolveMRType(context.Background(), ix, "unknown.io/v1", "UnknownThing")
+	if ok {
+		t.Fatal("expected UnknownThing to fail resolving")
+	}
+}

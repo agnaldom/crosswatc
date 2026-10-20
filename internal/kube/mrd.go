@@ -118,3 +118,57 @@ func parseCRDLike(u *unstructured.Unstructured, requireManagedCategory bool) (MR
 	}
 	return t, true
 }
+
+// ResolveMRType resolves an apiVersion/kind reference into an MRType.
+// If not present in the MRIndex, it queries cluster CRDs dynamically to discover
+// the resource plural and scope (even if missing category "managed"), and caches the result.
+func (c *Client) ResolveMRType(ctx context.Context, mrs MRIndex, apiVersion, kind string) (MRType, bool) {
+	if mrs != nil {
+		if t, ok := mrs.Lookup(apiVersion, kind); ok {
+			return t, true
+		}
+	}
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return MRType{}, false
+	}
+	gk := schema.GroupKind{Group: gv.Group, Kind: kind}
+
+	var found *MRType
+	// Dynamic lookup in cluster CRDs without requiring "managed" category
+	if c != nil && c.Dynamic != nil {
+		func() {
+			defer func() { _ = recover() }()
+			crds, err := c.List(ctx, crdGVR, ListOptions{})
+			if err == nil {
+				for i := range crds {
+					spec := obj(crds[i].Object, "spec")
+					if str(spec, "group") == gv.Group && str(spec, "names", "kind") == kind {
+						plural := str(spec, "names", "plural")
+						if plural == "" {
+							plural = strings.ToLower(kind) + "s"
+						}
+						found = &MRType{
+							ResourceTarget: ResourceTarget{
+								Group:      gv.Group,
+								Version:    gv.Version,
+								Kind:       kind,
+								Plural:     plural,
+								Namespaced: str(spec, "scope") == "Namespaced",
+							},
+							Active: true,
+						}
+						return
+					}
+				}
+			}
+		}()
+	}
+	if found != nil {
+		if mrs != nil {
+			mrs[gk] = *found
+		}
+		return *found, true
+	}
+	return MRType{}, false
+}

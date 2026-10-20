@@ -187,7 +187,7 @@ func (c *Client) walk(ctx context.Context, d *DiscoveredResource, parent Object,
 			}
 			continue
 		}
-		t, ok := mrs.Lookup(ref.APIVersion, ref.Kind)
+		t, ok := c.ResolveMRType(ctx, mrs, ref.APIVersion, ref.Kind)
 		if !ok {
 			d.Errors = append(d.Errors, fmt.Sprintf("unknown managed resource type %s %s", ref.APIVersion, ref.Kind))
 			continue
