@@ -1,6 +1,20 @@
 apiVersion: v2
 name: crosswatc
-description: Crosswatc — infrastructure lifecycle portal (single cluster)
+description: Crosswatc — GitOps Lifecycle & DevEx Observability Portal for Crossplane and Kubernetes
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
+home: https://github.com/agnaldom/crosswatc
+sources:
+  - https://github.com/agnaldom/crosswatc
+keywords:
+  - crossplane
+  - kubernetes
+  - gitops
+  - backstage
+  - argocd
+  - cloud-provider
+  - observability
+  - lifecycle
+icon: https://raw.githubusercontent.com/agnaldom/crosswatc/main/docs/assets/crosswatc-icon.png
+

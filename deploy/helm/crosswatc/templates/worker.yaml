@@ -18,7 +18,7 @@ spec:
       labels: {{- include "crosswatc.labels" . | nindent 8 }}
         app.kubernetes.io/name: crosswatc-worker
     spec:
-      serviceAccountName: crosswatc
+      serviceAccountName: {{ include "crosswatc.serviceAccountName" . }}
       containers:
         - name: worker
           image: {{ include "crosswatc.image" (dict "root" . "name" "worker") }}
