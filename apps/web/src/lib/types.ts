@@ -324,6 +324,9 @@ export interface Condition {
 export interface DashboardSummary {
   total: number;
   byState: Partial<Record<ResourceState, number>>;
+  health: { ready: number; notReady: number; unknown: number };
+  byProvider: Record<string, number>;
+  byEnvironment: Record<string, number>;
   attention: { id: string; name: string; kind: string; resourceState: ResourceState; drift: boolean; synced?: boolean; ready?: boolean }[];
   openRevisions: { resourceId: string; resourceName: string; rev: number; kind: string; state: string; prUrl?: string; startedAt?: string }[];
   recentEvents: (TrackerEvent & { resourceId?: string; resourceName: string })[];

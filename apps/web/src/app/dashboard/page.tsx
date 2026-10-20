@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
+import { PlatformHealthCard } from "@/components/PlatformHealthCard";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { LiveStatus } from "@/components/Timeline";
 import { api } from "@/lib/api";
@@ -47,6 +48,14 @@ function Summary({ d }: { d: DashboardSummary }) {
           </div>
         ))}
       </section>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <HealthCard health={d.health} />
+        <Distribution title="Por provider" counts={d.byProvider} param="provider" />
+        <Distribution title="Por environment" counts={d.byEnvironment} param="environment" />
+      </div>
+
+      <PlatformHealthCard />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card title="Precisam de atenção" count={d.attention.length}>
@@ -110,6 +119,62 @@ function Summary({ d }: { d: DashboardSummary }) {
         </Card>
       </div>
     </>
+  );
+}
+
+const healthParts = [
+  { key: "ready", label: "Ready", bar: "bg-emerald-500", filter: "true" },
+  { key: "notReady", label: "Not Ready", bar: "bg-rose-500", filter: "false" },
+  { key: "unknown", label: "Desconhecido", bar: "bg-zinc-300", filter: "unknown" },
+] as const;
+
+/** Observed Claim readiness across the caller's resources; each part links to the filtered list. */
+function HealthCard({ health }: { health: DashboardSummary["health"] }) {
+  const total = health.ready + health.notReady + health.unknown;
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-4" aria-label="Saúde dos recursos">
+      <h2 className="text-sm font-semibold">Saúde (Ready)</h2>
+      <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-zinc-100" role="img"
+        aria-label={`${health.ready} ready, ${health.notReady} not ready, ${health.unknown} desconhecidos`}>
+        {total > 0 && healthParts.map((p) => (
+          <div key={p.key} className={p.bar} style={{ width: `${(health[p.key] / total) * 100}%` }} />
+        ))}
+      </div>
+      <ul className="mt-3 space-y-1 text-sm">
+        {healthParts.map((p) => (
+          <li key={p.key}>
+            <Link href={`/infrastructure?ready=${p.filter}`} className="flex items-center justify-between rounded px-1 hover:bg-zinc-50">
+              <span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${p.bar}`} aria-hidden />{p.label}</span>
+              <span className="tabular-nums text-zinc-600">{health[p.key]}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Distribution({ title, counts, param }: { title: string; counts: Record<string, number>; param: "provider" | "environment" }) {
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...entries.map(([, n]) => n));
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-4">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      {entries.length === 0 ? <p className="mt-3 text-sm text-zinc-500">Sem recursos.</p> : (
+        <ul className="mt-3 space-y-2 text-sm">
+          {entries.map(([k, n]) => (
+            <li key={k}>
+              <Link href={`/infrastructure?${param}=${encodeURIComponent(k)}`} className="block rounded px-1 hover:bg-zinc-50">
+                <span className="flex justify-between"><span className="capitalize">{k}</span><span className="tabular-nums text-zinc-600">{n}</span></span>
+                <span className="mt-1 block h-1.5 rounded-full bg-zinc-100">
+                  <span className="block h-1.5 rounded-full bg-sky-500" style={{ width: `${(n / max) * 100}%` }} />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

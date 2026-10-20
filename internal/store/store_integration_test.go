@@ -854,6 +854,10 @@ func TestDashboard(t *testing.T) {
 	if d.ByState["OPERATIONAL"] != 2 || d.ByState["DEGRADED"] != 1 || len(d.ByState) != 2 {
 		t.Fatalf("byState %+v", d.ByState)
 	}
+	// dash-ok ready, the others have no observed state.
+	if d.Health != (Health{Ready: 1, Unknown: 2}) || d.ByProvider["azure"] != 3 || d.ByEnvironment["dev"] != 3 {
+		t.Fatalf("health %+v provider %v env %v", d.Health, d.ByProvider, d.ByEnvironment)
+	}
 	att := map[string]AttentionItem{}
 	for _, a := range d.Attention {
 		att[a.Name] = a

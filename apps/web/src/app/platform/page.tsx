@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { normalizeConditions } from "@/lib/conditions";
 import type { CrossplanePackage } from "@/lib/types";
 
-const tabs = ["Providers", "Functions", "Configurations", "XRDs", "Compositions"] as const;
+const tabs = ["Providers", "Functions", "Configurations", "XRDs", "Compositions", "MRDs", "Activation Policies"] as const;
 type Tab = (typeof tabs)[number];
 
 export default function PlatformPage() {
@@ -37,6 +37,8 @@ export default function PlatformPage() {
         {tab === "Configurations" && <Packages kind="configurations" />}
         {tab === "XRDs" && <XRDs />}
         {tab === "Compositions" && <Compositions />}
+        {tab === "MRDs" && <MRDs />}
+        {tab === "Activation Policies" && <MRAPs />}
       </section>
     </div>
   );
@@ -125,6 +127,64 @@ function Compositions() {
           <td className="px-4 py-2.5 font-mono text-xs text-zinc-600">{c.latestRevision ?? "—"}</td>
         </tr>
       ))}
+    </Table>
+  );
+}
+
+function NotV2() {
+  return <Empty>API indisponível: este cluster não roda Crossplane v2 (ManagedResourceDefinitions).</Empty>;
+}
+
+function MRDs() {
+  const q = useQuery({ queryKey: ["platform", "mrds"], queryFn: api.platformMRDs });
+  if (q.isPending) return <Loading />;
+  if (q.isError) return <ErrorState error={q.error} />;
+  if (!q.data.available) return <NotV2 />;
+  if (!q.data.items.length) return <Empty>Nenhuma ManagedResourceDefinition.</Empty>;
+  const inactive = q.data.items.filter((m) => !m.active).length;
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-zinc-600">
+        {q.data.items.length} definição(ões){inactive ? `, ${inactive} inativa(s) — recursos desse tipo não são reconciliados` : ""}.
+      </p>
+      <Table head={["MRD", "Estado", "Kind", "Grupo", "Escopo"]}>
+        {q.data.items.map((m) => (
+          <tr key={m.name}>
+            <td className="px-4 py-2.5 font-mono text-xs">{m.name}</td>
+            <td className="px-4 py-2.5">
+              <span className="flex gap-1.5">
+                <Badge tone={m.active ? "ok" : "muted"}>{m.active ? "Active" : "Inactive"}</Badge>
+                {!m.established && <Badge tone="warn">Not Established</Badge>}
+              </span>
+            </td>
+            <td className="px-4 py-2.5">{m.kind}</td>
+            <td className="px-4 py-2.5 font-mono text-xs text-zinc-600">{m.group}</td>
+            <td className="px-4 py-2.5 text-zinc-600">{m.scope ?? "—"}</td>
+          </tr>
+        ))}
+      </Table>
+    </div>
+  );
+}
+
+function MRAPs() {
+  const q = useQuery({ queryKey: ["platform", "mraps"], queryFn: api.platformMRAPs });
+  if (q.isPending) return <Loading />;
+  if (q.isError) return <ErrorState error={q.error} />;
+  if (!q.data.available) return <NotV2 />;
+  if (!q.data.items.length) return <Empty>Nenhuma ManagedResourceActivationPolicy.</Empty>;
+  return (
+    <Table head={["Policy", "Status", "Ativa"]}>
+      {q.data.items.map((p) => {
+        const st = normalizeConditions(p.conditions);
+        return (
+          <tr key={p.name} className="align-top">
+            <td className="px-4 py-2.5 font-medium">{p.name}</td>
+            <td className="px-4 py-2.5">{p.conditions.length ? <Badge tone={st.tone}>{st.label}</Badge> : <Badge tone="muted">—</Badge>}</td>
+            <td className="px-4 py-2.5 font-mono text-xs">{p.activate.join(", ") || "—"}</td>
+          </tr>
+        );
+      })}
     </Table>
   );
 }

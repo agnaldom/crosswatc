@@ -3,6 +3,9 @@ import type {
   CrossplanePackage,
   Me,
   PlatformXRD,
+  PlatformMRD,
+  PlatformMRAP,
+  V2List,
   ManifestObject,
   KubeEvent,
   DecommissionPreview,
@@ -88,6 +91,8 @@ export const api = {
   me: () => get<Me>("/me"),
   platformPackages: (kind: "providers" | "functions" | "configurations") => get<Page<CrossplanePackage>>(`/platform/${kind}`),
   platformXRDs: () => get<Page<PlatformXRD>>("/platform/xrds"),
+  platformMRDs: () => get<V2List<PlatformMRD>>("/platform/mrds"),
+  platformMRAPs: () => get<V2List<PlatformMRAP>>("/platform/mraps"),
   platformCompositions: () => get<Page<CompositionSummary>>("/platform/compositions"),
   manifest: (id: string, object?: string) =>
     get<{ object: ManifestObject; yaml: string; objects: ManifestObject[] }>(
