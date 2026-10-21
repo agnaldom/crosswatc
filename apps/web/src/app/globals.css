@@ -222,3 +222,56 @@ html.dark, .dark {
   border-color: var(--color-surface-container-high);
   fill: var(--color-on-surface);
 }
+
+/* Motion & Smooth Animations */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.6));
+  }
+  50% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 2px rgba(37, 99, 235, 0.2));
+  }
+}
+
+@keyframes donutFill {
+  from {
+    stroke-dashoffset: 251.2;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+.animate-donut {
+  animation: donutFill 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-slide-up,
+  .animate-donut {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
