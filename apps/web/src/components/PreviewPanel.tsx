@@ -2,22 +2,22 @@ import { Badge } from "@/components/Badge";
 import type { ChangePreview, CostDiff } from "@/lib/types";
 
 function money(v: number, currency: string) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "USD" }).format(v);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(v);
 }
 
 function CostLine({ cost }: { cost: CostDiff }) {
   const up = cost.monthlyDelta > 0;
   return (
     <div className="rounded-md border border-zinc-200 p-3">
-      <p className="text-xs uppercase tracking-wide text-zinc-500">Custo estimado (mensal)</p>
+      <p className="text-xs uppercase tracking-wide text-zinc-500">Estimated cost (monthly)</p>
       <p className="mt-1">
         {money(cost.current.monthly, cost.currency)} → <strong>{money(cost.new.monthly, cost.currency)}</strong>{" "}
         <span className={up ? "text-rose-700" : "text-emerald-700"}>
-          ({up ? "+" : ""}{money(cost.monthlyDelta, cost.currency)}/mês)
+          ({up ? "+" : ""}{money(cost.monthlyDelta, cost.currency)}/mo)
         </span>
       </p>
-      {cost.partial && <p className="mt-1 text-xs text-amber-700">Estimativa parcial: alguns componentes não foram precificados.</p>}
-      <p className="mt-1 text-xs text-zinc-500">Preço de lista on-demand; não inclui descontos, reservas ou impostos.</p>
+      {cost.partial && <p className="mt-1 text-xs text-amber-700">Partial estimate: some components were not priced.</p>}
+      <p className="mt-1 text-xs text-zinc-500">On-demand list price; does not include discounts, reservations, or taxes.</p>
     </div>
   );
 }
@@ -30,15 +30,15 @@ export function PreviewPanel({ preview }: { preview: ChangePreview }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">Policies</span>
         <Badge tone={preview.policy.result === "PASS" ? "ok" : "error"}>{preview.policy.result}</Badge>
-        {preview.impact.approvalRequired && <Badge tone="warn">Requer aprovação</Badge>}
-        {preview.impact.replacementRequired && <Badge tone="error">Recriação do recurso</Badge>}
-        {preview.impact.possibleDowntime && <Badge tone="warn">Possível indisponibilidade</Badge>}
+        {preview.impact.approvalRequired && <Badge tone="warn">Approval required</Badge>}
+        {preview.impact.replacementRequired && <Badge tone="error">Resource replacement</Badge>}
+        {preview.impact.possibleDowntime && <Badge tone="warn">Possible downtime</Badge>}
       </div>
 
       {preview.changes.length > 0 && (
         <table className="w-full overflow-hidden rounded-md border border-zinc-200 text-left">
           <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
-            <tr><th className="px-3 py-2">Campo</th><th className="px-3 py-2">Antes</th><th className="px-3 py-2">Depois</th><th className="px-3 py-2">Impacto</th></tr>
+            <tr><th className="px-3 py-2">Field</th><th className="px-3 py-2">Before</th><th className="px-3 py-2">After</th><th className="px-3 py-2">Impact</th></tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {preview.changes.map((c) => (

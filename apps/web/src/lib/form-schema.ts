@@ -15,21 +15,21 @@ function fieldSchema(f: FormField): z.ZodType {
   let s: z.ZodType;
   if (f.enum?.length) {
     const values = f.enum.map(String);
-    s = z.string().refine((v) => values.includes(v), { message: `Valor deve ser um de: ${values.join(", ")}` });
+    s = z.string().refine((v) => values.includes(v), { message: `Value must be one of: ${values.join(", ")}` });
   } else if (f.type === "integer" || f.type === "number") {
-    let n = z.coerce.number({ message: "Número inválido" });
-    if (f.type === "integer") n = n.int("Deve ser inteiro");
-    if (f.minimum !== undefined) n = n.min(f.minimum, `Mínimo ${f.minimum}`);
-    if (f.maximum !== undefined) n = n.max(f.maximum, `Máximo ${f.maximum}`);
+    let n = z.coerce.number({ message: "Invalid number" });
+    if (f.type === "integer") n = n.int("Must be an integer");
+    if (f.minimum !== undefined) n = n.min(f.minimum, `Minimum ${f.minimum}`);
+    if (f.maximum !== undefined) n = n.max(f.maximum, `Maximum ${f.maximum}`);
     s = n;
   } else if (f.type === "boolean") {
     s = z.boolean();
   } else {
     let str = z.string();
-    if (f.minLength !== undefined) str = str.min(f.minLength, `Mínimo ${f.minLength} caracteres`);
-    if (f.maxLength !== undefined) str = str.max(f.maxLength, `Máximo ${f.maxLength} caracteres`);
-    if (f.pattern) str = str.regex(new RegExp(f.pattern), `Formato inválido (${f.pattern})`);
-    if (f.required) str = str.min(1, "Obrigatório");
+    if (f.minLength !== undefined) str = str.min(f.minLength, `Minimum ${f.minLength} characters`);
+    if (f.maxLength !== undefined) str = str.max(f.maxLength, `Maximum ${f.maxLength} characters`);
+    if (f.pattern) str = str.regex(new RegExp(f.pattern), `Invalid format (${f.pattern})`);
+    if (f.required) str = str.min(1, "Required");
     s = str;
   }
   return f.required ? s : s.optional();

@@ -21,7 +21,7 @@ export default function PlatformPage() {
   if (!me.data.sre) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
-        O catálogo de plataforma é restrito ao time de SRE/Plataforma.
+        The platform catalog is restricted to the SRE/Platform team.
       </div>
     );
   }
@@ -664,7 +664,7 @@ function MRDsSection() {
   if (!q.data.available) {
     return (
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-6 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/30">
-        API indisponível: este cluster não roda Crossplane v2 (ManagedResourceDefinitions).
+        API unavailable: this cluster is not running Crossplane v2 (ManagedResourceDefinitions).
       </div>
     );
   }
@@ -747,7 +747,7 @@ function MRAPsSection() {
   if (!q.data.available) {
     return (
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-6 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/30">
-        API indisponível: este cluster não roda Crossplane v2 (ManagedResourceActivationPolicies).
+        API unavailable: this cluster is not running Crossplane v2 (ManagedResourceActivationPolicies).
       </div>
     );
   }

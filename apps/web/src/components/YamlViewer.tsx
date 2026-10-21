@@ -17,9 +17,9 @@ export function YamlViewer({ yaml }: { yaml: string }) {
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
       <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar no YAML" aria-label="Buscar no YAML"
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search in YAML" aria-label="Search in YAML"
           className="w-56 rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 placeholder:text-zinc-500" />
-        {query && <span className="text-xs text-zinc-400">{hits} linha(s)</span>}
+        {query && <span className="text-xs text-zinc-400">{hits} line(s)</span>}
         <button type="button" className="ml-auto rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-700"
           onClick={async () => {
             try {
@@ -30,7 +30,7 @@ export function YamlViewer({ yaml }: { yaml: string }) {
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}>
-          {copied ? "Copiado ✓" : "Copiar"}
+          {copied ? "Copied ✓" : "Copy"}
         </button>
       </div>
       <pre className="max-h-[560px] overflow-auto p-3 text-xs leading-5 text-zinc-100">

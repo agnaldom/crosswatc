@@ -10,7 +10,7 @@ describe("KubeEvents Component", () => {
     await screen.getByRole("button", "Events").tap();
 
     // Verify filter select
-    const objFilter = screen.getByRole("combobox", "Objeto");
+    const objFilter = screen.getByRole("combobox", "Object");
     await expect(objFilter).toBeVisible();
 
     // Verify events list items

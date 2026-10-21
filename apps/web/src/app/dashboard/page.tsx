@@ -22,7 +22,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <LiveStatus />
       </div>
-      <p className="mt-1 text-sm text-zinc-600">Visão geral dos recursos das suas squads.</p>
+      <p className="mt-1 text-sm text-zinc-600">Overview of resources across your squads.</p>
       {q.isPending && <Loading />}
       {q.isError && <ErrorState error={q.error} />}
       {q.data && <Summary d={q.data} />}
@@ -33,7 +33,7 @@ export default function DashboardPage() {
 function Summary({ d }: { d: DashboardSummary }) {
   return (
     <>
-      <section aria-label="Totais por estado" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <section aria-label="Totals by state" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Link href="/infrastructure" className="rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300">
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Total</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{d.total}</p>
@@ -51,15 +51,15 @@ function Summary({ d }: { d: DashboardSummary }) {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <HealthCard health={d.health} />
-        <Distribution title="Por provider" counts={d.byProvider} param="provider" />
-        <Distribution title="Por environment" counts={d.byEnvironment} param="environment" />
+        <Distribution title="By provider" counts={d.byProvider} param="provider" />
+        <Distribution title="By environment" counts={d.byEnvironment} param="environment" />
       </div>
 
       <PlatformHealthCard />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card title="Precisam de atenção" count={d.attention.length}>
-          {d.attention.length === 0 ? <Empty>Nada degradado, com falha ou drift.</Empty> : (
+        <Card title="Needs attention" count={d.attention.length}>
+          {d.attention.length === 0 ? <Empty>Nothing degraded, failing, or drifting.</Empty> : (
             <ul className="divide-y divide-zinc-100">
               {d.attention.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
@@ -78,8 +78,8 @@ function Summary({ d }: { d: DashboardSummary }) {
           )}
         </Card>
 
-        <Card title="Revisions em andamento" count={d.openRevisions.length}>
-          {d.openRevisions.length === 0 ? <Empty>Nenhuma mudança em andamento.</Empty> : (
+        <Card title="In-progress revisions" count={d.openRevisions.length}>
+          {d.openRevisions.length === 0 ? <Empty>No changes in progress.</Empty> : (
             <ul className="divide-y divide-zinc-100">
               {d.openRevisions.map((r) => (
                 <li key={`${r.resourceId}-${r.rev}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
@@ -99,14 +99,14 @@ function Summary({ d }: { d: DashboardSummary }) {
       </div>
 
       <div className="mt-6">
-        <Card title="Eventos recentes" count={d.recentEvents.length}>
-          {d.recentEvents.length === 0 ? <Empty>Sem eventos.</Empty> : (
+        <Card title="Recent events" count={d.recentEvents.length}>
+          {d.recentEvents.length === 0 ? <Empty>No events.</Empty> : (
             <ul className="divide-y divide-zinc-100">
               {d.recentEvents.map((e) => (
                 <li key={e.eventId} className="flex items-center gap-3 px-4 py-2 text-sm">
                   <span className={`h-2 w-2 shrink-0 rounded-full ${toneDot[levelTone[e.level] ?? "muted"]}`} aria-label={e.level} />
                   <time className="w-36 shrink-0 text-xs tabular-nums text-zinc-500" dateTime={e.timestamp}>
-                    {new Date(e.timestamp).toLocaleString("pt-BR")}
+                    {new Date(e.timestamp).toLocaleString("en-US")}
                   </time>
                   {e.resourceId ? (
                     <Link href={`/infrastructure/${e.resourceId}`} className="w-44 shrink-0 truncate font-medium hover:underline">{e.resourceName}</Link>
@@ -125,17 +125,17 @@ function Summary({ d }: { d: DashboardSummary }) {
 const healthParts = [
   { key: "ready", label: "Ready", bar: "bg-emerald-500", filter: "true" },
   { key: "notReady", label: "Not Ready", bar: "bg-rose-500", filter: "false" },
-  { key: "unknown", label: "Desconhecido", bar: "bg-zinc-300", filter: "unknown" },
+  { key: "unknown", label: "Unknown", bar: "bg-zinc-300", filter: "unknown" },
 ] as const;
 
 /** Observed Claim readiness across the caller's resources; each part links to the filtered list. */
 function HealthCard({ health }: { health: DashboardSummary["health"] }) {
   const total = health.ready + health.notReady + health.unknown;
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-4" aria-label="Saúde dos recursos">
-      <h2 className="text-sm font-semibold">Saúde (Ready)</h2>
+    <section className="rounded-lg border border-zinc-200 bg-white p-4" aria-label="Resource health">
+      <h2 className="text-sm font-semibold">Health (Ready)</h2>
       <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-zinc-100" role="img"
-        aria-label={`${health.ready} ready, ${health.notReady} not ready, ${health.unknown} desconhecidos`}>
+        aria-label={`${health.ready} ready, ${health.notReady} not ready, ${health.unknown} unknown`}>
         {total > 0 && healthParts.map((p) => (
           <div key={p.key} className={p.bar} style={{ width: `${(health[p.key] / total) * 100}%` }} />
         ))}
@@ -160,7 +160,7 @@ function Distribution({ title, counts, param }: { title: string; counts: Record<
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-4">
       <h2 className="text-sm font-semibold">{title}</h2>
-      {entries.length === 0 ? <p className="mt-3 text-sm text-zinc-500">Sem recursos.</p> : (
+      {entries.length === 0 ? <p className="mt-3 text-sm text-zinc-500">No resources.</p> : (
         <ul className="mt-3 space-y-2 text-sm">
           {entries.map(([k, n]) => (
             <li key={k}>

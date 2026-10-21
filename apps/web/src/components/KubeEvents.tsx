@@ -81,16 +81,16 @@ export function KubeEvents({
           {/* Object Selector */}
           <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
             <label htmlFor="obj" className="font-medium">
-              Objeto
+              Object
             </label>
             <select
               id="obj"
-              aria-label="Objeto"
+              aria-label="Object"
               value={filter}
               onChange={(e) => onFilter(e.target.value)}
               className="h-8 rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 focus:border-zinc-400 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
             >
-              <option value="">Todos (Claim, XR e MRs)</option>
+              <option value="">All (Claim, XR, and MRs)</option>
               {objects.map((o) => (
                 <option key={o} value={o}>
                   {o}
@@ -155,7 +155,7 @@ export function KubeEvents({
       {/* Cluster warning notice if any error reading from objects */}
       {q.data.errors && q.data.errors.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
-          Não foi possível ler eventos de:{" "}
+          Could not read events from:{" "}
           {q.data.errors.map((e) => `${key(e.object)} (${e.error})`).join("; ")}
         </div>
       )}
@@ -166,7 +166,7 @@ export function KubeEvents({
           <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
             {search || typeFilter !== "all"
               ? "No events matched your search criteria."
-              : `Nenhum evento Kubernetes${filter ? ` para ${filter}` : ""}. Eventos expiram no cluster (padrão: 1 h).`}
+              : `No Kubernetes events${filter ? ` for ${filter}` : ""}. Events expire in the cluster (default: 1 h).`}
           </p>
         </div>
       ) : (
@@ -182,7 +182,7 @@ export function KubeEvents({
                 dateTime={e.lastSeen}
                 title={e.lastSeen}
               >
-                {e.lastSeen ? new Date(e.lastSeen).toLocaleString("pt-BR") : "—"}
+                {e.lastSeen ? new Date(e.lastSeen).toLocaleString("en-US") : "—"}
               </time>
 
               {/* Event Body */}
@@ -211,7 +211,7 @@ export function KubeEvents({
                     type="button"
                     onClick={() => handleCopyMessage(e.message, i)}
                     className="shrink-0 text-[10px] text-zinc-400 transition hover:text-zinc-700 dark:hover:text-zinc-200"
-                    title="Copiar mensagem"
+                    title="Copy message"
                   >
                     {copiedIdx === i ? "Copied!" : "Copy"}
                   </button>

@@ -7,11 +7,11 @@ describe("TopologyView Component", () => {
     await expect(screen.getByRole("textbox", "Search resources")).toBeVisible();
 
     // Legend
-    await expect(screen.getByRole("region", "Legenda")).toBeVisible();
+    await expect(screen.getByRole("region", "Legend")).toBeVisible();
     await expect(screen.getByText("Ready / Synced")).toBeVisible();
 
     // Verify Topology DAG container
-    await expect(screen.getByLabel("Topologia Claim → XR → Managed Resources")).toBeVisible();
+    await expect(screen.getByLabel("Topology Claim → XR → Managed Resources")).toBeVisible();
 
     // Verify nodes rendered in the graph
     await expect(screen.getByText("payments-db-claim")).toBeVisible();
@@ -27,7 +27,7 @@ describe("TopologyView Component", () => {
     await screen.getByText("payments-primary-instance").tap();
 
     // NodeDetails panel appears
-    await expect(screen.getByLabel("Detalhes do recurso")).toBeVisible();
+    await expect(screen.getByLabel("Resource details")).toBeVisible();
     await expect(screen.getByRole("heading", "Status Conditions")).toBeVisible();
   });
 });

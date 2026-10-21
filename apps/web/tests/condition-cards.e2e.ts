@@ -9,7 +9,7 @@ describe("ConditionCards Component", () => {
     // Click on Status tab in the Detail pane
     await screen.getByRole("button", "Status").tap();
 
-    const detailPane = screen.getByLabel("Detalhes do recurso selecionado");
+    const detailPane = screen.getByLabel("Selected resource details");
 
     // Verify condition cards inside detail pane
     await expect(detailPane.getByText(/WatchCircuitClosed/)).toBeVisible();

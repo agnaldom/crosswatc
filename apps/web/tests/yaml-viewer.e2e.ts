@@ -14,17 +14,17 @@ describe("YamlViewer Component", () => {
     await expect(screen.getByText("storageGB")).toBeVisible();
 
     // Search inside YAML
-    const searchInput = screen.getByRole("textbox", "Buscar no YAML");
+    const searchInput = screen.getByRole("textbox", "Search in YAML");
     await expect(searchInput).toBeVisible();
     await searchInput.fill("storageGB");
 
     // Verify search hit count
-    await expect(screen.getByText("1 linha(s)")).toBeVisible();
+    await expect(screen.getByText("1 line(s)")).toBeVisible();
 
     // Copy button
-    const copyBtn = screen.getByRole("button", "Copiar");
+    const copyBtn = screen.getByRole("button", "Copy");
     await expect(copyBtn).toBeVisible();
     await copyBtn.tap();
-    await expect(screen.getByText("Copiado ✓")).toBeVisible();
+    await expect(screen.getByText("Copied ✓")).toBeVisible();
   });
 });

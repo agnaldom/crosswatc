@@ -501,7 +501,7 @@ function InfrastructureContent() {
       {selectedResource && (
         <div
           role="region"
-          aria-label="Detalhes do recurso selecionado"
+          aria-label="Selected resource details"
           className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#161b22]"
         >
           {/* Header of Detail Pane */}
@@ -536,7 +536,7 @@ function InfrastructureContent() {
               <button
                 type="button"
                 onClick={() => setIsDetailCollapsed((c) => !c)}
-                title={isDetailCollapsed ? "Expandir detalhes" : "Recolher detalhes"}
+                title={isDetailCollapsed ? "Expand details" : "Collapse details"}
                 className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -635,7 +635,7 @@ function YamlTabContent({ resourceId }: { resourceId: string }) {
   return (
     <div className="space-y-4">
       <div className="text-xs text-zinc-500">
-        Manifesto bruto sincronizado do cluster Kubernetes:
+        Raw manifest synchronized from Kubernetes cluster:
       </div>
       <YamlViewer yaml={q.data?.yaml || ""} />
     </div>
@@ -729,7 +729,7 @@ function OverviewTabContent({
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/30">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Metadados</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Metadata</h3>
         <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-2 text-xs">
           <dt className="text-zinc-400">Owner / Squad</dt>
           <dd className="font-medium text-zinc-900 dark:text-zinc-100">{r.owner || "—"}</dd>
@@ -772,7 +772,7 @@ function OverviewTabContent({
       </div>
 
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/30">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">GitOps & Rastreabilidade</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">GitOps & Traceability</h3>
         <dl className="mt-3 grid grid-cols-[7rem_1fr] gap-y-2 text-xs">
           <dt className="text-zinc-400">Repository</dt>
           <dd className="font-mono text-[11px] truncate">{r.repository || "—"}</dd>
@@ -788,14 +788,14 @@ function OverviewTabContent({
               onClick={onOpenLifecycle}
               className="rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-500"
             >
-              Ver Lifecycle no Painel ↓
+              View Lifecycle in Panel ↓
             </button>
           )}
           <Link
             href={`/infrastructure/${r.id}?tab=Lifecycle`}
             className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
-            Abrir Lifecycle Completo ↗
+            Open Full Lifecycle ↗
           </Link>
         </div>
       </div>

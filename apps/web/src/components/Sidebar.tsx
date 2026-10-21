@@ -218,7 +218,7 @@ export function Sidebar() {
                       );
                     })
                   ) : (
-                    <span className="px-2 py-1 text-[11px] text-zinc-400">Nenhum kind</span>
+                    <span className="px-2 py-1 text-[11px] text-zinc-400">No kinds</span>
                   )}
                 </div>
               )}
@@ -285,7 +285,7 @@ export function Sidebar() {
                   <button
                     type="button"
                     onClick={toggleTheme}
-                    aria-label="Alternar tema de aparência"
+                    aria-label="Toggle appearance theme"
                     className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                   >
                     <span>Appearance</span>
@@ -307,7 +307,7 @@ export function Sidebar() {
           <div className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">{userName}</div>
           <button
             type="button"
-            onClick={() => alert(`Sessão de ${userName}. Para trocar, configure os headers de autenticação.`)}
+            onClick={() => alert(`Session for ${userName}. To switch, configure authentication headers.`)}
             className="mt-2 flex items-center gap-1.5 text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">

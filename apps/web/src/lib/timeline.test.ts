@@ -22,7 +22,7 @@ suite("timeline", () => {
   });
 
   it("prefers the message, then the canonical label, then the raw type", () => {
-    expect(describe(ev("a", "2026-10-17T10:00:00Z", { message: "Recurso pgsql descoberto" }))).toBe("Recurso pgsql descoberto");
+    expect(describe(ev("a", "2026-10-17T10:00:00Z", { message: "Postgres resource discovered" }))).toBe("Postgres resource discovered");
     expect(describe(ev("a", "2026-10-17T10:00:00Z"))).toBe(eventLabel["REQUEST.CREATED"]);
     expect(describe(ev("a", "2026-10-17T10:00:00Z", { type: "CUSTOM.THING" }))).toBe("CUSTOM.THING");
   });

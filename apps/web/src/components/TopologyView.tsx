@@ -19,7 +19,7 @@ const edgeTypes = { floating: FloatingEdge };
 export function statusOf(n: TopologyNode): { tone: Tone; label: string; detail?: string } {
   if (n.status === "missing") return { tone: "muted", label: "missing", detail: n.message };
   if (n.status === "deleting") return { tone: "warn", label: "deleting", detail: n.message };
-  if (n.status === "none") return { tone: "muted", label: n.message ?? "referência", detail: n.message };
+  if (n.status === "none") return { tone: "muted", label: n.message ?? "reference", detail: n.message };
   return n.conditions?.length ? normalizeConditions(n.conditions, n.kind) : { tone: "muted", label: n.status, detail: n.message };
 }
 
@@ -47,12 +47,12 @@ export function TopologyView({ topology, nodeActions, nodeExtraActions }: {
     return { nodes, edges };
   }, [topology, selected]);
 
-  if (!topology.nodes.length) return <p className="text-sm text-zinc-500">Topologia ainda não disponível.</p>;
+  if (!topology.nodes.length) return <p className="text-sm text-zinc-500">Topology not yet available.</p>;
   const node = topology.nodes.find((n) => n.id === selected);
   return (
     <div className="space-y-2">
       <Legend />
-      <div className="relative h-[520px] overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-label="Topologia Claim → XR → Managed Resources">
+      <div className="relative h-[520px] overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-label="Topology Claim → XR → Managed Resources">
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView
           proOptions={{ hideAttribution: true }} nodesConnectable={false}
           onNodeClick={(_, n) => setSelected(n.id)} onPaneClick={() => setSelected(null)}>
