@@ -81,6 +81,12 @@ type Deps struct {
 
 	Stream          Streamer      // optional: GET /api/v1/stream (spec §45)
 	StreamHeartbeat time.Duration // default 20s
+
+	// Users (optional) manages user accounts.
+	Users UserStore
+
+	// Contexts (optional) manages Kubernetes contexts.
+	Contexts kube.ContextManager
 }
 
 // New builds the Gin engine.
@@ -93,10 +99,20 @@ func New(d Deps) *gin.Engine {
 	r.Use(gin.Recovery(), otelgin.Middleware("crosswatc-api"), securityHeaders(), withCorrelation(), observe(), accessLog(d.Log))
 	r.NoRoute(notFound)
 
+	users := d.Users
+	if users == nil {
+		users = newInMemoryUserStore()
+	}
+	contexts := d.Contexts
+	if contexts == nil {
+		contexts = kube.NewContextManager("")
+	}
+
 	h := &handlers{store: d.Store, catalog: &catalogCache{src: d.Catalog, ttl: time.Minute}, streamer: d.Stream, heartbeat: d.StreamHeartbeat, policies: d.Policies,
 		changes: d.Changes, gitops: d.GitOps, auditStore: d.Audit,
 		decommissionEnvs: d.DecommissionEnvironments, costs: d.Costs,
-		productionEnvs: productionEnvs(d.ProductionEnvironments), cluster: d.Cluster, platform: d.Platform}
+		productionEnvs: productionEnvs(d.ProductionEnvironments), cluster: d.Cluster, platform: d.Platform,
+		users: users, contexts: contexts}
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 	r.GET("/readyz", h.ready)
 	if d.Inbox != nil {
@@ -106,6 +122,18 @@ func New(d Deps) *gin.Engine {
 	v1 := r.Group("/api/v1", authenticate(d.Auth), limitMutations(mutationLimiter(d.MutationsPerMinute)))
 	v1.GET("/stream", h.stream)
 	v1.GET("/me", h.me)
+
+	userRoutes := v1.Group("/users", requireAdminOrSRE)
+	userRoutes.GET("", h.listUsers)
+	userRoutes.POST("", h.createUser)
+	userRoutes.PUT("/:id", h.updateUser)
+	userRoutes.DELETE("/:id", h.deleteUser)
+
+	v1.GET("/contexts", h.getContexts)
+	v1.POST("/contexts/current", h.setCurrentContext)
+	v1.GET("/contexts/connection", h.checkContextConnection)
+	v1.POST("/contexts/add", h.addKubeConfig)
+	v1.DELETE("/contexts", h.removeContext)
 	plat := v1.Group("/platform", requireSRE)
 	plat.GET("/providers", h.listPackages("Provider"))
 	plat.GET("/functions", h.listPackages("Function"))
@@ -162,6 +190,18 @@ type handlers struct {
 	productionEnvs   []string
 	cluster          Cluster
 	platform         Platform
+	users            UserStore
+	contexts         kube.ContextManager
+}
+
+func requireAdminOrSRE(c *gin.Context) {
+	p := principal(c)
+	if p.SRE || p.User == "admin" {
+		c.Next()
+		return
+	}
+	problem(c, http.StatusForbidden, "admin-only", "User management is restricted to administrators", "")
+	c.Abort()
 }
 
 // DefaultProductionEnvironments is shared with the default Rego policies (prd/*).

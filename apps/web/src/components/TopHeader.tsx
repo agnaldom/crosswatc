@@ -13,6 +13,10 @@ export function TopHeader() {
     pageTitle = "Overview Dashboard";
   } else if (pathname === "/platform") {
     pageTitle = "Platform · Crossplane Catalog";
+  } else if (pathname === "/settings/users") {
+    pageTitle = "Settings · User Management";
+  } else if (pathname === "/settings/contexts") {
+    pageTitle = "Settings · Context Management";
   } else if (kind) {
     pageTitle = kind;
   }

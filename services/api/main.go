@@ -79,7 +79,7 @@ func run() error {
 		}
 	}
 
-	deps := httpapi.Deps{Store: st, Auth: authn, Log: log, Inbox: st, Audit: st, MutationsPerMinute: cfg.MutationsPerMinute,
+	deps := httpapi.Deps{Store: st, Users: st, Contexts: kube.NewContextManager(cfg.Kubeconfig), Auth: authn, Log: log, Inbox: st, Audit: st, MutationsPerMinute: cfg.MutationsPerMinute,
 		DecommissionEnvironments: cfg.DecommissionEnvironments, ProductionEnvironments: cfg.ProductionEnvironments,
 		Webhooks: httpapi.WebhookConfig{GitHubSecret: cfg.GitHub.WebhookSecret, ArgoCDToken: cfg.ArgoCDWebhookToken}}
 	hub := stream.NewHub(st, log, 0)

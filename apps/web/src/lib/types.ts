@@ -361,3 +361,24 @@ export interface DashboardSummary {
   openRevisions: { resourceId: string; resourceName: string; rev: number; kind: string; state: string; prUrl?: string; startedAt?: string }[];
   recentEvents: (TrackerEvent & { resourceId?: string; resourceName: string })[];
 }
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: "admin" | "user";
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ContextInfo {
+  contexts: string[];
+  currentContext: string;
+  isInCluster: boolean;
+}
+
+export interface ContextConnection {
+  connected: boolean;
+  context: string;
+  error?: string;
+}

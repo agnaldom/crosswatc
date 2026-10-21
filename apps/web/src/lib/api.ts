@@ -24,6 +24,9 @@ import type {
   DashboardSummary,
   TrackedResource,
   TrackerEvent,
+  User,
+  ContextInfo,
+  ContextConnection,
 } from "./types";
 
 export class ApiError extends Error {
@@ -58,6 +61,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const get = <T>(path: string) => request<T>(path);
 const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
+const put = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
+const del = <T>(path: string, body?: unknown) =>
+  request<T>(path, {
+    method: "DELETE",
+    body: body ? JSON.stringify(body) : undefined,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+  });
+
+export const listUsers = () => get<User[]>("/users");
+export const createUser = (data: { username: string; email: string; password?: string; role?: string }) =>
+  post<User>("/users", data);
+export const updateUser = (id: number, data: { username?: string; email?: string; password?: string; role?: string }) =>
+  put<User>(`/users/${id}`, data);
+export const deleteUser = (id: number) => del<{ success: boolean }>(`/users/${id}`);
+
+export const getContexts = () => get<ContextInfo>("/contexts");
+export const setCurrentContext = (context: string) =>
+  post<{ success: boolean; context: string }>("/contexts/current", { context });
+export const checkContextConnection = (context?: string) =>
+  get<ContextConnection>(`/contexts/connection${context ? `?context=${encodeURIComponent(context)}` : ""}`);
+export const addKubeConfig = (kubeConfig: string) =>
+  post<{ success: boolean; addedContexts: string[]; message: string }>("/contexts/add", { kubeConfig });
+export const removeContext = (context: string) =>
+  del<{ success: boolean; message: string }>("/contexts", { context });
 
 export interface ResourceFilters {
   view?: "claims" | "composites" | "managed" | string;

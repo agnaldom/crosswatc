@@ -18,6 +18,14 @@ export function POST(req: NextRequest, ctx: Ctx) {
   return proxy(req, ctx);
 }
 
+export function PUT(req: NextRequest, ctx: Ctx) {
+  return proxy(req, ctx);
+}
+
+export function DELETE(req: NextRequest, ctx: Ctx) {
+  return proxy(req, ctx);
+}
+
 async function proxy(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params;
   const target = `${API_URL}/api/v1/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
@@ -40,10 +48,12 @@ async function proxy(req: NextRequest, ctx: Ctx) {
   let upstream: Response;
   try {
     // req.signal aborts the upstream request when the browser goes away, closing the SSE connection.
+    const hasBody = req.method !== "GET" && req.method !== "HEAD";
+    const bodyText = hasBody ? await req.text() : undefined;
     upstream = await fetch(target, {
       method: req.method,
       headers,
-      body: req.method === "GET" ? undefined : await req.text(),
+      body: bodyText && bodyText.length > 0 ? bodyText : undefined,
       cache: "no-store",
       signal: req.signal,
     });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
-import { api } from "@/lib/api";
+import { api, getContexts } from "@/lib/api";
 import { SIDEBAR_KEY } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
 
@@ -17,7 +17,7 @@ export function Sidebar() {
   const currentView = searchParams.get("view");
 
   const [compositeOpen, setCompositeOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => pathname.startsWith("/settings"));
 
   const kindsQuery = useQuery({
     queryKey: ["resource-kinds"],
@@ -29,6 +29,12 @@ export function Sidebar() {
     queryKey: ["me"],
     queryFn: api.me,
     staleTime: 60_000,
+  });
+
+  const contextsQuery = useQuery({
+    queryKey: ["contexts"],
+    queryFn: getContexts,
+    staleTime: 30_000,
   });
 
   const { theme, toggle: toggleTheme } = useTheme();
@@ -43,6 +49,7 @@ export function Sidebar() {
 
   const kinds = kindsQuery.data?.items ?? [];
   const userName = meQuery.data?.user || "admin";
+  const currentContext = contextsQuery.data?.currentContext || "in-cluster";
 
   const isPlatformTab = (tabName: string) => pathname === "/platform" && currentTab === tabName;
 
@@ -72,15 +79,19 @@ export function Sidebar() {
           <div className="px-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
             Context
           </div>
-          <div className="mt-1.5 flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <Link
+            href="/settings/contexts"
+            title="Manage Kubernetes Contexts"
+            className="mt-1.5 flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
             <div className="flex items-center gap-1.5 truncate">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="truncate">in-cluster</span>
+              <span className="truncate">{currentContext}</span>
             </div>
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-zinc-400">
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
-          </div>
+          </Link>
         </div>
 
         {/* MENU Section */}
@@ -291,8 +302,26 @@ export function Sidebar() {
                     <span>Appearance</span>
                     <span className="capitalize text-[10px] text-zinc-400">{theme}</span>
                   </button>
-                  <span className="rounded-md px-2 py-1.5 text-xs text-zinc-400">User Management</span>
-                  <span className="rounded-md px-2 py-1.5 text-xs text-zinc-400">Contexts</span>
+                  <Link
+                    href="/settings/users"
+                    className={`rounded-md px-2 py-1.5 text-xs transition ${
+                      pathname === "/settings/users"
+                        ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    User Management
+                  </Link>
+                  <Link
+                    href="/settings/contexts"
+                    className={`rounded-md px-2 py-1.5 text-xs transition ${
+                      pathname === "/settings/contexts"
+                        ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Contexts
+                  </Link>
                 </div>
               )}
             </div>
