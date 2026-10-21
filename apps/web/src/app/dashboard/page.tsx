@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
+import { Icon } from "@/components/Icon";
 import { api, getContexts } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -64,25 +65,26 @@ export default function DashboardPage() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface font-label-md text-label-md shadow-sm border border-surface-container-high/40 cursor-pointer"
             type="button"
           >
-            <span className="material-symbols-outlined text-[16px] text-on-surface-variant">schedule</span>
+            <Icon name="schedule" className="h-4 w-4 text-on-surface-variant" />
             <span>Last 1 hour</span>
-            <span className="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+            <Icon name="expand_more" className="h-3.5 w-3.5 text-outline" />
           </button>
           <button
             onClick={() => dashboardQuery.refetch()}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface font-label-md text-label-md shadow-sm border border-surface-container-high/40 cursor-pointer"
             type="button"
           >
-            <span className={`material-symbols-outlined text-[16px] text-primary ${dashboardQuery.isFetching ? "animate-spin" : ""}`}>
-              autorenew
-            </span>
+            <Icon
+              name="autorenew"
+              className={`h-4 w-4 text-primary ${dashboardQuery.isFetching ? "animate-spin" : ""}`}
+            />
             <span>Refresh (30s)</span>
           </button>
           <Link
             href="/infrastructure"
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded bg-primary-container text-on-primary-container hover:opacity-90 font-label-md text-label-md font-medium shadow-md shadow-primary-container/20 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded bg-[#2563eb] text-white hover:opacity-90 font-label-md text-label-md font-medium shadow-md shadow-blue-500/20 transition-all cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[18px]">add</span>
+            <Icon name="add" className="h-4 w-4 text-white" />
             <span>Request Resource</span>
           </Link>
         </div>
@@ -97,7 +99,7 @@ export default function DashboardPage() {
               Total Composed
             </span>
             <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[16px]">layers</span>
+              <Icon name="layers" className="h-4 w-4 text-primary" />
             </div>
           </div>
           <div className="mt-space-md">
@@ -118,7 +120,7 @@ export default function DashboardPage() {
               Ready Resources
             </span>
             <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-secondary">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              <Icon name="check_circle" className="h-4 w-4 text-secondary" />
             </div>
           </div>
           <div className="mt-space-md">
@@ -142,7 +144,7 @@ export default function DashboardPage() {
               Not Ready
             </span>
             <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-error">
-              <span className="material-symbols-outlined text-[16px]">cancel</span>
+              <Icon name="cancel" className="h-4 w-4 text-error" />
             </div>
           </div>
           <div className="mt-space-md">
@@ -164,7 +166,7 @@ export default function DashboardPage() {
               Unknown Health
             </span>
             <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-secondary-fixed">
-              <span className="material-symbols-outlined text-[16px]">help</span>
+              <Icon name="help" className="h-4 w-4 text-secondary-fixed" />
             </div>
           </div>
           <div className="mt-space-md">
@@ -187,7 +189,7 @@ export default function DashboardPage() {
               Healthy Providers
             </span>
             <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[16px]">hub</span>
+              <Icon name="hub" className="h-4 w-4 text-primary" />
             </div>
           </div>
           <div className="mt-space-md">
@@ -198,7 +200,7 @@ export default function DashboardPage() {
               <span className="font-label-sm text-label-sm text-primary font-mono">84.6%</span>
             </div>
             <div className="w-full bg-surface-container-highest rounded-full h-1.5 mt-2 overflow-hidden">
-              <div className="bg-primary h-full rounded-full" style={{ width: "84.6%" }}></div>
+              <div className="bg-[#2563eb] h-full rounded-full" style={{ width: "84.6%" }}></div>
             </div>
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-1.5">2 degraded (Compute, Net)</p>
           </div>
@@ -211,7 +213,7 @@ export default function DashboardPage() {
               Pending Approvals
             </span>
             <div className="relative w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-secondary-fixed">
-              <span className="material-symbols-outlined text-[16px]">approval</span>
+              <Icon name="approval" className="h-4 w-4 text-secondary-fixed" />
               <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-primary animate-ping"></span>
             </div>
           </div>
@@ -225,7 +227,7 @@ export default function DashboardPage() {
               href="/infrastructure"
             >
               <span>Review requests</span>
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              <Icon name="arrow_forward" className="h-3.5 w-3.5 text-primary" />
             </Link>
           </div>
         </div>
@@ -259,7 +261,7 @@ export default function DashboardPage() {
                   strokeWidth="12"
                 />
                 <circle
-                  className="text-primary-container"
+                  className="text-[#2563eb]"
                   cx="50"
                   cy="50"
                   fill="none"
@@ -301,7 +303,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center justify-between text-body-sm font-body-sm">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary-container"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#2563eb]"></span>
                   <span className="text-on-surface">Unknown / Syncing</span>
                 </div>
                 <span className="font-mono text-primary font-medium">
@@ -312,7 +314,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-space-md p-space-sm rounded bg-surface-container font-body-sm text-body-sm text-on-surface-variant flex items-start gap-2 border border-surface-container-high/30">
-            <span className="material-symbols-outlined text-[16px] text-primary flex-shrink-0 mt-0.5">info</span>
+            <Icon name="info" className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>Health visibility probes awaiting XRD readiness status evaluation.</span>
           </div>
         </div>
@@ -335,13 +337,13 @@ export default function DashboardPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between font-body-sm text-body-sm">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-primary">cloud</span>
+                    <Icon name="cloud" className="h-4 w-4 text-primary" />
                     <span className="font-medium text-on-surface">Microsoft Azure</span>
                   </div>
                   <span className="font-mono text-primary font-medium">3 (100%)</span>
                 </div>
                 <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
-                  <div className="bg-primary-container h-full rounded-full transition-all duration-500" style={{ width: "100%" }}></div>
+                  <div className="bg-[#2563eb] h-full rounded-full transition-all duration-500" style={{ width: "100%" }}></div>
                 </div>
                 <span className="font-label-sm text-label-sm text-outline font-mono">sub: prod-hybrid-mesh-01</span>
               </div>
@@ -350,7 +352,7 @@ export default function DashboardPage() {
               <div className="space-y-1.5 opacity-60">
                 <div className="flex items-center justify-between font-body-sm text-body-sm">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant">cloud_queue</span>
+                    <Icon name="cloud_queue" className="h-4 w-4 text-on-surface-variant" />
                     <span className="text-on-surface-variant">Amazon Web Services</span>
                   </div>
                   <span className="font-mono text-on-surface-variant">0 (0%)</span>
@@ -365,7 +367,7 @@ export default function DashboardPage() {
               <div className="space-y-1.5 opacity-60">
                 <div className="flex items-center justify-between font-body-sm text-body-sm">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant">cloud_queue</span>
+                    <Icon name="cloud_queue" className="h-4 w-4 text-on-surface-variant" />
                     <span className="text-on-surface-variant">Huawei Cloud</span>
                   </div>
                   <span className="font-mono text-on-surface-variant">0 (0%)</span>
@@ -379,7 +381,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-space-md p-space-sm rounded bg-surface-container font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2 border border-surface-container-high/30">
-            <span className="material-symbols-outlined text-[16px] text-on-surface-variant">check</span>
+            <Icon name="check" className="h-4 w-4 text-on-surface-variant" />
             <span>Current active footprint concentrated in Azure East US 2.</span>
           </div>
         </div>
@@ -402,15 +404,15 @@ export default function DashboardPage() {
               <div className="p-space-md rounded bg-surface-container space-y-2 border border-surface-container-high/30">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-sm bg-primary"></span>
+                    <span className="w-2.5 h-2.5 rounded-sm bg-[#2563eb]"></span>
                     <span className="font-label-md text-label-md font-semibold text-on-surface">Development (dev)</span>
                   </div>
-                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-primary-container text-on-primary-container font-mono">
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-[#2563eb] text-white font-mono">
                     {totalComposed} resources
                   </span>
                 </div>
                 <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
-                  <div className="bg-primary h-full rounded-full" style={{ width: "100%" }}></div>
+                  <div className="bg-[#2563eb] h-full rounded-full" style={{ width: "100%" }}></div>
                 </div>
                 <p className="font-label-sm text-label-sm text-on-surface-variant">
                   Primary active staging lane for squad platform tests
@@ -455,7 +457,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
           <div>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px] text-primary">memory</span>
+              <Icon name="memory" className="h-5 w-5 text-primary" />
               <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
                 Crossplane Control Plane
               </h2>
@@ -469,7 +471,7 @@ export default function DashboardPage() {
             href="/platform"
           >
             <span>View platform details</span>
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            <Icon name="arrow_forward" className="h-4 w-4 text-primary" />
           </Link>
         </div>
 
@@ -520,7 +522,7 @@ export default function DashboardPage() {
             <span className="font-mono text-on-surface font-semibold">84.6% Operational</span>
           </div>
           <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden flex">
-            <div className="bg-primary h-full" style={{ width: "84.6%" }}></div>
+            <div className="bg-[#2563eb] h-full" style={{ width: "84.6%" }}></div>
             <div className="bg-error h-full" style={{ width: "15.4%" }}></div>
           </div>
         </div>
@@ -541,13 +543,13 @@ export default function DashboardPage() {
               <tr className="hover:bg-surface-container transition-colors">
                 <td className="py-space-sm px-space-md">
                   <div className="flex items-center gap-2 font-mono font-medium text-on-surface">
-                    <span className="material-symbols-outlined text-[18px] text-error">deployed_code</span>
+                    <Icon name="deployed_code" className="h-4 w-4 text-error shrink-0" />
                     <span>provider-azure-compute</span>
                   </div>
                 </td>
                 <td className="py-space-sm px-space-md font-mono text-on-surface-variant">v0.42.1</td>
                 <td className="py-space-sm px-space-md">
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
                     Unhealthy / Degraded
                   </span>
@@ -567,13 +569,13 @@ export default function DashboardPage() {
               <tr className="hover:bg-surface-container transition-colors">
                 <td className="py-space-sm px-space-md">
                   <div className="flex items-center gap-2 font-mono font-medium text-on-surface">
-                    <span className="material-symbols-outlined text-[18px] text-error">deployed_code</span>
+                    <Icon name="deployed_code" className="h-4 w-4 text-error shrink-0" />
                     <span>provider-azure-network</span>
                   </div>
                 </td>
                 <td className="py-space-sm px-space-md font-mono text-on-surface-variant">v0.41.0</td>
                 <td className="py-space-sm px-space-md">
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-error"></span>
                     Unhealthy
                   </span>
@@ -602,10 +604,10 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-error">notification_important</span>
+                <Icon name="notification_important" className="h-5 w-5 text-error" />
                 <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">Needs Attention</h2>
               </div>
-              <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-error-container text-on-error-container font-mono">
+              <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-error-container text-on-error-container font-mono font-semibold">
                 4 items
               </span>
             </div>
@@ -727,7 +729,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-primary">published_with_changes</span>
+                <Icon name="published_with_changes" className="h-5 w-5 text-primary" />
                 <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
                   Active Provisioning Requests
                 </h2>
@@ -775,7 +777,7 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              {/* Pipeline Stepper */}
+              {/* Lifecycle Pipeline Stepper */}
               <div className="space-y-1.5 pt-2">
                 <span className="font-label-sm text-label-sm text-outline uppercase font-mono tracking-wider">
                   Lifecycle Pipeline
@@ -783,12 +785,12 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-5 gap-1 text-center font-label-sm text-label-sm">
                   {/* Step 1: Requested */}
                   <div className="space-y-1">
-                    <div className="h-1.5 rounded-full bg-primary"></div>
+                    <div className="h-1.5 rounded-full bg-[#2563eb]"></div>
                     <span className="text-on-surface font-medium truncate block text-[10px]">Req</span>
                   </div>
                   {/* Step 2: Validating */}
                   <div className="space-y-1">
-                    <div className="h-1.5 rounded-full bg-primary"></div>
+                    <div className="h-1.5 rounded-full bg-[#2563eb]"></div>
                     <span className="text-on-surface font-medium truncate block text-[10px]">Valid</span>
                   </div>
                   {/* Step 3: Approval */}
@@ -812,7 +814,7 @@ export default function DashboardPage() {
               {/* Action Buttons */}
               <div className="pt-2 flex flex-wrap items-center gap-2">
                 <button
-                  className="flex-1 py-1.5 px-3 rounded bg-primary-container text-on-primary-container hover:opacity-90 font-label-md text-label-md font-medium transition-colors text-center shadow-sm cursor-pointer"
+                  className="flex-1 py-1.5 px-3 rounded bg-[#2563eb] text-white hover:opacity-90 font-label-md text-label-md font-medium transition-colors text-center shadow-sm cursor-pointer"
                   type="button"
                 >
                   Approve Request
@@ -827,7 +829,7 @@ export default function DashboardPage() {
                   href="/infrastructure"
                   className="py-1.5 px-2.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-md text-label-md transition-colors inline-flex items-center justify-center"
                 >
-                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                  <Icon name="visibility" className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -845,7 +847,7 @@ export default function DashboardPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
           <div>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px] text-primary">history_toggle_off</span>
+              <Icon name="history" className="h-5 w-5 text-primary" />
               <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
                 Recent Events &amp; Activity
               </h2>
@@ -859,7 +861,7 @@ export default function DashboardPage() {
             href="/infrastructure"
           >
             <span>View all 128 events</span>
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            <Icon name="arrow_forward" className="h-4 w-4 text-primary" />
           </Link>
         </div>
 
@@ -867,9 +869,9 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-space-sm pt-1">
           <div className="flex flex-wrap items-center gap-2 flex-1 max-w-xl">
             <div className="relative flex-1 min-w-[200px]">
-              <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[16px]">
-                search
-              </span>
+              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-outline pointer-events-none">
+                <Icon name="search" className="h-4 w-4 text-outline" />
+              </div>
               <input
                 value={filterQuery}
                 onChange={(e) => setFilterQuery(e.target.value)}
@@ -884,7 +886,7 @@ export default function DashboardPage() {
                 type="button"
               >
                 <span>Severity: All</span>
-                <span className="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+                <Icon name="expand_more" className="h-3.5 w-3.5 text-outline" />
               </button>
             </div>
             <div className="relative">
@@ -893,7 +895,7 @@ export default function DashboardPage() {
                 type="button"
               >
                 <span>Type: All Resources</span>
-                <span className="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+                <Icon name="expand_more" className="h-3.5 w-3.5 text-outline" />
               </button>
             </div>
           </div>
@@ -930,7 +932,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">data_object</span>
+                    <Icon name="data_object" className="h-4 w-4 text-primary shrink-0" />
                     <span>vm-payments-batch</span>
                   </div>
                 </td>
@@ -949,7 +951,7 @@ export default function DashboardPage() {
                     className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
                     title="Inspect"
                   >
-                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                    <Icon name="open_in_new" className="h-4 w-4" />
                   </Link>
                   <button
                     onClick={() => handleCopy("vm-payments-batch", "ev1")}
@@ -957,9 +959,10 @@ export default function DashboardPage() {
                     title={copiedId === "ev1" ? "Copied!" : "Copy Manifest"}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[16px]">
-                      {copiedId === "ev1" ? "check" : "content_copy"}
-                    </span>
+                    <Icon
+                      name={copiedId === "ev1" ? "check" : "content_copy"}
+                      className={`h-4 w-4 ${copiedId === "ev1" ? "text-emerald-500" : ""}`}
+                    />
                   </button>
                 </td>
               </tr>
@@ -977,7 +980,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">inventory_2</span>
+                    <Icon name="inventory_2" className="h-4 w-4 text-primary shrink-0" />
                     <span>storage-cards</span>
                   </div>
                 </td>
@@ -996,7 +999,7 @@ export default function DashboardPage() {
                     className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
                     title="Inspect"
                   >
-                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                    <Icon name="open_in_new" className="h-4 w-4" />
                   </Link>
                   <button
                     onClick={() => handleCopy("storage-cards", "ev2")}
@@ -1004,9 +1007,10 @@ export default function DashboardPage() {
                     title={copiedId === "ev2" ? "Copied!" : "Copy Manifest"}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[16px]">
-                      {copiedId === "ev2" ? "check" : "content_copy"}
-                    </span>
+                    <Icon
+                      name={copiedId === "ev2" ? "check" : "content_copy"}
+                      className={`h-4 w-4 ${copiedId === "ev2" ? "text-emerald-500" : ""}`}
+                    />
                   </button>
                 </td>
               </tr>
@@ -1024,7 +1028,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">database</span>
+                    <Icon name="database" className="h-4 w-4 text-primary shrink-0" />
                     <span>pgsql-payments-dev</span>
                   </div>
                 </td>
@@ -1043,7 +1047,7 @@ export default function DashboardPage() {
                     className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
                     title="Inspect"
                   >
-                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                    <Icon name="open_in_new" className="h-4 w-4" />
                   </Link>
                   <button
                     onClick={() => handleCopy("pgsql-payments-dev", "ev3")}
@@ -1051,9 +1055,10 @@ export default function DashboardPage() {
                     title={copiedId === "ev3" ? "Copied!" : "Copy Manifest"}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[16px]">
-                      {copiedId === "ev3" ? "check" : "content_copy"}
-                    </span>
+                    <Icon
+                      name={copiedId === "ev3" ? "check" : "content_copy"}
+                      className={`h-4 w-4 ${copiedId === "ev3" ? "text-emerald-500" : ""}`}
+                    />
                   </button>
                 </td>
               </tr>
@@ -1071,7 +1076,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">database</span>
+                    <Icon name="database" className="h-4 w-4 text-primary shrink-0" />
                     <span>pgsql-payments-dev</span>
                   </div>
                 </td>
@@ -1090,7 +1095,7 @@ export default function DashboardPage() {
                     className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
                     title="Inspect"
                   >
-                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                    <Icon name="open_in_new" className="h-4 w-4" />
                   </Link>
                   <button
                     onClick={() => handleCopy("pgsql-payments-dev", "ev4")}
@@ -1098,9 +1103,10 @@ export default function DashboardPage() {
                     title={copiedId === "ev4" ? "Copied!" : "Copy Manifest"}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[16px]">
-                      {copiedId === "ev4" ? "check" : "content_copy"}
-                    </span>
+                    <Icon
+                      name={copiedId === "ev4" ? "check" : "content_copy"}
+                      className={`h-4 w-4 ${copiedId === "ev4" ? "text-emerald-500" : ""}`}
+                    />
                   </button>
                 </td>
               </tr>
@@ -1109,7 +1115,7 @@ export default function DashboardPage() {
               <tr className="hover:bg-surface-container transition-colors">
                 <td className="py-2.5 px-space-md whitespace-nowrap">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-primary font-label-sm text-label-sm font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb] animate-pulse"></span>
                     Reconciling
                   </span>
                 </td>
@@ -1118,7 +1124,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">data_object</span>
+                    <Icon name="data_object" className="h-4 w-4 text-primary shrink-0" />
                     <span>vm-payments-batch</span>
                   </div>
                 </td>
@@ -1137,7 +1143,7 @@ export default function DashboardPage() {
                     className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
                     title="Inspect"
                   >
-                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                    <Icon name="open_in_new" className="h-4 w-4" />
                   </Link>
                   <button
                     onClick={() => handleCopy("vm-payments-batch", "ev5")}
@@ -1145,9 +1151,10 @@ export default function DashboardPage() {
                     title={copiedId === "ev5" ? "Copied!" : "Copy Manifest"}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[16px]">
-                      {copiedId === "ev5" ? "check" : "content_copy"}
-                    </span>
+                    <Icon
+                      name={copiedId === "ev5" ? "check" : "content_copy"}
+                      className={`h-4 w-4 ${copiedId === "ev5" ? "text-emerald-500" : ""}`}
+                    />
                   </button>
                 </td>
               </tr>
@@ -1165,7 +1172,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">inventory_2</span>
+                    <Icon name="inventory_2" className="h-4 w-4 text-primary shrink-0" />
                     <span>storage-cards</span>
                   </div>
                 </td>
@@ -1184,7 +1191,7 @@ export default function DashboardPage() {
                     className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
                     title="Inspect"
                   >
-                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                    <Icon name="open_in_new" className="h-4 w-4" />
                   </Link>
                   <button
                     onClick={() => handleCopy("storage-cards", "ev6")}
@@ -1192,9 +1199,10 @@ export default function DashboardPage() {
                     title={copiedId === "ev6" ? "Copied!" : "Copy Manifest"}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[16px]">
-                      {copiedId === "ev6" ? "check" : "content_copy"}
-                    </span>
+                    <Icon
+                      name={copiedId === "ev6" ? "check" : "content_copy"}
+                      className={`h-4 w-4 ${copiedId === "ev6" ? "text-emerald-500" : ""}`}
+                    />
                   </button>
                 </td>
               </tr>

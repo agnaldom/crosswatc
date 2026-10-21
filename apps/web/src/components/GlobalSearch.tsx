@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/Badge";
+import { Icon } from "@/components/Icon";
 import { api } from "@/lib/api";
 import { resourceStateLabel, resourceStateTone } from "@/lib/labels";
 import { useWatchlist } from "@/lib/watchlist";
@@ -45,9 +46,9 @@ export function GlobalSearch() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Search resources"
-        className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface-variant cursor-pointer border border-transparent hover:border-surface-container-highest"
+        className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface-variant cursor-pointer border border-surface-container-high/40"
       >
-        <span className="material-symbols-outlined text-[16px] text-outline">search</span>
+        <Icon name="search" className="h-3.5 w-3.5 text-outline" />
         <span className="font-body-sm text-body-sm pr-space-md text-outline hidden sm:inline">
           Search resources, XRDs...
         </span>
@@ -115,7 +116,7 @@ function Palette({ onClose }: { onClose: () => void }) {
         className="w-full max-w-lg overflow-hidden rounded-xl border border-surface-container-high bg-surface-container-low shadow-2xl"
       >
         <div className="flex items-center gap-2 border-b border-surface-container px-4 py-3">
-          <span className="material-symbols-outlined text-[18px] text-primary">search</span>
+          <Icon name="search" className="h-4 w-4 text-primary" />
           <input
             ref={input}
             value={term}
@@ -148,13 +149,13 @@ function Palette({ onClose }: { onClose: () => void }) {
               onClick={() => go(h)}
               className={`flex cursor-pointer items-center justify-between px-4 py-2.5 transition ${
                 i === active
-                  ? "bg-primary-container text-on-primary-container"
+                  ? "bg-[#2563eb] text-white"
                   : "text-on-surface hover:bg-surface-container"
               }`}
             >
               <div className="min-w-0">
                 <span className="font-medium">{h.name}</span>
-                <span className={`ml-2 text-xs ${i === active ? "opacity-80" : "text-outline"}`}>{h.kind}</span>
+                <span className={`ml-2 text-xs ${i === active ? "text-white/80" : "text-outline"}`}>{h.kind}</span>
               </div>
               {h.state && (
                 <Badge tone={resourceStateTone[h.state]}>

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -25,13 +25,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Inter:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-          rel="stylesheet"
-        />
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
       </head>
-      <body className="bg-surface text-on-surface font-body-md antialiased min-h-screen">
+      <body className="bg-surface text-on-surface font-body-md antialiased min-h-screen transition-colors duration-150">
         <Providers>
           <div className="min-h-screen bg-surface">
             <Suspense fallback={<aside className="fixed left-0 top-0 h-screen w-60 bg-surface-container-low" />}>

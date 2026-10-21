@@ -1,9 +1,135 @@
 @import "tailwindcss";
 
-/* Theme: .dark on <html> (set before paint by the inline script in layout.tsx). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  --color-outline: var(--color-outline);
+  --color-on-primary: var(--color-on-primary);
+  --color-tertiary-fixed-dim: var(--color-tertiary-fixed-dim);
+  --color-primary-fixed-dim: var(--color-primary-fixed-dim);
+  --color-error: var(--color-error);
+  --color-surface-tint: var(--color-surface-tint);
+  --color-surface-container-highest: var(--color-surface-container-highest);
+  --color-secondary-container: var(--color-secondary-container);
+  --color-on-secondary: var(--color-on-secondary);
+  --color-on-tertiary-container: var(--color-on-tertiary-container);
+  --color-secondary-fixed: var(--color-secondary-fixed);
+  --color-on-background: var(--color-on-background);
+  --color-on-surface: var(--color-on-surface);
+  --color-surface-variant: var(--color-surface-variant);
+  --color-surface-container: var(--color-surface-container);
+  --color-on-primary-container: var(--color-on-primary-container);
+  --color-on-secondary-fixed: var(--color-on-secondary-fixed);
+  --color-inverse-surface: var(--color-inverse-surface);
+  --color-surface-dim: var(--color-surface-dim);
+  --color-surface: var(--color-surface);
+  --color-surface-bright: var(--color-surface-bright);
+  --color-inverse-on-surface: var(--color-inverse-on-surface);
+  --color-error-container: var(--color-error-container);
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-primary-container: var(--color-primary-container);
+  --color-primary-fixed: var(--color-primary-fixed);
+  --color-on-secondary-container: var(--color-on-secondary-container);
+  --color-secondary-fixed-dim: var(--color-secondary-fixed-dim);
+  --color-on-error: var(--color-on-error);
+  --color-on-error-container: var(--color-on-error-container);
+  --color-on-primary-fixed: var(--color-on-primary-fixed);
+  --color-tertiary-container: var(--color-tertiary-container);
+  --color-surface-container-lowest: var(--color-surface-container-lowest);
+  --color-on-tertiary-fixed-variant: var(--color-on-tertiary-fixed-variant);
+  --color-surface-container-high: var(--color-surface-container-high);
+  --color-on-secondary-fixed-variant: var(--color-on-secondary-fixed-variant);
+  --color-on-tertiary: var(--color-on-tertiary);
+  --color-inverse-primary: var(--color-inverse-primary);
+  --color-background: var(--color-background);
+  --color-tertiary: var(--color-tertiary);
+  --color-on-tertiary-fixed: var(--color-on-tertiary-fixed);
+  --color-outline-variant: var(--color-outline-variant);
+  --color-on-primary-fixed-variant: var(--color-on-primary-fixed-variant);
+  --color-on-surface-variant: var(--color-on-surface-variant);
+  --color-tertiary-fixed: var(--color-tertiary-fixed);
+  --color-surface-container-low: var(--color-surface-container-low);
+
+  --spacing-space-xs: 0.25rem;
+  --spacing-gutter-sm: 0.5rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 0.75rem;
+  --spacing-space-lg: 1rem;
+  --spacing-gutter: 1rem;
+  --spacing-space-xl: 1.5rem;
+  --spacing-margin: 1.5rem;
+  --spacing-gutter-lg: 1.5rem;
+  --spacing-space-2xl: 2rem;
+  --spacing-margin-mobile: 1rem;
+
+  --font-body-sm: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body-md: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body-lg: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-headline-md: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-headline-lg: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-headline-xl: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display-lg: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-label-sm: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-label-md: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-code-sm: "Geist", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Light Mode (default) */
+:root {
+  color-scheme: light;
+  --color-surface: #f8fafc;
+  --color-surface-dim: #f1f5f9;
+  --color-surface-bright: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8fafc;
+  --color-surface-container: #ffffff;
+  --color-surface-container-high: #f1f5f9;
+  --color-surface-container-highest: #e2e8f0;
+  --color-surface-variant: #e2e8f0;
+  --color-surface-tint: #2563eb;
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #475569;
+  --color-on-background: #0f172a;
+  --color-background: #f8fafc;
+  --color-outline: #94a3b8;
+  --color-outline-variant: #cbd5e1;
+  --color-primary: #2563eb;
+  --color-primary-container: #2563eb;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #ffffff;
+  --color-primary-fixed: #dbeafe;
+  --color-primary-fixed-dim: #bfdbfe;
+  --color-on-primary-fixed: #1e3a8a;
+  --color-on-primary-fixed-variant: #1d4ed8;
+  --color-inverse-primary: #60a5fa;
+  --color-inverse-surface: #0f172a;
+  --color-inverse-on-surface: #f8fafc;
+  --color-secondary: #64748b;
+  --color-secondary-container: #f1f5f9;
+  --color-secondary-fixed: #1e293b;
+  --color-secondary-fixed-dim: #334155;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #334155;
+  --color-on-secondary-fixed: #0f172a;
+  --color-on-secondary-fixed-variant: #475569;
+  --color-tertiary: #0284c7;
+  --color-tertiary-container: #e0f2fe;
+  --color-tertiary-fixed: #e0f2fe;
+  --color-tertiary-fixed-dim: #bae6fd;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #0369a1;
+  --color-on-tertiary-fixed: #075985;
+  --color-on-tertiary-fixed-variant: #0284c7;
+  --color-error: #dc2626;
+  --color-error-container: #fee2e2;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #991b1b;
+}
+
+/* Dark Mode (Google Stitch Exact) */
+html.dark, .dark {
+  color-scheme: dark;
   --color-outline: #8b90a0;
   --color-on-primary: #002d6c;
   --color-tertiary-fixed-dim: #adc6ff;
@@ -19,7 +145,7 @@
   --color-on-surface: #d4e4fa;
   --color-surface-variant: #273647;
   --color-surface-container: #122131;
-  --color-on-primary-container: #00275f;
+  --color-on-primary-container: #ffffff;
   --color-on-secondary-fixed: #131b2e;
   --color-inverse-surface: #d4e4fa;
   --color-surface-dim: #051424;
@@ -29,7 +155,7 @@
   --color-error-container: #93000a;
   --color-primary: #afc6ff;
   --color-secondary: #bec6e0;
-  --color-primary-container: #528dff;
+  --color-primary-container: #2563eb;
   --color-primary-fixed: #d9e2ff;
   --color-on-secondary-container: #adb4ce;
   --color-secondary-fixed-dim: #bec6e0;
@@ -51,77 +177,6 @@
   --color-on-surface-variant: #c1c6d7;
   --color-tertiary-fixed: #d8e2ff;
   --color-surface-container-low: #0d1c2d;
-
-  --spacing-space-xs: 0.25rem;
-  --spacing-gutter-sm: 0.5rem;
-  --spacing-space-sm: 0.5rem;
-  --spacing-space-md: 0.75rem;
-  --spacing-space-lg: 1rem;
-  --spacing-gutter: 1rem;
-  --spacing-space-xl: 1.5rem;
-  --spacing-margin: 1.5rem;
-  --spacing-gutter-lg: 1.5rem;
-  --spacing-space-2xl: 2rem;
-  --spacing-margin-mobile: 1rem;
-
-  --font-body-sm: "Inter", sans-serif;
-  --font-body-md: "Inter", sans-serif;
-  --font-body-lg: "Inter", sans-serif;
-  --font-headline-md: "Geist", sans-serif;
-  --font-headline-lg: "Geist", sans-serif;
-  --font-headline-xl: "Geist", sans-serif;
-  --font-display-lg: "Geist", sans-serif;
-  --font-label-sm: "Geist", sans-serif;
-  --font-label-md: "Geist", sans-serif;
-  --font-code-sm: "Geist", monospace;
-}
-
-:root {
-  --color-surface: #051424;
-  --color-surface-dim: #051424;
-  --color-surface-bright: #2c3a4c;
-  --color-surface-container-lowest: #010f1f;
-  --color-surface-container-low: #0d1c2d;
-  --color-surface-container: #122131;
-  --color-surface-container-high: #1c2b3c;
-  --color-surface-container-highest: #273647;
-  --color-on-surface: #d4e4fa;
-  --color-on-surface-variant: #c1c6d7;
-  --color-outline: #8b90a0;
-  --color-outline-variant: #414755;
-  --color-primary: #afc6ff;
-  --color-primary-container: #528dff;
-  --color-on-primary: #002d6c;
-  --color-on-primary-container: #00275f;
-  --color-secondary: #bec6e0;
-  --color-secondary-container: #3f465c;
-  --color-secondary-fixed: #dae2fd;
-  --color-error: #ffb4ab;
-  --color-error-container: #93000a;
-  --color-on-error: #690005;
-  --color-on-error-container: #ffdad6;
-}
-
-.dark {
-  color-scheme: dark;
-}
-
-/* Material Symbols icon support */
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
-  font-weight: normal;
-  font-style: normal;
-  font-size: 20px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Typography helper classes */
