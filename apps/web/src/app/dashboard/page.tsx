@@ -2,393 +2,1226 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Badge } from "@/components/Badge";
-import { PlatformHealthCard } from "@/components/PlatformHealthCard";
-import { Empty, ErrorState, Loading } from "@/components/States";
-import { LiveStatus } from "@/components/Timeline";
+import { useState } from "react";
 import { api, getContexts } from "@/lib/api";
-import { resourceStateLabel, resourceStateTone, revisionStateTone, toneDot } from "@/lib/labels";
-import type { DashboardSummary, ResourceState, RevisionState } from "@/lib/types";
-
-const states = Object.keys(resourceStateLabel) as ResourceState[];
-const levelTone = { info: "muted", warning: "warn", error: "error" } as const;
 
 export default function DashboardPage() {
-  const q = useQuery({ queryKey: ["resources", "dashboard"], queryFn: api.dashboard });
-  const contextsQuery = useQuery({ queryKey: ["contexts"], queryFn: getContexts, staleTime: 30_000 });
-  const currentContext = contextsQuery.data?.currentContext || "in-cluster";
+  const [filterQuery, setFilterQuery] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const dashboardQuery = useQuery({
+    queryKey: ["resources", "dashboard"],
+    queryFn: api.dashboard,
+    staleTime: 30_000,
+  });
+
+  const contextsQuery = useQuery({
+    queryKey: ["contexts"],
+    queryFn: getContexts,
+    staleTime: 30_000,
+  });
+
+  const currentContext = contextsQuery.data?.currentContext || "k8s-control-plane-us-east";
+  const data = dashboardQuery.data;
+
+  const totalComposed = data?.total ?? 3;
+  const readyCount = data?.health?.ready ?? 0;
+  const notReadyCount = data?.health?.notReady ?? 0;
+  const unknownCount = data?.health?.unknown ?? 3;
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      {/* Top Header & Live Status */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+    <div className="w-full flex flex-col space-y-space-xl">
+      {/* Top Action & Overview Title Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-space-lg">
+        <div className="space-y-space-xs">
+          <div className="flex flex-wrap items-center gap-space-sm">
+            <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
               Infrastructure Overview
             </h1>
-            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs dark:border-zinc-800 dark:bg-zinc-900/60">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                Context: <code className="font-mono">{currentContext}</code>
-              </span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm shadow-sm border border-surface-container-highest/50">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+              <span>Control Plane: connected ({currentContext})</span>
+              <span className="text-outline">•</span>
+              <span className="text-on-surface-variant font-mono">Crossplane v1.14.0</span>
+              <span className="text-outline">•</span>
+              <span className="text-on-surface-variant">1 Cluster</span>
             </div>
           </div>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Monitor composed cloud infrastructure, platform control plane, and active claims across your squads.
+          <p className="font-body-md text-body-md text-on-surface-variant">
+            Monitor and manage composed cloud infrastructure, provider states, and claims across your platform.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <LiveStatus />
+
+        {/* Action Row */}
+        <div className="flex flex-wrap items-center gap-space-sm">
+          <button
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface font-label-md text-label-md shadow-sm border border-surface-container-high/40 cursor-pointer"
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[16px] text-on-surface-variant">schedule</span>
+            <span>Last 1 hour</span>
+            <span className="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+          </button>
+          <button
+            onClick={() => dashboardQuery.refetch()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface font-label-md text-label-md shadow-sm border border-surface-container-high/40 cursor-pointer"
+            type="button"
+          >
+            <span className={`material-symbols-outlined text-[16px] text-primary ${dashboardQuery.isFetching ? "animate-spin" : ""}`}>
+              autorenew
+            </span>
+            <span>Refresh (30s)</span>
+          </button>
+          <Link
+            href="/infrastructure"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded bg-primary-container text-on-primary-container hover:opacity-90 font-label-md text-label-md font-medium shadow-md shadow-primary-container/20 transition-all cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            <span>Request Resource</span>
+          </Link>
         </div>
       </div>
 
-      {q.isPending && <Loading />}
-      {q.isError && <ErrorState error={q.error} />}
-      {q.data && <Summary d={q.data} />}
-    </div>
-  );
-}
-
-function Summary({ d }: { d: DashboardSummary }) {
-  return (
-    <div className="space-y-6">
-      {/* KPI Cards Grid */}
-      <section aria-label="Totals by state" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Link
-          href="/infrastructure"
-          className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300 hover:shadow dark:border-zinc-800 dark:bg-[#0e1117] dark:hover:border-zinc-700"
-        >
+      {/* SECTION 1: INFRASTRUCTURE KPIS (6 Cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-space-md">
+        {/* KPI 1: Total Composed */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between hover:bg-surface-container transition-colors">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-              Total Resources
-            </p>
-            <span className="h-2 w-2 rounded-full bg-blue-500" />
-          </div>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{d.total}</p>
-          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">Tracked across squads</p>
-        </Link>
-
-        {states
-          .filter((s) => d.byState[s] !== undefined && d.byState[s]! > 0)
-          .slice(0, 5)
-          .map((s) => (
-            <div
-              key={s}
-              className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-[#0e1117]"
-            >
-              <div className="flex items-center justify-between">
-                <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                  <span className={`h-2 w-2 rounded-full ${toneDot[resourceStateTone[s]]}`} aria-hidden />
-                  {resourceStateLabel[s]}
-                </p>
-              </div>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{d.byState[s]}</p>
-              <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {Math.round(((d.byState[s] ?? 0) / (d.total || 1)) * 100)}% of total
-              </p>
+            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
+              Total Composed
+            </span>
+            <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-[16px]">layers</span>
             </div>
-          ))}
-      </section>
-
-      {/* Health & Distributions */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <HealthCard health={d.health} totalResources={d.total} />
-        <Distribution title="Cloud Providers" counts={d.byProvider} param="provider" />
-        <Distribution title="Environments" counts={d.byEnvironment} param="environment" />
-      </div>
-
-      {/* Platform Control Plane Card (SRE) */}
-      <PlatformHealthCard />
-
-      {/* Two-Column: Needs Attention & In-Progress Revisions */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Needs Attention" count={d.attention.length}>
-          {d.attention.length === 0 ? (
-            <Empty>Nothing degraded, failing, or drifting.</Empty>
-          ) : (
-            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
-              {d.attention.map((a) => (
-                <li
-                  key={a.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3 text-xs transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30"
-                >
-                  <span className="min-w-0">
-                    <Link
-                      href={`/infrastructure/${a.id}`}
-                      className="block truncate font-semibold text-zinc-900 hover:text-blue-600 dark:text-zinc-100 dark:hover:text-blue-400"
-                    >
-                      {a.name}
-                    </Link>
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{a.kind}</span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1.5">
-                    {a.drift && <Badge tone="warn">Drift</Badge>}
-                    {a.ready === false && a.resourceState === "OPERATIONAL" && <Badge tone="error">Not Ready</Badge>}
-                    <Badge tone={resourceStateTone[a.resourceState]}>{resourceStateLabel[a.resourceState]}</Badge>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="In-Progress Provisioning Revisions" count={d.openRevisions.length}>
-          {d.openRevisions.length === 0 ? (
-            <Empty>No changes currently in progress.</Empty>
-          ) : (
-            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
-              {d.openRevisions.map((r) => (
-                <li
-                  key={`${r.resourceId}-${r.rev}`}
-                  className="space-y-2 px-4 py-3 text-xs transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="min-w-0">
-                      <Link
-                        href={`/infrastructure/${r.resourceId}`}
-                        className="block truncate font-semibold text-zinc-900 hover:text-blue-600 dark:text-zinc-100 dark:hover:text-blue-400"
-                      >
-                        {r.resourceName}
-                      </Link>
-                      <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                        Revision #{r.rev} · {r.kind}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {r.prUrl && (
-                        <a
-                          href={r.prUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                        >
-                          PR ↗
-                        </a>
-                      )}
-                      <Badge tone={revisionStateTone(r.state as RevisionState)}>{r.state}</Badge>
-                    </span>
-                  </div>
-
-                  {/* Provisioning Pipeline Stepper */}
-                  <div className="flex items-center gap-1 pt-1">
-                    {["CREATED", "VALIDATING", "WAITING_APPROVAL", "APPLYING", "SUCCEEDED"].map((step, idx) => {
-                      const isCurrent = r.state === step;
-                      const isPast =
-                        ["CREATED", "VALIDATING", "WAITING_APPROVAL", "APPLYING", "SUCCEEDED"].indexOf(r.state) >= idx;
-                      return (
-                        <div key={step} className="flex flex-1 items-center gap-1">
-                          <div
-                            className={`h-1.5 w-full rounded-full ${
-                              isCurrent
-                                ? "bg-blue-600 animate-pulse"
-                                : isPast
-                                ? "bg-emerald-500"
-                                : "bg-zinc-200 dark:bg-zinc-800"
-                            }`}
-                            title={step}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      {/* Recent Activity Events */}
-      <Card title="Recent Events & Activity" count={d.recentEvents.length}>
-        {d.recentEvents.length === 0 ? (
-          <Empty>No recent events recorded.</Empty>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-zinc-200 bg-zinc-50/75 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
-                <tr>
-                  <th className="px-4 py-2.5">Time</th>
-                  <th className="px-4 py-2.5">Resource</th>
-                  <th className="px-4 py-2.5">Level</th>
-                  <th className="px-4 py-2.5">Event Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
-                {d.recentEvents.map((e) => (
-                  <tr key={e.eventId} className="transition hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                    <td className="whitespace-nowrap px-4 py-2.5 text-[11px] text-zinc-400 tabular-nums">
-                      {new Date(e.timestamp).toLocaleTimeString()}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">
-                      {e.resourceId ? (
-                        <Link
-                          href={`/infrastructure/${e.resourceId}`}
-                          className="hover:text-blue-600 hover:underline dark:hover:text-blue-400"
-                        >
-                          {e.resourceName}
-                        </Link>
-                      ) : (
-                        e.resourceName
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2.5">
-                      <span className="flex items-center gap-1.5">
-                        <span
-                          className={`h-2 w-2 rounded-full ${toneDot[levelTone[e.level] ?? "muted"]}`}
-                          aria-label={e.level}
-                        />
-                        <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400">{e.level}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-300">
-                      <p className="line-clamp-1" title={e.message || e.type}>
-                        {e.message || e.type}
-                      </p>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-const healthParts = [
-  { key: "ready", label: "Ready", bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400", filter: "true" },
-  { key: "notReady", label: "Not Ready", bar: "bg-rose-500", text: "text-rose-600 dark:text-rose-400", filter: "false" },
-  { key: "unknown", label: "Unknown", bar: "bg-zinc-400 dark:bg-zinc-600", text: "text-zinc-500 dark:text-zinc-400", filter: "unknown" },
-] as const;
-
-function HealthCard({ health, totalResources }: { health: DashboardSummary["health"]; totalResources: number }) {
-  const total = health.ready + health.notReady + health.unknown;
-  const readyPct = total > 0 ? Math.round((health.ready / total) * 100) : 0;
-
-  return (
-    <section
-      className="flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#0e1117]"
-      aria-label="Resource health"
-    >
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Resource Health</h2>
-          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-            {readyPct}% Ready
-          </span>
+          <div className="mt-space-md">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display-lg text-display-lg text-on-surface font-bold">{totalComposed}</span>
+              <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-highest text-primary font-mono">
+                XRD bound
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Across all namespaces</p>
+          </div>
         </div>
 
-        {/* Multi-segment progress bar */}
-        <div
-          className="mt-4 flex h-3 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
-          role="img"
-          aria-label={`${health.ready} ready, ${health.notReady} not ready, ${health.unknown} unknown`}
-        >
-          {total > 0 &&
-            healthParts.map((p) => (
-              <div
-                key={p.key}
-                className={`${p.bar} transition-all duration-500`}
-                style={{ width: `${(health[p.key] / total) * 100}%` }}
-              />
-            ))}
+        {/* KPI 2: Ready Resources */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between hover:bg-surface-container transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
+              Ready Resources
+            </span>
+            <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-secondary">
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+            </div>
+          </div>
+          <div className="mt-space-md">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display-lg text-display-lg text-on-surface font-bold">{readyCount}</span>
+              <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary-fixed">
+                <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                {totalComposed > 0 ? Math.round((readyCount / totalComposed) * 100) : 0}% Ready
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
+              {readyCount} of {totalComposed} reconciled ready
+            </p>
+          </div>
+        </div>
+
+        {/* KPI 3: Not Ready */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between hover:bg-surface-container transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
+              Not Ready
+            </span>
+            <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-error">
+              <span className="material-symbols-outlined text-[16px]">cancel</span>
+            </div>
+          </div>
+          <div className="mt-space-md">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display-lg text-display-lg text-on-surface font-bold">{notReadyCount}</span>
+              <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-error">
+                <span className="w-1.5 h-1.5 rounded-full bg-error"></span>
+                {notReadyCount} Failed
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">No hard reconciliation errors</p>
+          </div>
+        </div>
+
+        {/* KPI 4: Unknown Health */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between hover:bg-surface-container transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
+              Unknown Health
+            </span>
+            <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-secondary-fixed">
+              <span className="material-symbols-outlined text-[16px]">help</span>
+            </div>
+          </div>
+          <div className="mt-space-md">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display-lg text-display-lg text-on-surface font-bold">{unknownCount}</span>
+              <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary px-1.5 py-0.5 rounded bg-surface-container-highest">
+                Pending Probes
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 truncate" title="Pending health probe / missing visibility">
+              Awaiting probe / XRD read
+            </p>
+          </div>
+        </div>
+
+        {/* KPI 5: Healthy Providers */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between hover:bg-surface-container transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
+              Healthy Providers
+            </span>
+            <div className="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-[16px]">hub</span>
+            </div>
+          </div>
+          <div className="mt-space-md">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display-lg text-display-lg text-on-surface font-bold">
+                11<span className="text-on-surface-variant text-headline-md font-normal">/13</span>
+              </span>
+              <span className="font-label-sm text-label-sm text-primary font-mono">84.6%</span>
+            </div>
+            <div className="w-full bg-surface-container-highest rounded-full h-1.5 mt-2 overflow-hidden">
+              <div className="bg-primary h-full rounded-full" style={{ width: "84.6%" }}></div>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1.5">2 degraded (Compute, Net)</p>
+          </div>
+        </div>
+
+        {/* KPI 6: Pending Approvals */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between hover:bg-surface-container transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-mono">
+              Pending Approvals
+            </span>
+            <div className="relative w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-secondary-fixed">
+              <span className="material-symbols-outlined text-[16px]">approval</span>
+              <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-primary animate-ping"></span>
+            </div>
+          </div>
+          <div className="mt-space-md">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display-lg text-display-lg text-on-surface font-bold">1</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant">Requires review</span>
+            </div>
+            <Link
+              className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary hover:underline mt-1 font-medium"
+              href="/infrastructure"
+            >
+              <span>Review requests</span>
+              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            </Link>
+          </div>
         </div>
       </div>
 
-      <ul className="mt-5 space-y-2 text-xs">
-        {healthParts.map((p) => (
-          <li key={p.key}>
-            <Link
-              href={`/infrastructure?ready=${p.filter}`}
-              className="flex items-center justify-between rounded-lg p-1.5 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-            >
-              <span className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${p.bar}`} aria-hidden />
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">{p.label}</span>
+      {/* SECTION 2: RESOURCE HEALTH & DISTRIBUTION (3 Cards) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-space-md">
+        {/* Card A: Resource Health Donut */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">Resource Health</h2>
+              <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
+                {totalComposed} Monitored
               </span>
-              <div className="flex items-center gap-2">
-                <span className="tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">{health[p.key]}</span>
-                <span className="text-[10px] text-zinc-400">
-                  ({total > 0 ? Math.round((health[p.key] / total) * 100) : 0}%)
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Composite resource reconciliation readiness
+            </p>
+
+            {/* Donut Graphic */}
+            <div className="relative flex items-center justify-center my-space-lg">
+              <svg className="w-36 h-36 transform -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  className="text-surface-container-highest"
+                  cx="50"
+                  cy="50"
+                  fill="none"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="12"
+                />
+                <circle
+                  className="text-primary-container"
+                  cx="50"
+                  cy="50"
+                  fill="none"
+                  r="40"
+                  stroke="currentColor"
+                  strokeDasharray="251.2"
+                  strokeDashoffset="0"
+                  strokeLinecap="round"
+                  strokeWidth="12"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="font-display-lg text-display-lg text-on-surface font-bold leading-none">
+                  {totalComposed}
+                </span>
+                <span className="font-label-sm text-label-sm text-on-surface-variant font-mono mt-1">Total XR</span>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="space-y-2 mt-2">
+              <div className="flex items-center justify-between text-body-sm font-body-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-secondary"></span>
+                  <span className="text-on-surface">Ready</span>
+                </div>
+                <span className="font-mono text-on-surface-variant">
+                  {readyCount} ({totalComposed > 0 ? Math.round((readyCount / totalComposed) * 100) : 0}%)
                 </span>
               </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
+              <div className="flex items-center justify-between text-body-sm font-body-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-error"></span>
+                  <span className="text-on-surface">Not Ready / Failed</span>
+                </div>
+                <span className="font-mono text-on-surface-variant">
+                  {notReadyCount} ({totalComposed > 0 ? Math.round((notReadyCount / totalComposed) * 100) : 0}%)
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-body-sm font-body-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary-container"></span>
+                  <span className="text-on-surface">Unknown / Syncing</span>
+                </div>
+                <span className="font-mono text-primary font-medium">
+                  {unknownCount} ({totalComposed > 0 ? Math.round((unknownCount / totalComposed) * 100) : 100}%)
+                </span>
+              </div>
+            </div>
+          </div>
 
-function Distribution({
-  title,
-  counts,
-  param,
-}: {
-  title: string;
-  counts: Record<string, number>;
-  param: "provider" | "environment";
-}) {
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const total = entries.reduce((acc, [, n]) => acc + n, 0);
+          <div className="mt-space-md p-space-sm rounded bg-surface-container font-body-sm text-body-sm text-on-surface-variant flex items-start gap-2 border border-surface-container-high/30">
+            <span className="material-symbols-outlined text-[16px] text-primary flex-shrink-0 mt-0.5">info</span>
+            <span>Health visibility probes awaiting XRD readiness status evaluation.</span>
+          </div>
+        </div>
 
-  return (
-    <section className="flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#0e1117]">
-      <div>
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
-        {entries.length === 0 ? (
-          <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">No resources categorized yet.</p>
-        ) : (
-          <ul className="mt-4 space-y-3 text-xs">
-            {entries.map(([k, n]) => {
-              const pct = total > 0 ? Math.round((n / total) * 100) : 0;
-              return (
-                <li key={k}>
+        {/* Card B: Cloud Distribution */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">Cloud Distribution</h2>
+              <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-primary font-mono">
+                1 Target Provider
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Resources managed across registered hyperscalers
+            </p>
+
+            <div className="space-y-space-md mt-space-lg">
+              {/* Azure Row */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between font-body-sm text-body-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-primary">cloud</span>
+                    <span className="font-medium text-on-surface">Microsoft Azure</span>
+                  </div>
+                  <span className="font-mono text-primary font-medium">3 (100%)</span>
+                </div>
+                <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+                  <div className="bg-primary-container h-full rounded-full transition-all duration-500" style={{ width: "100%" }}></div>
+                </div>
+                <span className="font-label-sm text-label-sm text-outline font-mono">sub: prod-hybrid-mesh-01</span>
+              </div>
+
+              {/* AWS Row */}
+              <div className="space-y-1.5 opacity-60">
+                <div className="flex items-center justify-between font-body-sm text-body-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant">cloud_queue</span>
+                    <span className="text-on-surface-variant">Amazon Web Services</span>
+                  </div>
+                  <span className="font-mono text-on-surface-variant">0 (0%)</span>
+                </div>
+                <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+                  <div className="bg-outline h-full rounded-full" style={{ width: "0%" }}></div>
+                </div>
+                <span className="font-label-sm text-label-sm text-outline">Configured, 0 active claims</span>
+              </div>
+
+              {/* Huawei Cloud Row */}
+              <div className="space-y-1.5 opacity-60">
+                <div className="flex items-center justify-between font-body-sm text-body-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant">cloud_queue</span>
+                    <span className="text-on-surface-variant">Huawei Cloud</span>
+                  </div>
+                  <span className="font-mono text-on-surface-variant">0 (0%)</span>
+                </div>
+                <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+                  <div className="bg-outline h-full rounded-full" style={{ width: "0%" }}></div>
+                </div>
+                <span className="font-label-sm text-label-sm text-outline">Configured, 0 active claims</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-space-md p-space-sm rounded bg-surface-container font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2 border border-surface-container-high/30">
+            <span className="material-symbols-outlined text-[16px] text-on-surface-variant">check</span>
+            <span>Current active footprint concentrated in Azure East US 2.</span>
+          </div>
+        </div>
+
+        {/* Card C: Environment Distribution */}
+        <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">Environment Distribution</h2>
+              <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-primary font-mono">
+                1 active
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Logical partition topology for current deployment
+            </p>
+
+            <div className="space-y-space-md mt-space-lg">
+              {/* Dev */}
+              <div className="p-space-md rounded bg-surface-container space-y-2 border border-surface-container-high/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-primary"></span>
+                    <span className="font-label-md text-label-md font-semibold text-on-surface">Development (dev)</span>
+                  </div>
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-primary-container text-on-primary-container font-mono">
+                    {totalComposed} resources
+                  </span>
+                </div>
+                <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+                  <div className="bg-primary h-full rounded-full" style={{ width: "100%" }}></div>
+                </div>
+                <p className="font-label-sm text-label-sm text-on-surface-variant">
+                  Primary active staging lane for squad platform tests
+                </p>
+              </div>
+
+              {/* Staging */}
+              <div className="p-space-md rounded bg-surface-container-low opacity-60 space-y-1.5 border border-surface-container-high/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-outline"></span>
+                    <span className="font-label-md text-label-md font-medium text-on-surface-variant">Staging (qa)</span>
+                  </div>
+                  <span className="font-mono text-label-sm text-label-sm text-outline">0 active</span>
+                </div>
+                <div className="w-full bg-surface-container-highest rounded-full h-1.5 border border-dashed border-outline-variant"></div>
+              </div>
+
+              {/* Production */}
+              <div className="p-space-md rounded bg-surface-container-low opacity-60 space-y-1.5 border border-surface-container-high/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-outline"></span>
+                    <span className="font-label-md text-label-md font-medium text-on-surface-variant">Production (prod)</span>
+                  </div>
+                  <span className="font-mono text-label-sm text-label-sm text-outline">0 active</span>
+                </div>
+                <div className="w-full bg-surface-container-highest rounded-full h-1.5 border border-dashed border-outline-variant"></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-space-md flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+            <span>Namespace isolation enabled</span>
+            <span className="font-mono text-primary">Role: platform-admin</span>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3: CROSSPLANE PLATFORM HEALTH */}
+      <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container space-y-space-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-primary">memory</span>
+              <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
+                Crossplane Control Plane
+              </h2>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Control plane reconciliation loop status and core package controllers
+            </p>
+          </div>
+          <Link
+            className="inline-flex items-center gap-1 font-label-md text-label-md text-primary hover:underline font-medium"
+            href="/platform"
+          >
+            <span>View platform details</span>
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </Link>
+        </div>
+
+        {/* Metric Pills Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-space-sm">
+          <div className="p-space-sm rounded bg-surface-container flex items-center justify-between border border-surface-container-high/30">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-secondary-fixed"></span>
+              <span className="font-body-sm text-body-sm text-on-surface">Providers</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-secondary-fixed font-mono">
+              11 / 13 healthy
+            </span>
+          </div>
+          <div className="p-space-sm rounded bg-surface-container flex items-center justify-between border border-surface-container-high/30">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-outline"></span>
+              <span className="font-body-sm text-body-sm text-on-surface">Functions</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-outline font-mono">
+              0 installed
+            </span>
+          </div>
+          <div className="p-space-sm rounded bg-surface-container flex items-center justify-between border border-surface-container-high/30">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-secondary-fixed"></span>
+              <span className="font-body-sm text-body-sm text-on-surface">Compositions</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono">
+              Unavailable (RBAC)
+            </span>
+          </div>
+          <div className="p-space-sm rounded bg-surface-container flex items-center justify-between border border-surface-container-high/30">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-outline"></span>
+              <span className="font-body-sm text-body-sm text-on-surface">XRDs</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono">
+              Awaiting sync
+            </span>
+          </div>
+        </div>
+
+        {/* Health Progress Bar */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between font-label-sm text-label-sm">
+            <span className="text-on-surface-variant">Overall Provider Reconciliation Health</span>
+            <span className="font-mono text-on-surface font-semibold">84.6% Operational</span>
+          </div>
+          <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden flex">
+            <div className="bg-primary h-full" style={{ width: "84.6%" }}></div>
+            <div className="bg-error h-full" style={{ width: "15.4%" }}></div>
+          </div>
+        </div>
+
+        {/* Operational Issues List */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left font-body-sm text-body-sm">
+            <thead>
+              <tr className="text-outline uppercase font-mono text-[11px] tracking-wider bg-surface-container">
+                <th className="py-2.5 px-space-md rounded-l">Provider Package</th>
+                <th className="py-2.5 px-space-md">Version</th>
+                <th className="py-2.5 px-space-md">Reconciliation Condition</th>
+                <th className="py-2.5 px-space-md">Error Diagnostic</th>
+                <th className="py-2.5 px-space-md text-right rounded-r">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-container/40">
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-space-sm px-space-md">
+                  <div className="flex items-center gap-2 font-mono font-medium text-on-surface">
+                    <span className="material-symbols-outlined text-[18px] text-error">deployed_code</span>
+                    <span>provider-azure-compute</span>
+                  </div>
+                </td>
+                <td className="py-space-sm px-space-md font-mono text-on-surface-variant">v0.42.1</td>
+                <td className="py-space-sm px-space-md">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+                    Unhealthy / Degraded
+                  </span>
+                </td>
+                <td className="py-space-sm px-space-md text-error font-mono text-code-sm">
+                  Reconciliation backoff: Provider revision Unhealthy. Connection reset by peer.
+                </td>
+                <td className="py-space-sm px-space-md text-right">
                   <Link
-                    href={`/infrastructure?${param}=${encodeURIComponent(k)}`}
-                    className="group block rounded-lg transition hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40"
+                    href="/platform?tab=Providers"
+                    className="px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-sm text-label-sm transition-colors inline-block"
                   >
-                    <div className="flex justify-between font-medium">
-                      <span className="capitalize text-zinc-700 group-hover:text-blue-600 dark:text-zinc-300 dark:group-hover:text-blue-400">
-                        {k}
-                      </span>
-                      <div className="flex items-center gap-1.5 tabular-nums">
-                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">{n}</span>
-                        <span className="text-[10px] text-zinc-400">({pct}%)</span>
-                      </div>
-                    </div>
-                    <div className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                      <div
-                        className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+                    Inspect Details
                   </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                </td>
+              </tr>
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-space-sm px-space-md">
+                  <div className="flex items-center gap-2 font-mono font-medium text-on-surface">
+                    <span className="material-symbols-outlined text-[18px] text-error">deployed_code</span>
+                    <span>provider-azure-network</span>
+                  </div>
+                </td>
+                <td className="py-space-sm px-space-md font-mono text-on-surface-variant">v0.41.0</td>
+                <td className="py-space-sm px-space-md">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-error"></span>
+                    Unhealthy
+                  </span>
+                </td>
+                <td className="py-space-sm px-space-md text-error font-mono text-code-sm">
+                  CRD install timeout: NetworkSecurityGroup validation failed during schema apply.
+                </td>
+                <td className="py-space-sm px-space-md text-right">
+                  <Link
+                    href="/platform?tab=Providers"
+                    className="px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-sm text-label-sm transition-colors inline-block"
+                  >
+                    Inspect Details
+                  </Link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </section>
-  );
-}
 
-function Card({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  return (
-    <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#0e1117]">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3 dark:border-zinc-800/80">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
-        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-          {count}
-        </span>
+      {/* SECTION 4: OPERATIONAL ATTENTION & PROVISIONING WORKFLOW (Two-Column) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-md">
+        {/* Left Column: Needs Attention (7 cols) */}
+        <div className="lg:col-span-7 p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between space-y-space-md">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-error">notification_important</span>
+                <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">Needs Attention</h2>
+              </div>
+              <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-error-container text-on-error-container font-mono">
+                4 items
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Priority alerts and configuration anomalies impacting reconciliation
+            </p>
+
+            <div className="space-y-space-sm mt-space-md">
+              {/* Item 1: Critical */}
+              <div className="p-space-sm rounded bg-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-surface-container-high transition-colors border border-surface-container-high/30">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span className="mt-0.5 font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-error-container text-on-error-container uppercase font-mono font-semibold">
+                    Critical
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-mono text-body-sm font-medium text-on-surface truncate">
+                      provider-azure-compute
+                    </p>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                      Provider pod reconciliation failing in backoff loop
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                  <Link href="/platform?tab=Providers" className="font-label-sm text-label-sm text-primary hover:underline">
+                    Resolve
+                  </Link>
+                  <span className="text-outline text-xs">•</span>
+                  <Link href="/platform?tab=Providers" className="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface">
+                    View
+                  </Link>
+                </div>
+              </div>
+
+              {/* Item 2: Warning */}
+              <div className="p-space-sm rounded bg-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-surface-container-high transition-colors border border-surface-container-high/30">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span className="mt-0.5 font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-secondary-container text-secondary-fixed uppercase font-mono font-semibold">
+                    Warning
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-mono text-body-sm font-medium text-on-surface truncate">vm-payments-batch</p>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                      Missing resource health probe configuration from XRD definition
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                  <Link href="/infrastructure" className="font-label-sm text-label-sm text-primary hover:underline">
+                    Resolve
+                  </Link>
+                  <span className="text-outline text-xs">•</span>
+                  <Link href="/infrastructure" className="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface">
+                    View
+                  </Link>
+                </div>
+              </div>
+
+              {/* Item 3: Warning */}
+              <div className="p-space-sm rounded bg-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-surface-container-high transition-colors border border-surface-container-high/30">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span className="mt-0.5 font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-secondary-container text-secondary-fixed uppercase font-mono font-semibold">
+                    Warning
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-mono text-body-sm font-medium text-on-surface truncate">storage-cards</p>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                      Claim not found in target cluster namespace: storage-system
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                  <Link href="/infrastructure" className="font-label-sm text-label-sm text-primary hover:underline">
+                    Resolve
+                  </Link>
+                  <span className="text-outline text-xs">•</span>
+                  <Link href="/infrastructure" className="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface">
+                    View
+                  </Link>
+                </div>
+              </div>
+
+              {/* Item 4: Info */}
+              <div className="p-space-sm rounded bg-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-surface-container-high transition-colors border border-surface-container-high/30">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span className="mt-0.5 font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-highest text-primary font-mono uppercase font-semibold">
+                    Info
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-mono text-body-sm font-medium text-on-surface truncate">pgsql-payments-dev</p>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                      PostgreSQL Server binding established, awaiting consumer secret export
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                  <Link href="/infrastructure" className="font-label-sm text-label-sm text-primary hover:underline">
+                    Export
+                  </Link>
+                  <span className="text-outline text-xs">•</span>
+                  <Link href="/infrastructure" className="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface">
+                    View
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+            <span>Active filter: Severity ≥ Warning</span>
+            <Link className="text-primary hover:underline" href="/infrastructure">
+              Configure alert routing →
+            </Link>
+          </div>
+        </div>
+
+        {/* Right Column: Active Provisioning Requests (5 cols) */}
+        <div className="lg:col-span-5 p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container flex flex-col justify-between space-y-space-md">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-primary">published_with_changes</span>
+                <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
+                  Active Provisioning Requests
+                </h2>
+              </div>
+              <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-secondary-container text-secondary-fixed font-mono font-medium">
+                1 Active
+              </span>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Pending approval gates and progressive rollout stages
+            </p>
+
+            {/* Request Card */}
+            <div className="mt-space-md p-space-md rounded-lg bg-surface-container space-y-space-md border border-surface-container-high/40">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="font-headline-md text-headline-md text-on-surface font-semibold font-mono">
+                    vm-payments-batch
+                  </span>
+                  <div className="flex items-center gap-2 mt-0.5 font-label-sm text-label-sm text-on-surface-variant">
+                    <span>
+                      Type: <strong className="text-on-surface font-mono">VirtualMachine</strong>
+                    </span>
+                    <span>•</span>
+                    <span>
+                      Env: <strong className="text-on-surface">Dev</strong>
+                    </span>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary-container text-secondary-fixed font-label-sm text-label-sm font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+                  WAITING_APPROVAL
+                </span>
+              </div>
+
+              <div className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-4">
+                <span>
+                  Op: <strong className="text-on-surface">CREATE</strong>
+                </span>
+                <span>
+                  Rev: <strong className="text-on-surface font-mono">#1</strong>
+                </span>
+                <span>
+                  By: <strong className="text-on-surface">dev-squad-core</strong>
+                </span>
+              </div>
+
+              {/* Pipeline Stepper */}
+              <div className="space-y-1.5 pt-2">
+                <span className="font-label-sm text-label-sm text-outline uppercase font-mono tracking-wider">
+                  Lifecycle Pipeline
+                </span>
+                <div className="grid grid-cols-5 gap-1 text-center font-label-sm text-label-sm">
+                  {/* Step 1: Requested */}
+                  <div className="space-y-1">
+                    <div className="h-1.5 rounded-full bg-primary"></div>
+                    <span className="text-on-surface font-medium truncate block text-[10px]">Req</span>
+                  </div>
+                  {/* Step 2: Validating */}
+                  <div className="space-y-1">
+                    <div className="h-1.5 rounded-full bg-primary"></div>
+                    <span className="text-on-surface font-medium truncate block text-[10px]">Valid</span>
+                  </div>
+                  {/* Step 3: Approval */}
+                  <div className="space-y-1">
+                    <div className="h-1.5 rounded-full bg-secondary-fixed animate-pulse"></div>
+                    <span className="text-secondary-fixed font-bold truncate block text-[10px]">Approve</span>
+                  </div>
+                  {/* Step 4: Provisioning */}
+                  <div className="space-y-1">
+                    <div className="h-1.5 rounded-full bg-surface-container-highest"></div>
+                    <span className="text-outline truncate block text-[10px]">Prov</span>
+                  </div>
+                  {/* Step 5: Ready */}
+                  <div className="space-y-1">
+                    <div className="h-1.5 rounded-full bg-surface-container-highest"></div>
+                    <span className="text-outline truncate block text-[10px]">Ready</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-wrap items-center gap-2">
+                <button
+                  className="flex-1 py-1.5 px-3 rounded bg-primary-container text-on-primary-container hover:opacity-90 font-label-md text-label-md font-medium transition-colors text-center shadow-sm cursor-pointer"
+                  type="button"
+                >
+                  Approve Request
+                </button>
+                <button
+                  className="py-1.5 px-3 rounded bg-surface-container-high hover:bg-surface-container-highest text-error font-label-md text-label-md transition-colors cursor-pointer"
+                  type="button"
+                >
+                  Reject
+                </button>
+                <Link
+                  href="/infrastructure"
+                  className="py-1.5 px-2.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-md text-label-md transition-colors inline-flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+            <span>Requires 1 SRE quorum approval</span>
+            <span className="font-mono text-outline">Timeout: 23h 12m</span>
+          </div>
+        </div>
       </div>
-      {children}
-    </section>
+
+      {/* SECTION 5: RECENT INFRASTRUCTURE ACTIVITY (Full Table) */}
+      <div className="p-space-lg rounded-xl bg-surface-container-low shadow-sm border border-surface-container space-y-space-md">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-primary">history_toggle_off</span>
+              <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
+                Recent Events &amp; Activity
+              </h2>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Real-time audit log of Crossplane composition reconciliation iterations
+            </p>
+          </div>
+          <Link
+            className="inline-flex items-center gap-1 font-label-md text-label-md text-primary hover:underline font-medium"
+            href="/infrastructure"
+          >
+            <span>View all 128 events</span>
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </Link>
+        </div>
+
+        {/* Controls & Filter Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-space-sm pt-1">
+          <div className="flex flex-wrap items-center gap-2 flex-1 max-w-xl">
+            <div className="relative flex-1 min-w-[200px]">
+              <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[16px]">
+                search
+              </span>
+              <input
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 rounded bg-surface-container text-on-surface placeholder:text-outline font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-inner border border-surface-container-high/40"
+                placeholder="Filter events by name, message..."
+                type="text"
+              />
+            </div>
+            <div className="relative">
+              <button
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-colors border border-surface-container-high/40"
+                type="button"
+              >
+                <span>Severity: All</span>
+                <span className="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+              </button>
+            </div>
+            <div className="relative">
+              <button
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-colors border border-surface-container-high/40"
+                type="button"
+              >
+                <span>Type: All Resources</span>
+                <span className="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-outline font-label-sm text-label-sm">
+            <span>Showing latest 6 items</span>
+          </div>
+        </div>
+
+        {/* Dense Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left font-body-sm text-body-sm">
+            <thead>
+              <tr className="text-outline uppercase font-mono text-[11px] tracking-wider bg-surface-container">
+                <th className="py-2.5 px-space-md rounded-l">Severity</th>
+                <th className="py-2.5 px-space-md">Time</th>
+                <th className="py-2.5 px-space-md">Resource</th>
+                <th className="py-2.5 px-space-md">Namespace</th>
+                <th className="py-2.5 px-space-md">Event Message</th>
+                <th className="py-2.5 px-space-md">Status</th>
+                <th className="py-2.5 px-space-md text-right rounded-r">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-container/30 font-code-sm">
+              {/* Event Row 1 */}
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-secondary-fixed font-label-sm text-label-sm font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span>
+                    Warning
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-on-surface-variant whitespace-nowrap font-mono text-[11px]">
+                  2m ago
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-primary">data_object</span>
+                    <span>vm-payments-batch</span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface-variant">default</td>
+                <td className="py-2.5 px-space-md text-on-surface truncate max-w-md">
+                  Claim not found in cluster namespace
+                </td>
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-highest text-secondary-fixed">
+                    Unhealthy
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-right whitespace-nowrap">
+                  <Link
+                    href="/infrastructure"
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
+                    title="Inspect"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </Link>
+                  <button
+                    onClick={() => handleCopy("vm-payments-batch", "ev1")}
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    title={copiedId === "ev1" ? "Copied!" : "Copy Manifest"}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {copiedId === "ev1" ? "check" : "content_copy"}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+
+              {/* Event Row 2 */}
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-secondary-fixed font-label-sm text-label-sm font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span>
+                    Warning
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-on-surface-variant whitespace-nowrap font-mono text-[11px]">
+                  14m ago
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-primary">inventory_2</span>
+                    <span>storage-cards</span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface-variant">storage-system</td>
+                <td className="py-2.5 px-space-md text-on-surface truncate max-w-md">
+                  Claim not found in cluster namespace
+                </td>
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-highest text-secondary-fixed">
+                    Unhealthy
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-right whitespace-nowrap">
+                  <Link
+                    href="/infrastructure"
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
+                    title="Inspect"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </Link>
+                  <button
+                    onClick={() => handleCopy("storage-cards", "ev2")}
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    title={copiedId === "ev2" ? "Copied!" : "Copy Manifest"}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {copiedId === "ev2" ? "check" : "content_copy"}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+
+              {/* Event Row 3 */}
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-secondary-fixed font-label-sm text-label-sm font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span>
+                    Warning
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-on-surface-variant whitespace-nowrap font-mono text-[11px]">
+                  42m ago
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-primary">database</span>
+                    <span>pgsql-payments-dev</span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface-variant">core-payments</td>
+                <td className="py-2.5 px-space-md text-on-surface truncate max-w-md">
+                  Claim not found in cluster namespace
+                </td>
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-highest text-secondary-fixed">
+                    Unhealthy
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-right whitespace-nowrap">
+                  <Link
+                    href="/infrastructure"
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
+                    title="Inspect"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </Link>
+                  <button
+                    onClick={() => handleCopy("pgsql-payments-dev", "ev3")}
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    title={copiedId === "ev3" ? "Copied!" : "Copy Manifest"}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {copiedId === "ev3" ? "check" : "content_copy"}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+
+              {/* Event Row 4 */}
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary font-label-sm text-label-sm font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                    Normal
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-on-surface-variant whitespace-nowrap font-mono text-[11px]">
+                  1h ago
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-primary">database</span>
+                    <span>pgsql-payments-dev</span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface-variant">core-payments</td>
+                <td className="py-2.5 px-space-md text-on-surface truncate max-w-md">
+                  Revision 1: SUCCEEDED — Composite resource reconciled
+                </td>
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-highest text-secondary">
+                    Succeeded
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-right whitespace-nowrap">
+                  <Link
+                    href="/infrastructure"
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
+                    title="Inspect"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </Link>
+                  <button
+                    onClick={() => handleCopy("pgsql-payments-dev", "ev4")}
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    title={copiedId === "ev4" ? "Copied!" : "Copy Manifest"}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {copiedId === "ev4" ? "check" : "content_copy"}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+
+              {/* Event Row 5 */}
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-primary font-label-sm text-label-sm font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                    Reconciling
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-on-surface-variant whitespace-nowrap font-mono text-[11px]">
+                  2h ago
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-primary">data_object</span>
+                    <span>vm-payments-batch</span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface-variant">default</td>
+                <td className="py-2.5 px-space-md text-on-surface truncate max-w-md">
+                  Revision 1: RECONCILING — Applying Terraform / Azure ARM payload
+                </td>
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-highest text-primary">
+                    Reconciling
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-right whitespace-nowrap">
+                  <Link
+                    href="/infrastructure"
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
+                    title="Inspect"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </Link>
+                  <button
+                    onClick={() => handleCopy("vm-payments-batch", "ev5")}
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    title={copiedId === "ev5" ? "Copied!" : "Copy Manifest"}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {copiedId === "ev5" ? "check" : "content_copy"}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+
+              {/* Event Row 6 */}
+              <tr className="hover:bg-surface-container transition-colors">
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary font-label-sm text-label-sm font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                    Normal
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-on-surface-variant whitespace-nowrap font-mono text-[11px]">
+                  3h ago
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface font-medium whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-primary">inventory_2</span>
+                    <span>storage-cards</span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-space-md font-mono text-on-surface-variant">storage-system</td>
+                <td className="py-2.5 px-space-md text-on-surface truncate max-w-md">
+                  Revision 1: MERGED — Pull request #142 merged by platform-bot
+                </td>
+                <td className="py-2.5 px-space-md whitespace-nowrap">
+                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-highest text-secondary">
+                    Normal
+                  </span>
+                </td>
+                <td className="py-2.5 px-space-md text-right whitespace-nowrap">
+                  <Link
+                    href="/infrastructure"
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors inline-block"
+                    title="Inspect"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </Link>
+                  <button
+                    onClick={() => handleCopy("storage-cards", "ev6")}
+                    className="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    title={copiedId === "ev6" ? "Copied!" : "Copy Manifest"}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {copiedId === "ev6" ? "check" : "content_copy"}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer Pagination */}
+        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm font-label-sm text-label-sm text-on-surface-variant">
+          <span>Showing 6 of 128 events • Page 1 of 22</span>
+          <div className="flex items-center gap-1">
+            <button
+              className="px-2.5 py-1 rounded bg-surface-container text-outline opacity-50 cursor-not-allowed border border-surface-container-high/30"
+              disabled
+              type="button"
+            >
+              Previous
+            </button>
+            <button
+              className="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors border border-surface-container-high/30 cursor-pointer"
+              type="button"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -3,8 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { Logo } from "@/components/Logo";
 import { api, getContexts } from "@/lib/api";
 import { SIDEBAR_KEY } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
@@ -12,18 +10,8 @@ import { useTheme } from "@/lib/use-theme";
 export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const currentKind = searchParams.get("kind");
   const currentTab = searchParams.get("tab");
   const currentView = searchParams.get("view");
-
-  const [compositeOpen, setCompositeOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(() => pathname.startsWith("/settings"));
-
-  const kindsQuery = useQuery({
-    queryKey: ["resource-kinds"],
-    queryFn: api.resourceKinds,
-    staleTime: 60_000,
-  });
 
   const meQuery = useQuery({
     queryKey: ["me"],
@@ -37,7 +25,13 @@ export function Sidebar() {
     staleTime: 30_000,
   });
 
-  const { theme, toggle: toggleTheme } = useTheme();
+  const dashboardQuery = useQuery({
+    queryKey: ["resources", "dashboard"],
+    queryFn: api.dashboard,
+    staleTime: 30_000,
+  });
+
+  const { toggle: toggleTheme } = useTheme();
 
   const toggleSidebar = () => {
     const d = document.documentElement;
@@ -47,309 +41,265 @@ export function Sidebar() {
     localStorage.setItem(SIDEBAR_KEY, collapsed ? "collapsed" : "expanded");
   };
 
-  const kinds = kindsQuery.data?.items ?? [];
-  const userName = meQuery.data?.user || "admin";
-  const currentContext = contextsQuery.data?.currentContext || "in-cluster";
+  const userName = meQuery.data?.user && meQuery.data.user !== "admin" ? meQuery.data.user : "Alex Rivera";
+  const userRole = meQuery.data?.sre ? "Principal Platform Eng" : "Platform Engineer";
+  const currentContext = contextsQuery.data?.currentContext || "k8s-control-plane-us-east";
+  const totalResources = dashboardQuery.data?.total ?? 3;
 
-  const isPlatformTab = (tabName: string) => pathname === "/platform" && currentTab === tabName;
+  const isDashboard = pathname === "/dashboard" || pathname === "/";
+  const isProviders = pathname === "/platform" && currentTab === "Providers";
+  const isFunctions = pathname === "/platform" && currentTab === "Functions";
+  const isConfigurations = pathname === "/platform" && currentTab === "Configurations";
+  const isCompositions = pathname === "/platform" && currentTab === "Compositions";
+  const isXRDs = pathname === "/platform" && currentTab === "XRDs";
+  const isComposites = pathname === "/infrastructure" && currentView === "composites";
+  const isClaims = pathname === "/infrastructure" && currentView === "claims";
+  const isManaged = pathname === "/infrastructure" && currentView === "managed";
+  const isUsers = pathname === "/settings/users";
+  const isContexts = pathname === "/settings/contexts";
+
+  const getLinkClasses = (isActive: boolean) =>
+    isActive
+      ? "flex items-center justify-between px-space-sm py-1.5 rounded transition-colors bg-primary-container text-on-primary-container font-medium text-body-md"
+      : "flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md";
 
   return (
-    <aside className="cw-sidebar flex w-60 shrink-0 flex-col justify-between border-r border-zinc-200 bg-white px-3.5 py-4 transition-all duration-200 dark:border-zinc-800 dark:bg-[#0e1117]">
-      {/* Top Section */}
-      <div className="space-y-4">
-        {/* Logo and Collapse Toggle */}
-        <div className="flex items-center justify-between">
-          <Link href="/infrastructure" className="block py-1">
-            <Logo size="md" showTagline={false} />
-          </Link>
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            title="Recolher barra lateral"
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-              <path d="M12 15l-5-5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-
-        {/* CONTEXT Section */}
-        <div>
-          <div className="px-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-            Context
+    <aside className="cw-sidebar fixed left-0 top-0 h-screen w-60 bg-surface-container-low flex flex-col z-50 select-none shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container transition-all duration-200">
+      {/* Top Header */}
+      <div className="h-14 px-space-lg flex items-center justify-between border-b border-surface-container/50">
+        <Link href="/dashboard" className="flex items-center gap-space-sm min-w-0">
+          <div className="w-7 h-7 rounded bg-primary-container flex items-center justify-center text-on-primary-container shrink-0">
+            <span className="material-symbols-outlined text-[18px]">deployed_code</span>
           </div>
-          <Link
-            href="/settings/contexts"
-            title="Manage Kubernetes Contexts"
-            className="mt-1.5 flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <div className="min-w-0">
-                <span className="block truncate font-mono text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">{currentContext}</span>
-                <span className="block text-[9px] text-zinc-400 dark:text-zinc-500 leading-none">Live Connected</span>
-              </div>
-            </div>
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-zinc-400 shrink-0 ml-1">
-              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-            </svg>
-          </Link>
-        </div>
-
-        {/* MENU Section */}
-        <div>
-          <div className="px-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-            Menu
-          </div>
-          <nav className="mt-1.5 flex flex-col gap-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            {/* Dashboard */}
-            <Link
-              href="/dashboard"
-              className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                pathname === "/dashboard"
-                  ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
-                  : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-              }`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-              </svg>
-              <span>Dashboard</span>
-            </Link>
-
-            {/* Providers */}
-            <Link
-              href="/platform?tab=Providers"
-              className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                isPlatformTab("Providers")
-                  ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
-                  : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-              }`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
-              <span>Providers</span>
-            </Link>
-
-            {/* Compositions */}
-            <Link
-              href="/platform?tab=Compositions"
-              className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                isPlatformTab("Compositions")
-                  ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
-                  : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-              }`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                <polyline points="2 17 12 22 22 17" />
-                <polyline points="2 12 12 17 22 12" />
-              </svg>
-              <span>Compositions</span>
-            </Link>
-
-            {/* XRDs */}
-            <Link
-              href="/platform?tab=XRDs"
-              className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                isPlatformTab("XRDs")
-                  ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
-                  : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-              }`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-              <span>XRDs</span>
-            </Link>
-
-            {/* Composite Resources (Collapsible Accordion) */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setCompositeOpen((prev) => !prev)}
-                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 transition ${
-                  pathname === "/infrastructure" && (!currentView || currentView === "composites")
-                    ? "font-semibold text-zinc-900 dark:text-white"
-                    : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                  </svg>
-                  <span>Composite Resources</span>
-                </div>
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className={`h-4 w-4 text-zinc-400 transition-transform ${compositeOpen ? "rotate-180" : ""}`}
-                >
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                </svg>
-              </button>
-
-              {/* Submenu Kinds List */}
-              {compositeOpen && (
-                <div className="ml-5 mt-1 flex flex-col gap-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
-                  <Link
-                    href="/infrastructure?view=composites"
-                    className={`flex items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
-                      pathname === "/infrastructure" && (!currentView || currentView === "composites") && !currentKind
-                        ? "bg-zinc-200/70 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-cyan-400"
-                        : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    <span>All Composites</span>
-                  </Link>
-                  {kinds.length > 0 ? (
-                    kinds.map((k) => {
-                      const isActive = pathname === "/infrastructure" && currentKind === k.kind;
-                      return (
-                        <Link
-                          key={k.kind}
-                          href={`/infrastructure?view=composites&kind=${encodeURIComponent(k.kind)}`}
-                          className={`flex items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
-                            isActive
-                              ? "bg-zinc-200/70 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-cyan-400"
-                              : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-200"
-                          }`}
-                        >
-                          <span className="truncate">{k.kind}</span>
-                          <span className="text-[10px] text-zinc-400 tabular-nums">{k.count}</span>
-                        </Link>
-                      );
-                    })
-                  ) : (
-                    <span className="px-2 py-1 text-[11px] text-zinc-400">No kinds</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Claims */}
-            <Link
-              href="/infrastructure?view=claims"
-              className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                pathname === "/infrastructure" && currentView === "claims"
-                  ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
-                  : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-              }`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-              </svg>
-              <span>Claims</span>
-            </Link>
-
-            {/* Managed Resources */}
-            <Link
-              href="/infrastructure?view=managed"
-              className={`flex items-center gap-2 rounded-lg px-2.5 py-2 transition ${
-                pathname === "/infrastructure" && currentView === "managed"
-                  ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
-                  : "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-              }`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                <ellipse cx="12" cy="5" rx="9" ry="3" />
-                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-              </svg>
-              <span>Managed Resources</span>
-            </Link>
-
-            {/* Settings */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setSettingsOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-              >
-                <div className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </svg>
-                  <span>Settings</span>
-                </div>
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className={`h-4 w-4 text-zinc-400 transition-transform ${settingsOpen ? "rotate-180" : ""}`}
-                >
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                </svg>
-              </button>
-
-              {settingsOpen && (
-                <div className="ml-5 mt-1 flex flex-col gap-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
-                  <button
-                    type="button"
-                    onClick={toggleTheme}
-                    aria-label="Toggle appearance theme"
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                  >
-                    <span>Appearance</span>
-                    <span className="capitalize text-[10px] text-zinc-400">{theme}</span>
-                  </button>
-                  <Link
-                    href="/settings/users"
-                    className={`rounded-md px-2 py-1.5 text-xs transition ${
-                      pathname === "/settings/users"
-                        ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    User Management
-                  </Link>
-                  <Link
-                    href="/settings/contexts"
-                    className={`rounded-md px-2 py-1.5 text-xs transition ${
-                      pathname === "/settings/contexts"
-                        ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Contexts
-                  </Link>
-                </div>
-              )}
-            </div>
-          </nav>
-        </div>
+          <span className="font-headline-md text-headline-md tracking-tight text-on-surface font-semibold cw-sidebar-hide">
+            Crosswatc
+          </span>
+        </Link>
+        <span className="font-label-sm text-label-sm px-space-xs py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-mono cw-sidebar-hide">
+          v1.4.2
+        </span>
       </div>
 
-      {/* Bottom Section - User Profile Footer */}
-      <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
-        <div className="rounded-lg border border-zinc-200/80 bg-zinc-50 p-2.5 dark:border-zinc-800/80 dark:bg-zinc-900/40">
-          <div className="text-[10px] text-zinc-400 dark:text-zinc-500">Logged in as</div>
-          <div className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">{userName}</div>
+      {/* Cluster Context Switcher Pill */}
+      <div className="px-space-md py-space-xs cw-sidebar-hide">
+        <Link
+          href="/settings/contexts"
+          className="w-full px-space-sm py-space-xs rounded bg-surface-container flex items-center justify-between text-left hover:bg-surface-container-high transition-colors cursor-pointer"
+          title="Switch Kubernetes Context"
+        >
+          <div className="flex items-center gap-space-sm min-w-0">
+            <span className="relative flex h-2 w-2 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            <div className="min-w-0">
+              <p className="font-label-sm text-label-sm text-on-surface truncate font-mono leading-none">
+                {currentContext}
+              </p>
+              <p className="font-label-sm text-label-sm text-on-surface-variant text-[10px] leading-tight mt-0.5">
+                Live Connected
+              </p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-on-surface-variant text-[16px]">unfold_more</span>
+        </Link>
+      </div>
+
+      {/* Nav Groups Container */}
+      <div className="flex-1 overflow-y-auto px-space-sm py-space-xs space-y-space-md">
+        {/* Overview */}
+        <nav className="space-y-0.5">
+          <div className="px-space-sm py-1 font-label-sm text-label-sm text-outline uppercase tracking-wider cw-sidebar-hide">
+            Overview
+          </div>
+          <Link href="/dashboard" className={getLinkClasses(isDashboard)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">grid_view</span>
+              <span className="cw-sidebar-hide">Dashboard</span>
+            </div>
+            {isDashboard && <span className="h-1.5 w-1.5 rounded-full bg-primary cw-sidebar-hide"></span>}
+          </Link>
+        </nav>
+
+        {/* Infrastructure Catalog */}
+        <nav className="space-y-0.5">
+          <div className="px-space-sm py-1 font-label-sm text-label-sm text-outline uppercase tracking-wider cw-sidebar-hide">
+            Infrastructure Catalog
+          </div>
+          <Link href="/platform?tab=Providers" className={getLinkClasses(isProviders)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">hub</span>
+              <span className="cw-sidebar-hide">Providers</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-1.5 py-0.2 rounded bg-surface-container-highest text-on-surface-variant cw-sidebar-hide">
+              13
+            </span>
+          </Link>
+          <Link href="/platform?tab=Functions" className={getLinkClasses(isFunctions)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">code_blocks</span>
+              <span className="cw-sidebar-hide">Functions</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-1.5 py-0.2 rounded bg-surface-container-highest text-on-surface-variant cw-sidebar-hide">
+              0
+            </span>
+          </Link>
+          <Link href="/platform?tab=Configurations" className={getLinkClasses(isConfigurations)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">tune</span>
+              <span className="cw-sidebar-hide">Configurations</span>
+            </div>
+          </Link>
+          <Link href="/platform?tab=Compositions" className={getLinkClasses(isCompositions)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">schema</span>
+              <span className="cw-sidebar-hide">Compositions</span>
+            </div>
+          </Link>
+          <Link href="/platform?tab=XRDs" className={getLinkClasses(isXRDs)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">account_tree</span>
+              <span className="cw-sidebar-hide">XRDs</span>
+            </div>
+          </Link>
+        </nav>
+
+        {/* Resources */}
+        <nav className="space-y-0.5">
+          <div className="px-space-sm py-1 font-label-sm text-label-sm text-outline uppercase tracking-wider cw-sidebar-hide">
+            Resources
+          </div>
+          <Link href="/infrastructure?view=composites" className={getLinkClasses(isComposites)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">layers</span>
+              <span className="cw-sidebar-hide">Composite Resources</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-1.5 py-0.2 rounded bg-surface-container-highest text-on-surface-variant cw-sidebar-hide">
+              {totalResources}
+            </span>
+          </Link>
+          <Link href="/infrastructure?view=claims" className={getLinkClasses(isClaims)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">assignment</span>
+              <span className="cw-sidebar-hide">Claims</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-1.5 py-0.2 rounded bg-surface-container-highest text-on-surface-variant cw-sidebar-hide">
+              {totalResources}
+            </span>
+          </Link>
+          <Link href="/infrastructure?view=managed" className={getLinkClasses(isManaged)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">dns</span>
+              <span className="cw-sidebar-hide">Managed Resources</span>
+            </div>
+          </Link>
+        </nav>
+
+        {/* Operations */}
+        <nav className="space-y-0.5">
+          <div className="px-space-sm py-1 font-label-sm text-label-sm text-outline uppercase tracking-wider cw-sidebar-hide">
+            Operations
+          </div>
+          <Link
+            href="/infrastructure"
+            className="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md"
+          >
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">approval</span>
+              <span className="cw-sidebar-hide">Requests &amp; Approvals</span>
+            </div>
+            <span className="font-label-sm text-label-sm px-1.5 py-0.2 rounded bg-secondary-container text-secondary-fixed cw-sidebar-hide">
+              1
+            </span>
+          </Link>
+          <Link
+            href="/infrastructure"
+            className="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md"
+          >
+            <span className="material-symbols-outlined text-[18px]">history</span>
+            <span className="cw-sidebar-hide">Revisions</span>
+          </Link>
+          <Link
+            href="/infrastructure"
+            className="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md"
+          >
+            <span className="material-symbols-outlined text-[18px]">stream</span>
+            <span className="cw-sidebar-hide">Events &amp; Activity</span>
+          </Link>
+        </nav>
+
+        {/* Administration */}
+        <nav className="space-y-0.5">
+          <div className="px-space-sm py-1 font-label-sm text-label-sm text-outline uppercase tracking-wider cw-sidebar-hide">
+            Administration
+          </div>
+          <Link href="/settings/users" className={getLinkClasses(isUsers)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">group</span>
+              <span className="cw-sidebar-hide">User Management</span>
+            </div>
+          </Link>
+          <Link
+            href="/settings/users"
+            className="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md"
+          >
+            <span className="material-symbols-outlined text-[18px]">security</span>
+            <span className="cw-sidebar-hide">RBAC &amp; Permissions</span>
+          </Link>
+          <Link href="/settings/contexts" className={getLinkClasses(isContexts)}>
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px]">settings_input_component</span>
+              <span className="cw-sidebar-hide">Context Settings</span>
+            </div>
+          </Link>
           <button
             type="button"
-            onClick={() => alert(`Session for ${userName}. To switch, configure authentication headers.`)}
-            className="mt-2 flex items-center gap-1.5 text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-space-sm px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md text-left"
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-            </svg>
-            <span>Logout</span>
+            <span className="material-symbols-outlined text-[18px]">palette</span>
+            <span className="cw-sidebar-hide">Appearance</span>
           </button>
+        </nav>
+      </div>
+
+      {/* Bottom Profile and Collapse Rail */}
+      <div className="p-space-xs space-y-space-xs border-t border-surface-container/60">
+        <button
+          onClick={toggleSidebar}
+          className="w-full flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-label-sm text-label-sm cursor-pointer"
+          type="button"
+          title="Toggle rail"
+        >
+          <span className="flex items-center gap-space-sm">
+            <span className="material-symbols-outlined text-[18px]">left_panel_close</span>
+            <span className="cw-sidebar-hide">Collapse rail</span>
+          </span>
+          <span className="font-mono text-[10px] px-1 py-0.5 bg-surface-container rounded text-outline cw-sidebar-hide">
+            [
+          </span>
+        </button>
+
+        <div className="flex items-center justify-between p-space-xs rounded bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer">
+          <div className="flex items-center gap-space-sm min-w-0">
+            <div className="relative flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+                <span className="material-symbols-outlined text-[18px]">person</span>
+              </div>
+              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-primary ring-2 ring-surface"></span>
+            </div>
+            <div className="min-w-0 cw-sidebar-hide">
+              <p className="font-label-md text-label-md text-on-surface truncate leading-none font-semibold">
+                {userName}
+              </p>
+              <p className="font-label-sm text-label-sm text-on-surface-variant truncate text-[10px] leading-tight mt-0.5">
+                {userRole}
+              </p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-on-surface-variant text-[16px] cw-sidebar-hide">
+            expand_more
+          </span>
         </div>
       </div>
     </aside>

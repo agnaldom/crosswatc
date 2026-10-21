@@ -8,8 +8,8 @@ import { bootScript } from "@/lib/theme";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Crosswatc · Crossplane Dashboard",
-  description: "Crossplane and GitOps lifecycle management dashboard",
+  title: "Crosswatc · Infrastructure Control Plane",
+  description: "Crossplane and GitOps lifecycle management control plane",
   icons: {
     icon: "/icon.svg",
   },
@@ -17,21 +17,31 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Inter:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+          rel="stylesheet"
+        />
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
       </head>
-      <body className="min-h-screen bg-zinc-50 text-zinc-900 antialiased dark:bg-[#090d16] dark:text-zinc-100">
+      <body className="bg-surface text-on-surface font-body-md antialiased min-h-screen">
         <Providers>
-          <div className="flex min-h-screen">
-            <Suspense fallback={<aside className="cw-sidebar w-60 shrink-0 border-r border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-[#0e1117]" />}>
+          <div className="min-h-screen bg-surface">
+            <Suspense fallback={<aside className="fixed left-0 top-0 h-screen w-60 bg-surface-container-low" />}>
               <Sidebar />
             </Suspense>
-            <div className="flex min-w-0 flex-1 flex-col">
-              <Suspense fallback={<header className="h-14 border-b border-zinc-200 bg-white px-6 dark:border-zinc-800 dark:bg-[#0e1117]" />}>
+            <div className="pl-60 transition-[padding] duration-200 cw-main-container min-h-screen flex flex-col">
+              <Suspense fallback={<header className="fixed top-0 left-60 right-0 h-14 bg-surface/80" />}>
                 <TopHeader />
               </Suspense>
-              <main className="min-w-0 flex-1 px-6 py-6 sm:px-8">
+              <main className="w-full pt-14 bg-surface min-h-screen flex-1">
                 {children}
               </main>
             </div>

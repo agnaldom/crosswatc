@@ -24,9 +24,10 @@ function useDebounced<T>(v: T, ms: number) {
   return d;
 }
 
-/** Sidebar trigger + Ctrl/⌘+K palette searching resources by name prefix (squad-scoped by the API). */
+/** TopHeader trigger + Ctrl/⌘+K palette searching resources by name prefix (squad-scoped by the API). */
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -37,12 +38,22 @@ export function GlobalSearch() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-label="Search resources"
-        className="mt-5 flex w-full items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100">
-        <span>Search…</span>
-        <kbd className="rounded border border-zinc-200 bg-white px-1 text-[10px] font-medium">⌘K</kbd>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Search resources"
+        className="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface-variant cursor-pointer border border-transparent hover:border-surface-container-highest"
+      >
+        <span className="material-symbols-outlined text-[16px] text-outline">search</span>
+        <span className="font-body-sm text-body-sm pr-space-md text-outline hidden sm:inline">
+          Search resources, XRDs...
+        </span>
+        <kbd className="px-1.5 py-0.5 rounded bg-surface-container-highest font-mono text-[10px] text-on-surface-variant">
+          ⌘K
+        </kbd>
       </button>
       {open && <Palette onClose={() => setOpen(false)} />}
     </>
@@ -56,23 +67,32 @@ function Palette({ onClose }: { onClose: () => void }) {
   const [sel, setSel] = useState(0);
   const q = useDebounced(term.trim(), 200);
   const { list: watched } = useWatchlist();
+
   const results = useQuery({
     queryKey: ["search", q],
     queryFn: () => api.listResources({ q, limit: 8 }),
     enabled: q.length > 0,
     refetchInterval: false,
   });
+
   const hits: Hit[] = q
-    ? (results.data?.items ?? []).map((r) => ({ id: r.id, name: r.name, kind: r.kind, state: r.resourceState }))
+    ? (results.data?.items ?? []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        kind: r.kind,
+        state: r.resourceState,
+      }))
     : watched;
+
   useEffect(() => input.current?.focus(), []);
-  const active = Math.min(sel, hits.length - 1); // results may shrink while typing
+  const active = Math.min(sel, Math.max(0, hits.length - 1));
 
   const go = (h?: Hit) => {
     if (!h) return;
     onClose();
     router.push(`/infrastructure/${h.id}`);
   };
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") onClose();
     else if (e.key === "ArrowDown") setSel(Math.min(active + 1, hits.length - 1));
@@ -83,32 +103,71 @@ function Palette({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-zinc-900/30 pt-[15vh]" onMouseDown={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Search resources" onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
-        <input ref={input} value={term} onChange={(e) => {
-            setTerm(e.target.value);
-            setSel(0);
-          }} onKeyDown={onKeyDown}
-          placeholder="Search resources by name…" aria-label="Search resources by name" role="combobox"
-          aria-expanded={hits.length > 0} aria-controls="global-search-results"
-          aria-activedescendant={hits[active] ? `search-hit-${hits[active].id}` : undefined}
-          className="w-full border-b border-zinc-200 px-4 py-3 text-sm outline-none" />
-        <ul id="global-search-results" role="listbox" className="max-h-80 overflow-y-auto py-1 text-sm">
-          {!q && hits.length > 0 && <li className="px-4 py-1 text-xs uppercase tracking-wide text-zinc-400">Watching</li>}
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[15vh]"
+      onMouseDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search resources"
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-surface-container-high bg-surface-container-low shadow-2xl"
+      >
+        <div className="flex items-center gap-2 border-b border-surface-container px-4 py-3">
+          <span className="material-symbols-outlined text-[18px] text-primary">search</span>
+          <input
+            ref={input}
+            value={term}
+            onChange={(e) => {
+              setTerm(e.target.value);
+              setSel(0);
+            }}
+            onKeyDown={onKeyDown}
+            placeholder="Search resources by name…"
+            aria-label="Search resources by name"
+            role="combobox"
+            aria-expanded={hits.length > 0}
+            aria-controls="global-search-results"
+            aria-activedescendant={hits[active] ? `search-hit-${hits[active].id}` : undefined}
+            className="w-full bg-transparent text-sm text-on-surface placeholder:text-outline outline-none"
+          />
+        </div>
+        <ul id="global-search-results" role="listbox" className="max-h-80 overflow-y-auto py-1 text-sm divide-y divide-surface-container/30">
+          {!q && hits.length > 0 && (
+            <li className="px-4 py-1.5 text-xs uppercase tracking-wide text-outline font-mono">
+              Watching
+            </li>
+          )}
           {hits.map((h, i) => (
-            <li key={h.id} id={`search-hit-${h.id}`} role="option" aria-selected={i === active}
-              onMouseEnter={() => setSel(i)} onClick={() => go(h)}
-              className={`flex cursor-pointer items-center justify-between gap-3 px-4 py-2 ${i === active ? "bg-zinc-100" : ""}`}>
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{h.name}</span>
-                <span className="block text-xs text-zinc-500">{h.kind}</span>
-              </span>
-              {h.state && <Badge tone={resourceStateTone[h.state]}>{resourceStateLabel[h.state]}</Badge>}
+            <li
+              key={h.id}
+              id={`search-hit-${h.id}`}
+              role="option"
+              aria-selected={i === active}
+              onClick={() => go(h)}
+              className={`flex cursor-pointer items-center justify-between px-4 py-2.5 transition ${
+                i === active
+                  ? "bg-primary-container text-on-primary-container"
+                  : "text-on-surface hover:bg-surface-container"
+              }`}
+            >
+              <div className="min-w-0">
+                <span className="font-medium">{h.name}</span>
+                <span className={`ml-2 text-xs ${i === active ? "opacity-80" : "text-outline"}`}>{h.kind}</span>
+              </div>
+              {h.state && (
+                <Badge tone={resourceStateTone[h.state]}>
+                  {resourceStateLabel[h.state]}
+                </Badge>
+              )}
             </li>
           ))}
-          {q && results.isSuccess && hits.length === 0 && <li className="px-4 py-3 text-zinc-500">No resources found.</li>}
-          {!q && hits.length === 0 && <li className="px-4 py-3 text-zinc-500">Type to search.</li>}
+          {q && hits.length === 0 && !results.isPending && (
+            <li className="px-4 py-6 text-center text-xs text-outline">
+              No resources found matching &quot;{q}&quot;
+            </li>
+          )}
         </ul>
       </div>
     </div>
