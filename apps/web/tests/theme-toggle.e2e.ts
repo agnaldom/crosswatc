@@ -11,7 +11,7 @@ describe("Theme Toggle Component", () => {
     await expect(screen.getByText("Appearance")).toBeVisible();
 
     // Tap Appearance to toggle theme
-    await screen.getByRole("button", "Alternar tema de aparência").tap();
+    await screen.getByRole("button", "Toggle appearance theme").tap();
 
     // Verify localStorage has theme key set
     const themeInStorage = await browser.evaluate(() => localStorage.getItem("crosswatc.theme"));

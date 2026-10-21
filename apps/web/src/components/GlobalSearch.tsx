@@ -39,9 +39,9 @@ export function GlobalSearch() {
   }, []);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-label="Buscar recursos"
+      <button type="button" onClick={() => setOpen(true)} aria-label="Search resources"
         className="mt-5 flex w-full items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100">
-        <span>Buscar…</span>
+        <span>Search…</span>
         <kbd className="rounded border border-zinc-200 bg-white px-1 text-[10px] font-medium">⌘K</kbd>
       </button>
       {open && <Palette onClose={() => setOpen(false)} />}
@@ -84,13 +84,13 @@ function Palette({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-zinc-900/30 pt-[15vh]" onMouseDown={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Buscar recursos" onMouseDown={(e) => e.stopPropagation()}
+      <div role="dialog" aria-modal="true" aria-label="Search resources" onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-lg overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
         <input ref={input} value={term} onChange={(e) => {
             setTerm(e.target.value);
             setSel(0);
           }} onKeyDown={onKeyDown}
-          placeholder="Buscar recurso por nome…" aria-label="Buscar recurso por nome" role="combobox"
+          placeholder="Search resources by name…" aria-label="Search resources by name" role="combobox"
           aria-expanded={hits.length > 0} aria-controls="global-search-results"
           aria-activedescendant={hits[active] ? `search-hit-${hits[active].id}` : undefined}
           className="w-full border-b border-zinc-200 px-4 py-3 text-sm outline-none" />
@@ -107,8 +107,8 @@ function Palette({ onClose }: { onClose: () => void }) {
               {h.state && <Badge tone={resourceStateTone[h.state]}>{resourceStateLabel[h.state]}</Badge>}
             </li>
           ))}
-          {q && results.isSuccess && hits.length === 0 && <li className="px-4 py-3 text-zinc-500">Nenhum recurso encontrado.</li>}
-          {!q && hits.length === 0 && <li className="px-4 py-3 text-zinc-500">Digite para buscar.</li>}
+          {q && results.isSuccess && hits.length === 0 && <li className="px-4 py-3 text-zinc-500">No resources found.</li>}
+          {!q && hits.length === 0 && <li className="px-4 py-3 text-zinc-500">Type to search.</li>}
         </ul>
       </div>
     </div>

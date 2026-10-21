@@ -8,7 +8,7 @@ export function NodeDetails({ node, onClose, actions }: { node: TopologyNode; on
   const rows: [string, string | undefined][] = [
     ["Kind", node.kind],
     ["API", node.apiVersion],
-    ["Nome", node.name],
+    ["Name", node.name],
     ["Namespace", node.namespace],
     ["External name", node.externalName],
     ["Composition resource", node.compositionResourceName],
@@ -16,13 +16,13 @@ export function NodeDetails({ node, onClose, actions }: { node: TopologyNode; on
     ["Provider", node.provider],
   ];
   return (
-    <aside className="absolute inset-y-0 right-0 z-10 w-80 overflow-y-auto border-l border-zinc-200 bg-white p-4 text-sm shadow-lg" aria-label="Detalhes do recurso">
+    <aside className="absolute inset-y-0 right-0 z-10 w-80 overflow-y-auto border-l border-zinc-200 bg-white p-4 text-sm shadow-lg" aria-label="Resource details">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wide text-zinc-500">{node.type}</p>
           <h3 className="truncate font-semibold">{node.name}</h3>
         </div>
-        <button type="button" onClick={onClose} className="rounded px-2 text-zinc-500 hover:bg-zinc-100" aria-label="Fechar">×</button>
+        <button type="button" onClick={onClose} className="rounded px-2 text-zinc-500 hover:bg-zinc-100" aria-label="Close">×</button>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
         <Badge tone={node.status === "missing" || node.status === "none" ? "muted" : st.tone}>

@@ -74,7 +74,7 @@ describe("Infrastructure Master-Detail Component", () => {
     await table.getByText("redis-session-cache").tap();
 
     // Detail Pane header displays the selected resource
-    const detailPane = screen.getByLabel("Detalhes do recurso selecionado");
+    const detailPane = screen.getByLabel("Selected resource details");
     await expect(detailPane.getByText("XRedisCluster")).toBeVisible();
 
     // Detail pane tabs
@@ -94,10 +94,10 @@ describe("Infrastructure Master-Detail Component", () => {
 
     // Switch to Events tab
     await screen.getByRole("button", "Events").tap();
-    await expect(screen.getByRole("combobox", "Objeto")).toBeVisible();
+    await expect(screen.getByRole("combobox", "Object")).toBeVisible();
 
     // Switch to Overview tab
     await screen.getByRole("button", "Overview").tap();
-    await expect(screen.getByText("Metadados")).toBeVisible();
+    await expect(screen.getByText("Metadata")).toBeVisible();
   });
 });

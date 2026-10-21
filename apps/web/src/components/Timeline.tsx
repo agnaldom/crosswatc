@@ -29,7 +29,7 @@ function subscribeClock(l: () => void) {
 }
 const useNow = () => useSyncExternalStore(subscribeClock, () => now, () => 0);
 
-const dayFormat = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+const dayFormat = new Intl.DateTimeFormat("en-US", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
 
 /** Realtime event timeline (spec §46 Events): newest first, grouped by day, new arrivals highlighted. */
 export function Timeline({ events, live = true }: { events: TrackerEvent[]; live?: boolean }) {
@@ -48,11 +48,11 @@ export function Timeline({ events, live = true }: { events: TrackerEvent[]; live
                 <li key={e.eventId} className={`relative py-2 pl-5 text-sm transition-colors ${fresh ? "bg-sky-50/70" : ""}`}>
                   <span className={`absolute -left-[5px] top-3.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${levelDot[e.level]}`} aria-hidden />
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <time className="font-mono text-xs text-zinc-500" dateTime={e.timestamp} title={new Date(e.timestamp).toLocaleString("pt-BR")}>
+                    <time className="font-mono text-xs text-zinc-500" dateTime={e.timestamp} title={new Date(e.timestamp).toLocaleString("en-US")}>
                       {timeOf(e.timestamp)}
                     </time>
                     <span className={e.level === "error" ? "font-medium text-rose-700" : ""}>{describe(e)}</span>
-                    {fresh && <span className="text-xs font-medium text-sky-700">novo</span>}
+                    {fresh && <span className="text-xs font-medium text-sky-700">new</span>}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <Badge tone={levelTone[e.level]}>{e.source}</Badge>
@@ -69,9 +69,9 @@ export function Timeline({ events, live = true }: { events: TrackerEvent[]; live
 }
 
 const statusCopy = {
-  live: { label: "Ao vivo", dot: "bg-emerald-500 animate-pulse", title: "Atualizações em tempo real (SSE)" },
-  connecting: { label: "Reconectando…", dot: "bg-amber-500", title: "Reconectando ao stream; atualizando a cada 15s enquanto isso" },
-  polling: { label: "Atualização a cada 15s", dot: "bg-zinc-400", title: "Stream indisponível; usando polling" },
+  live: { label: "Live", dot: "bg-emerald-500 animate-pulse", title: "Real-time updates (SSE)" },
+  connecting: { label: "Reconnecting…", dot: "bg-amber-500", title: "Reconnecting to stream; updating every 15s in the meantime" },
+  polling: { label: "Updating every 15s", dot: "bg-zinc-400", title: "Stream unavailable; using polling" },
 } as const;
 
 /** Connection indicator for the realtime stream. */

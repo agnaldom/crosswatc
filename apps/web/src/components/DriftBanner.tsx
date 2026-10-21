@@ -1,11 +1,11 @@
 import type { DriftState } from "@/lib/types";
 
 const signalLabel: Record<string, string> = {
-  "argo-out-of-sync": "Argo CD fora de sincronia com o Git",
-  "git-claim-mismatch": "Configuração no cluster difere do Git",
-  "xr-not-synced": "Crossplane não consegue reconciliar a composição",
-  "mr-not-ready": "Recurso de cloud não está pronto",
-  "cloud-reconcile-error": "Erro ao reconciliar com a cloud (possível alteração manual)",
+  "argo-out-of-sync": "Argo CD out of sync with Git",
+  "git-claim-mismatch": "Configuration in cluster differs from Git",
+  "xr-not-synced": "Crossplane cannot reconcile composition",
+  "mr-not-ready": "Cloud resource is not ready",
+  "cloud-reconcile-error": "Error reconciling with cloud (possible manual drift)",
 };
 
 export function DriftBanner({ drift }: { drift: DriftState }) {
@@ -18,7 +18,7 @@ export function DriftBanner({ drift }: { drift: DriftState }) {
       </ul>
       {drift.differences && drift.differences.length > 0 && (
         <table className="mt-3 text-left text-xs">
-          <thead><tr><th className="pr-4">Campo</th><th className="pr-4">Desired (Git)</th><th>Observed (cluster)</th></tr></thead>
+          <thead><tr><th className="pr-4">Field</th><th className="pr-4">Desired (Git)</th><th>Observed (cluster)</th></tr></thead>
           <tbody>
             {drift.differences.map((d) => (
               <tr key={d.field} className="font-mono">
@@ -28,7 +28,7 @@ export function DriftBanner({ drift }: { drift: DriftState }) {
           </tbody>
         </table>
       )}
-      {drift.detectedAt && <p className="mt-2 text-xs">Desde {new Date(drift.detectedAt).toLocaleString("pt-BR")}</p>}
+      {drift.detectedAt && <p className="mt-2 text-xs">Since {new Date(drift.detectedAt).toLocaleString("en-US")}</p>}
     </div>
   );
 }

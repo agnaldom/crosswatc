@@ -27,40 +27,40 @@ const STEP_DEFINITIONS: StepConfig[] = [
     id: 1,
     stage: "REQUEST",
     shortTitle: "1. Backstage",
-    fullTitle: "Solicitação no Portal de Autoatendimento",
-    actor: "Desenvolvedor via Backstage (Elostage Scaffolder)",
+    fullTitle: "Self-Service Request in Developer Portal",
+    actor: "Developer via Backstage (Elostage Scaffolder)",
     explanation: (r) =>
-      `O solicitante preenche o formulário corporativo homologado no Backstage para ${r?.kind || "o recurso de infraestrutura"}, sem precisar manipular YAML ou ter permissões manuais de cloud. O template gera o manifesto declarativo padronizado.`,
+      `The requester fills out the corporate approved template in Backstage for ${r?.kind || "the infrastructure resource"}, without needing to manipulate raw YAML or require manual cloud console access. The template generates the standard declarative manifest.`,
     requesterAction: () =>
-      "Nenhuma ação pendente. Sua solicitação foi validada sintaticamente e enviada para versionamento no Git.",
+      "No action required. Your request has been syntactically validated and submitted to Git version control.",
     getMetadata: (r) => [
-      { label: "Template Utilizado", value: `template-${(r?.kind || "infra").toLowerCase()}` },
-      { label: "Squad Solicitante", value: r?.owner || "platform-engineering" },
-      { label: "Namespace Kubernetes", value: r?.claimRef?.namespace || "sre" },
-      { label: "Validação de Schema", value: "Aprovada (OpenAPI v3)" },
+      { label: "Template Used", value: `template-${(r?.kind || "infra").toLowerCase()}` },
+      { label: "Requesting Squad", value: r?.owner || "platform-engineering" },
+      { label: "Kubernetes Namespace", value: r?.claimRef?.namespace || "sre" },
+      { label: "Schema Validation", value: "Passed (OpenAPI v3)" },
     ],
     defaultLogs: () => [
-      "[INFO] Formulário submetido com sucesso no Backstage Scaffolder",
-      "[INFO] Parâmetros validados contra o catálogo corporativo de infraestrutura",
-      "[INFO] Disparando ação publish:github:pull-request no repositório de GitOps",
+      "[INFO] Form submitted successfully in Backstage Scaffolder",
+      "[INFO] Parameters validated against corporate infrastructure catalog",
+      "[INFO] Triggering publish:github:pull-request action in GitOps repository",
     ],
   },
   {
     id: 2,
     stage: "PULL_REQUEST",
     shortTitle: "2. Git & PR",
-    fullTitle: "Commit e Pull Request no Repositório GitOps",
-    actor: "GitHub Bot no repositório de GitOps",
+    fullTitle: "Commit and Pull Request in GitOps Repository",
+    actor: "GitHub Bot in GitOps repository",
     explanation: (r) =>
-      `O Backstage cria automaticamente uma branch de infraestrutura no repositório ${r?.repository || "crosswatc-org/argocd"} e abre o Pull Request com a definição do Claim no path correspondente do ambiente ${r?.environment || "dev"}.`,
+      `Backstage automatically creates an infrastructure branch in repository ${r?.repository || "crosswatc-org/argocd"} and opens the Pull Request with the Claim definition at the path matching environment ${r?.environment || "dev"}.`,
     requesterAction: (_r, failed) =>
       failed
-        ? "O Pull Request foi fechado sem merge ou rejeitado. Revise os comentários no GitHub para reabrir."
-        : "Acompanhe o link do Pull Request para verificar comentários ou aprovações solicitadas.",
+        ? "The Pull Request was closed without merge or rejected. Review comments on GitHub to reopen."
+        : "Follow the Pull Request link to check comments or required approvals.",
     getMetadata: (r) => [
-      { label: "Repositório GitOps", value: r?.repository || "crosswatc-org/argocd" },
-      { label: "Caminho Git", value: r?.gitPath || `claims/${r?.environment || "dev"}/${r?.name || "recurso"}.yaml` },
-      { label: "Branch Alvo", value: `${(r?.kind || "infra").toLowerCase()}/${r?.environment || "dev"}/${r?.name || "res"}` },
+      { label: "GitOps Repository", value: r?.repository || "crosswatc-org/argocd" },
+      { label: "Git Path", value: r?.gitPath || `claims/${r?.environment || "dev"}/${r?.name || "resource"}.yaml` },
+      { label: "Target Branch", value: `${(r?.kind || "infra").toLowerCase()}/${r?.environment || "dev"}/${r?.name || "res"}` },
       {
         label: "Pull Request",
         value: r?.repository ? `https://github.com/${r.repository}/pull/112` : "PR #112",
@@ -69,51 +69,51 @@ const STEP_DEFINITIONS: StepConfig[] = [
       },
     ],
     defaultLogs: (r) => [
-      `[INFO] Branch criada com sucesso no repositório ${r?.repository || "crosswatc-org/argocd"}`,
-      `[INFO] Manifesto claim.yaml commitado em ${r?.gitPath || "claims/dev/"}`,
-      "[INFO] Pull Request aberto solicitando revisão dos CODEOWNERS",
+      `[INFO] Branch created successfully in repository ${r?.repository || "crosswatc-org/argocd"}`,
+      `[INFO] Manifest claim.yaml committed at ${r?.gitPath || "claims/dev/"}`,
+      "[INFO] Pull Request opened requesting CODEOWNERS review",
     ],
   },
   {
     id: 3,
     stage: "CI_POLICIES",
-    shortTitle: "3. CI & Políticas",
-    fullTitle: "Validação Automatizada de CI & Políticas de Segurança",
+    shortTitle: "3. CI & Policies",
+    fullTitle: "Automated CI & Security Policy Validations",
     actor: "GitHub Actions + Open Policy Agent / Kyverno",
     explanation: () =>
-      "A esteira de integração contínua roda checagens de sintaxe, lint, conformidade de tags corporativas, compliance com a LGPD/PCI e exige aprovação de Tech Leads.",
+      "The continuous integration pipeline runs syntax checks, linting, corporate tagging compliance, security compliance, and enforces Tech Lead review approvals.",
     requesterAction: (r, failed) =>
       failed
-        ? "Validações de política falharam. Verifique os logs do GitHub Actions para ajustar tags ou parâmetros inválidos."
+        ? "Policy validations failed. Check GitHub Actions logs to fix invalid tags or parameters."
         : r?.environment === "prod"
-        ? "Ambiente de Produção: certifique-se de que o Tech Lead e SRE aprovaram o Pull Request."
-        : "Validações automatizadas aprovadas. Aguardando aprovação padrão de CODEOWNERS.",
+        ? "Production Environment: ensure Tech Lead and SRE approved the Pull Request."
+        : "Automated validations passed. Awaiting standard CODEOWNERS approval.",
     getMetadata: (r) => [
       { label: "Pipeline Status", value: "Success (Checks Passed)" },
       { label: "Policy Check", value: "OPA / Kyverno Compliant" },
-      { label: "Tags Obrigatórias", value: "environment, owner, created_by (OK)" },
-      { label: "Quórum CODEOWNERS", value: r?.environment === "prod" ? "2 Aprovações (OK)" : "1 Aprovação (OK)" },
+      { label: "Mandatory Tags", value: "environment, owner, created_by (OK)" },
+      { label: "CODEOWNERS Quorum", value: r?.environment === "prod" ? "2 Approvals (OK)" : "1 Approval (OK)" },
     ],
     defaultLogs: () => [
-      "[INFO] GitHub Actions runner iniciado (job: validate-infra-claim)",
-      "[INFO] Verificando conformidade de tags e nomenclatura corporativa... OK",
-      "[INFO] Policy-as-Code: nenhuma violação de segurança detectada",
-      "[INFO] CODEOWNERS revisou e aprovou o Pull Request com sucesso",
-      "[INFO] Pull Request mergeado na branch principal",
+      "[INFO] GitHub Actions runner started (job: validate-infra-claim)",
+      "[INFO] Checking compliance of tags and corporate nomenclature... OK",
+      "[INFO] Policy-as-Code: no security violations detected",
+      "[INFO] CODEOWNERS reviewed and approved Pull Request successfully",
+      "[INFO] Pull Request merged into target branch",
     ],
   },
   {
     id: 4,
     stage: "ARGO_CD",
     shortTitle: "4. Argo CD",
-    fullTitle: "Sincronização GitOps no Cluster de Controle",
+    fullTitle: "GitOps Synchronization in Control Plane Cluster",
     actor: "Argo CD Central (ApplicationSet Reconciler)",
     explanation: (r) =>
-      `O ApplicationSet do Argo CD detecta o novo commit no Git e sincroniza o Claim no cluster Kubernetes de destino, aplicando sync-options de proteção (Prune=false, IgnoreExtraneous) para o recurso ${r?.name || ""}.`,
+      `Argo CD ApplicationSet detects the new commit in Git and synchronizes the Claim onto the destination Kubernetes cluster, applying protection sync-options (Prune=false, IgnoreExtraneous) for resource ${r?.name || ""}.`,
     requesterAction: (_r, failed) =>
       failed
-        ? "Falha ao sincronizar manifesto no cluster. Verifique a conectividade do cluster ou anotações no Argo CD."
-        : "Aguardando sincronização do Argo CD. Você pode acompanhar pelo console central.",
+        ? "Failed to synchronize manifest on cluster. Check cluster connectivity or annotations in Argo CD."
+        : "Waiting for Argo CD synchronization. You can follow along in the central console.",
     getMetadata: (r) => [
       { label: "Argo CD Application", value: `crossplane-${(r?.kind || "infra").toLowerCase()}-${r?.environment || "dev"}` },
       { label: "Sync Status", value: "Synced (Wave 4)" },
@@ -121,63 +121,63 @@ const STEP_DEFINITIONS: StepConfig[] = [
       { label: "Sync Policy", value: "Automated (SelfHeal: true, Prune Safe)" },
     ],
     defaultLogs: (r) => [
-      "[INFO] Webhook recebido do GitHub: novo commit detectado",
-      `[INFO] ApplicationSet disparou sincronização do aplicativo crossplane-${(r?.kind || "infra").toLowerCase()}`,
-      `[INFO] Aplicando objeto Claim (${r?.kind || "Resource"}) no cluster Kubernetes`,
-      "[INFO] Status do Argo CD: Synced com sucesso",
+      "[INFO] Webhook received from GitHub: new commit detected",
+      `[INFO] ApplicationSet triggered synchronization of application crossplane-${(r?.kind || "infra").toLowerCase()}`,
+      `[INFO] Applying Claim object (${r?.kind || "Resource"}) to Kubernetes cluster`,
+      "[INFO] Argo CD status: Synced successfully",
     ],
   },
   {
     id: 5,
     stage: "CROSSPLANE",
     shortTitle: "5. Crossplane",
-    fullTitle: "Reconciliação & Expansão de Recursos no Crossplane",
+    fullTitle: "Crossplane Resource Reconciliation & Expansion",
     actor: "Crossplane Composite Resource (XR) Controller",
     explanation: (r) =>
-      `O Crossplane captura o Claim, instancia a Composite Resource Definition (XRD) e aplica a Composition homologada (${r?.composition?.name || "default"}), gerando os Managed Resources reais da nuvem.`,
+      `Crossplane captures the Claim, instantiates the Composite Resource Definition (XRD) and applies the approved Composition (${r?.composition?.name || "default"}), generating actual cloud Managed Resources.`,
     requesterAction: (_r, failed) =>
       failed
-        ? "Erro de reconciliação no Crossplane. Verifique as condições do Composite Resource no painel Status."
-        : "Nenhuma ação necessária. A inteligência de plataforma está orquestrando as chamadas de API da nuvem.",
+        ? "Reconciliation error in Crossplane. Inspect Composite Resource conditions in the Status tab."
+        : "No action required. Platform engine is orchestrating cloud provider API calls.",
     getMetadata: (r) => [
       { label: "Composition", value: r?.composition?.name || `app-${(r?.kind || "infra").toLowerCase()}-${r?.provider || "cloud"}` },
       { label: "Crossplane Condition", value: r?.synced ? "SYNCED: True" : "SYNCED: InProgress" },
       { label: "Claim Ref", value: `${r?.claimRef?.namespace || "default"}/${r?.claimRef?.name || r?.name || "res"}` },
-      { label: "Proteção ArgoCD", value: "Prune=false, IgnoreExtraneous (Injetados)" },
+      { label: "ArgoCD Protection", value: "Prune=false, IgnoreExtraneous (Injected)" },
     ],
     defaultLogs: (r) => [
-      `[INFO] Claim ${r?.name || ""} capturado pelo Crossplane Engine`,
-      `[INFO] Composition selecionada com base no provider ${r?.provider || "cloud"}`,
-      "[INFO] Injetando credenciais do ProviderConfig corporativo",
-      "[INFO] Renderizando recursos gerenciados (Managed Resources) filhos no cluster",
+      `[INFO] Claim ${r?.name || ""} captured by Crossplane Engine`,
+      `[INFO] Composition selected based on provider ${r?.provider || "cloud"}`,
+      "[INFO] Injecting credentials from corporate ProviderConfig",
+      "[INFO] Rendering child Managed Resources in cluster",
     ],
   },
   {
     id: 6,
     stage: "CLOUD",
-    shortTitle: "6. Nuvem Cloud",
-    fullTitle: "Provisionamento Físico no Provedor Cloud",
+    shortTitle: "6. Cloud Provider",
+    fullTitle: "Physical Allocation in Cloud Provider",
     actor: "Upbound Cloud Provider Engine",
     explanation: (r) =>
-      `O provedor (${r?.provider?.toUpperCase() || "CLOUD"}) emite requisições assíncronas na API da nuvem. O provedor aloca a infraestrutura física, redes, discos criptografados e firewalls na região ${r?.region || "padrão"}.`,
+      `The provider (${r?.provider?.toUpperCase() || "CLOUD"}) issues asynchronous API calls to cloud endpoints. The provider allocates physical infrastructure, networks, encrypted disks, and firewalls in region ${r?.region || "default"}.`,
     requesterAction: (_r, failed) =>
       failed
-        ? "Erro no provedor de nuvem (ex. limites de quota, rede ou autorização). Consulte o Runbook de Troubleshooting."
-        : "Aguardando o provisionamento físico na nuvem. O tempo varia de acordo com a complexidade do recurso.",
+        ? "Cloud provider error (e.g. quota limits, network or authorization). Check the Troubleshooting Runbook."
+        : "Waiting for physical provisioning in the cloud. Provisioning time varies based on resource complexity.",
     getMetadata: (r) => {
       const provider = r?.provider?.toLowerCase() || "azure";
       if (provider === "aws") {
         return [
           { label: "AWS Account / Role", value: "arn:aws:iam::123456789012:role/crossplane-role" },
-          { label: "Região AWS", value: r?.region || "us-east-1" },
+          { label: "AWS Region", value: r?.region || "us-east-1" },
           { label: "VPC / Subnet", value: "vpc-prod-crossplane-01" },
-          { label: "Status da API AWS", value: "Active / Available" },
+          { label: "AWS API Status", value: "Active / Available" },
         ];
       }
       if (provider === "gcp") {
         return [
           { label: "GCP Project", value: "crosswatc-cloud-dev-01" },
-          { label: "Região / Zona GCP", value: r?.region || "us-central1-a" },
+          { label: "GCP Region / Zone", value: r?.region || "us-central1-a" },
           { label: "VPC Network", value: "gcp-crossplane-vpc" },
           { label: "Resource Status", value: "RUNNING / READY" },
         ];
@@ -185,38 +185,38 @@ const STEP_DEFINITIONS: StepConfig[] = [
       return [
         { label: "Azure Subscription", value: "Sub_Dev_TI (121129d5-3986-447b-8a52)" },
         { label: "Resource Group", value: r?.resourceGroup || `rg-${r?.environment || "dev"}-crossplane-01` },
-        { label: "Região Azure", value: r?.region || "brazilsouth" },
+        { label: "Azure Region", value: r?.region || "brazilsouth" },
         { label: "ARM ProvisioningState", value: "Succeeded" },
       ];
     },
     defaultLogs: (r) => [
-      `[INFO] Provider ${r?.provider?.toUpperCase() || "CLOUD"} autenticado com sucesso via credencial gerenciada`,
-      `[INFO] Emitindo chamadas de API para alocação na região ${r?.region || "padrão"}...`,
-      `[INFO] Nuvem provisionou a infraestrutura física com sucesso (Status 200 OK)`,
-      "[INFO] Endpoints e metadados de conectividade recuperados da nuvem",
+      `[INFO] Provider ${r?.provider?.toUpperCase() || "CLOUD"} authenticated successfully via managed credentials`,
+      `[INFO] Issuing API calls for allocation in region ${r?.region || "default"}...`,
+      `[INFO] Cloud provisioned physical infrastructure successfully (Status 200 OK)`,
+      "[INFO] Endpoints and connectivity metadata retrieved from cloud",
     ],
   },
   {
     id: 7,
     stage: "OPERATIONAL",
-    shortTitle: "7. Concluído",
-    fullTitle: "Pronto para Consumo & Injeção de Segredos",
+    shortTitle: "7. Completed",
+    fullTitle: "Ready for Consumption & Secrets Injection",
     actor: "External Secrets Operator + Backstage Catalog",
     explanation: (r) =>
-      `O recurso ${r?.name || ""} está 100% ativo e pronto para uso! As credenciais de acesso foram salvas de forma segura no Secret do namespace da squad e o recurso foi registrado no catálogo do Backstage.`,
+      `The resource ${r?.name || ""} is 100% active and ready for use! Access credentials were saved securely in squad namespace Secret and registered in the Backstage catalog.`,
     requesterAction: () =>
-      "Pronto! Sua aplicação já pode consumir este recurso. Conecte seu workload ao Secret de conexão correspondente.",
+      "Ready! Your application can now consume this resource. Connect your workload to the corresponding connection Secret.",
     getMetadata: (r) => [
-      { label: "Status Final", value: "✓ ATIVO E OPERACIONAL" },
-      { label: "Secret Gerado", value: `${r?.name || "resource"}-connection (namespace: ${r?.claimRef?.namespace || "sre"})` },
-      { label: "Backstage Catalog", value: "Sincronizado (Disponível na busca corporativa)" },
-      { label: "Monitoramento", value: "Observabilidade & Datadog Ativos" },
+      { label: "Final Status", value: "✓ ACTIVE AND OPERATIONAL" },
+      { label: "Generated Secret", value: `${r?.name || "resource"}-connection (namespace: ${r?.claimRef?.namespace || "sre"})` },
+      { label: "Backstage Catalog", value: "Synchronized (Available in corporate search)" },
+      { label: "Monitoring", value: "Observability & Datadog Active" },
     ],
     defaultLogs: (r) => [
-      `[INFO] Secret de conexão injetado no namespace ${r?.claimRef?.namespace || "sre"}`,
-      "[INFO] Catálogo do Backstage sincronizado com a entidade live",
-      "[INFO] Monitoramento corporativo e tags de compliance validadas",
-      `[SUCCESS] Provisionamento de ${r?.name || "recurso"} concluído com sucesso em 100% conformidade!`,
+      `[INFO] Connection Secret injected into namespace ${r?.claimRef?.namespace || "sre"}`,
+      "[INFO] Backstage catalog synchronized with live entity",
+      "[INFO] Corporate monitoring and compliance tags validated",
+      `[SUCCESS] Provisioning of ${r?.name || "resource"} completed successfully in 100% compliance!`,
     ],
   },
 ];
@@ -243,20 +243,20 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
   const currentStep = stepOverride ?? computedActiveStep;
   const selectedStepId = selectedOverride ?? currentStep;
   const [isSimulatedFailure, setIsSimulatedFailure] = useState(false);
-  const [clock, setClock] = useState("Atualizado agora");
+  const [clock, setClock] = useState("Updated just now");
   const [logTimestamps, setLogTimestamps] = useState<string[]>([]);
 
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setClock(`Atualizado às ${now.toLocaleTimeString()}`);
+      setClock(`Updated at ${now.toLocaleTimeString("en-US")}`);
       const t = now.getTime();
       setLogTimestamps([
-        new Date(t - 140000).toLocaleTimeString(),
-        new Date(t - 105000).toLocaleTimeString(),
-        new Date(t - 70000).toLocaleTimeString(),
-        new Date(t - 35000).toLocaleTimeString(),
-        now.toLocaleTimeString(),
+        new Date(t - 140000).toLocaleTimeString("en-US"),
+        new Date(t - 105000).toLocaleTimeString("en-US"),
+        new Date(t - 70000).toLocaleTimeString("en-US"),
+        new Date(t - 35000).toLocaleTimeString("en-US"),
+        now.toLocaleTimeString("en-US"),
       ]);
     };
     updateTime();
@@ -331,7 +331,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
               Golden Path
             </span>
             <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              Visão do Solicitante
+              Requester View
             </span>
             <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
               Crossplane Control Plane
@@ -343,10 +343,10 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
             )}
           </div>
           <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-2xl">
-            Rastreador de Provisionamento GitOps
+            GitOps Provisioning Lifecycle Tracker
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Acompanhamento ponta a ponta do ciclo de vida da infraestrutura solicitada — do Backstage à Nuvem
+            End-to-end lifecycle tracking of requested infrastructure — from Backstage to Cloud
           </p>
         </div>
 
@@ -357,7 +357,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
           </span>
           <div className="text-xs">
-            <div className="font-semibold text-zinc-800 dark:text-zinc-200">Reconciliação Contínua</div>
+            <div className="font-semibold text-zinc-800 dark:text-zinc-200">Continuous Reconciliation</div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{clock}</div>
           </div>
         </div>
@@ -369,10 +369,10 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
       <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#161b22]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-0.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Recurso Monitorado</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Monitored Resource</span>
             <div className="flex items-center gap-2">
               <span className="font-mono text-sm font-bold text-zinc-900 dark:text-white">
-                {resource?.name || "recurso-selecionado"}
+                {resource?.name || "selected-resource"}
               </span>
               <span className="text-xs text-zinc-500">({resource?.kind || "CompositeResource"})</span>
             </div>
@@ -386,7 +386,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
               disabled={currentStep <= 1}
               className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
             >
-              ◀ Etapa Anterior
+              ◀ Previous Step
             </button>
             <button
               type="button"
@@ -394,7 +394,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
               disabled={currentStep >= 7}
               className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:bg-cyan-500 disabled:opacity-40"
             >
-              Próxima Etapa ▶
+              Next Step ▶
             </button>
             <button
               type="button"
@@ -405,60 +405,60 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
                   : "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60"
               }`}
             >
-              ⚠️ {isSimulatedFailure ? "Remover Alerta" : "Simular Alerta"}
+              ⚠️ {isSimulatedFailure ? "Clear Alert" : "Simulate Alert"}
             </button>
             <button
               type="button"
               onClick={handleCompleteAll}
               className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-800/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
             >
-              ✓ Concluir Tudo
+              ✓ Complete All
             </button>
           </div>
         </div>
 
-        {/* Resumo Detalhado dos Metadados */}
+        {/* Detailed Metadata Summary */}
         <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-100 bg-zinc-50/80 p-3.5 text-xs dark:border-zinc-800/80 dark:bg-zinc-900/40 sm:grid-cols-3 lg:grid-cols-6">
           <div>
-            <span className="block text-[11px] text-zinc-400">ID / Nome</span>
+            <span className="block text-[11px] text-zinc-400">ID / Name</span>
             <span className="font-semibold text-zinc-900 dark:text-zinc-100">{resource?.name || "—"}</span>
           </div>
           <div>
-            <span className="block text-[11px] text-zinc-400">Tipo de Recurso</span>
+            <span className="block text-[11px] text-zinc-400">Resource Type</span>
             <span className="font-medium text-zinc-800 dark:text-zinc-200">{resource?.kind || "—"}</span>
           </div>
           <div>
-            <span className="block text-[11px] text-zinc-400">Ambiente</span>
+            <span className="block text-[11px] text-zinc-400">Environment</span>
             <span className="inline-block rounded bg-cyan-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300">
               {resource?.environment || "dev"}
             </span>
           </div>
           <div>
-            <span className="block text-[11px] text-zinc-400">Solicitante / Squad</span>
+            <span className="block text-[11px] text-zinc-400">Requester / Squad</span>
             <span className="font-medium text-zinc-800 dark:text-zinc-200">{resource?.owner || "platform"}</span>
           </div>
           <div>
-            <span className="block text-[11px] text-zinc-400">Região / RG</span>
+            <span className="block text-[11px] text-zinc-400">Region / RG</span>
             <span className="block truncate font-mono text-[11px] text-zinc-700 dark:text-zinc-300" title={resource?.region || resource?.resourceGroup}>
               {resource?.region || resource?.resourceGroup || "brazilsouth"}
             </span>
           </div>
           <div>
-            <span className="block text-[11px] text-zinc-400">Status Geral</span>
+            <span className="block text-[11px] text-zinc-400">Overall Status</span>
             {isSimulatedFailure ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-bold text-rose-600 dark:text-rose-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                Intervenção Recomendada
+                Intervention Recommended
               </span>
             ) : currentStep === 7 ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Ativo & Pronto
+                Active & Ready
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-bold text-cyan-600 dark:text-cyan-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                Em Provisionamento
+                Provisioning in Progress
               </span>
             )}
           </div>
@@ -471,10 +471,10 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
       <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#161b22]">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
-            Linha do Tempo de Provisionamento (7 Etapas)
+            Provisioning Timeline (7 Stages)
           </h3>
           <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-bold text-cyan-700 dark:text-cyan-300">
-            Etapa {currentStep} de 7 ({percentage}%)
+            Stage {currentStep} of 7 ({percentage}%)
           </span>
         </div>
 
@@ -487,7 +487,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
         </div>
 
         {/* 7 Interactive Step Cards */}
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7" role="tablist" aria-label="Etapas de Provisionamento">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7" role="tablist" aria-label="Provisioning Stages">
           {STEP_DEFINITIONS.map((step) => {
             const isCompleted = step.id < currentStep;
             const isCurrent = step.id === currentStep;
@@ -496,23 +496,23 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
 
             let cardStyles = "border-zinc-200 bg-zinc-50/70 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400";
             let badgeBg = "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
-            let badgeText = "Pendente";
+            let badgeText = "Pending";
             let badgeIcon = "○";
 
             if (hasFailure) {
               cardStyles = "border-rose-400 bg-rose-50/80 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 shadow-sm";
               badgeBg = "bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300";
-              badgeText = "Atenção";
+              badgeText = "Attention";
               badgeIcon = "⚠️";
             } else if (isCompleted) {
               cardStyles = "border-emerald-300 bg-emerald-50/70 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-300";
               badgeBg = "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300";
-              badgeText = "Concluído";
+              badgeText = "Completed";
               badgeIcon = "✓";
             } else if (isCurrent) {
               cardStyles = "border-cyan-400 bg-cyan-50/80 text-cyan-800 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-200 shadow-sm";
               badgeBg = "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/60 dark:text-cyan-300";
-              badgeText = "Em Andamento";
+              badgeText = "In Progress";
               badgeIcon = "●";
             }
 
@@ -545,7 +545,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-[11px] font-medium opacity-80">
-                  <span>Ver detalhes</span>
+                  <span>View details</span>
                   <span>→</span>
                 </div>
               </button>
@@ -555,12 +555,12 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
       </div>
 
       {/* ========================================================================= */}
-      {/* DETALHES DA ETAPA SELECIONADA + QUICK LINKS / RUNBOOK */}
+      {/* SELECTED STEP DETAILS + QUICK LINKS / RUNBOOK */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Coluna da Esquerda (2 spans): O que está acontecendo + Ações + Evidências + Logs */}
+        {/* Left Column (2 spans): What is happening + Actions + Evidence + Logs */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Card de Detalhamento da Etapa */}
+          {/* Step Detail Card */}
           <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-[#161b22]">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 dark:border-zinc-800">
               <div className="flex items-center gap-3">
@@ -572,41 +572,41 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
                     {selectedStep.fullTitle}
                   </h4>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Responsável: {selectedStep.actor}
+                    Responsible: {selectedStep.actor}
                   </p>
                 </div>
               </div>
 
-              {/* Status Badge da Etapa */}
+              {/* Step Status Badge */}
               {isSimulatedFailure && selectedStep.id === currentStep ? (
                 <span className="flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-600 dark:text-rose-400">
                   <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-                  Bloqueio / Atenção
+                  Blocking / Attention
                 </span>
               ) : selectedStep.id < currentStep ? (
                 <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Concluído com Sucesso
+                  Completed Successfully
                 </span>
               ) : selectedStep.id === currentStep ? (
                 <span className="flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-600 dark:text-cyan-400">
                   <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
-                  Em Andamento na Nuvem
+                  In Progress in Cloud
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
-                  ○ Aguardando Etapas Anteriores
+                  ○ Waiting for Previous Stages
                 </span>
               )}
             </div>
 
-            {/* O que está acontecendo agora */}
+            {/* What is happening now */}
             <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-4 space-y-1.5 dark:border-zinc-800/80 dark:bg-zinc-900/40">
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
                 <svg className="h-4 w-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                O que está acontecendo agora:
+                What is happening now:
               </div>
               <p className="text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
                 {selectedStageView?.message || selectedStep.explanation(resource)}
@@ -618,7 +618,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
               )}
             </div>
 
-            {/* Próxima Ação Necessária do Solicitante */}
+            {/* Action required from requester */}
             <div className="flex items-start gap-3 rounded-xl border border-cyan-200 bg-cyan-50/50 p-4 dark:border-cyan-900/60 dark:bg-cyan-950/20">
               <div className="mt-0.5 shrink-0 rounded-lg bg-cyan-600/10 p-2 text-cyan-600 dark:text-cyan-400">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -627,7 +627,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
               </div>
               <div>
                 <div className="text-xs font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300">
-                  Ação requerida de você (Solicitante):
+                  Action required from you (Requester):
                 </div>
                 <p className="mt-0.5 text-sm text-zinc-700 dark:text-zinc-300">
                   {selectedStep.requesterAction(resource, isSimulatedFailure && selectedStep.id === currentStep)}
@@ -635,10 +635,10 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
               </div>
             </div>
 
-            {/* Metadados e Evidências Técnicas */}
+            {/* Technical Evidence & Metadata */}
             <div className="border-t border-zinc-100 pt-4 dark:border-zinc-800">
               <div className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Evidências e Metadados Técnicos:
+                Technical Evidence & Metadata:
               </div>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs">
                 {selectedStep.getMetadata(resource, selectedStageView).map((m, idx) => (
@@ -662,17 +662,17 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
             </div>
           </div>
 
-          {/* Terminal de Logs / Eventos em Tempo Real */}
+          {/* Real-time Audit Logs & Tracing */}
           <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 text-zinc-300 shadow-sm dark:border-zinc-800">
             <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-4 py-3">
               <div className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-rose-500/80" />
                 <span className="h-3 w-3 rounded-full bg-amber-500/80" />
                 <span className="h-3 w-3 rounded-full bg-emerald-500/80" />
-                <span className="ml-2 font-mono text-xs text-zinc-400">Audit Logs & Tracing em Tempo Real</span>
+                <span className="ml-2 font-mono text-xs text-zinc-400">Real-Time Audit Logs & Tracing</span>
               </div>
               <span className="font-mono text-[11px] text-zinc-500">
-                {selectedStep.defaultLogs(resource).length + (isSimulatedFailure && selectedStep.id === currentStep ? 1 : 0)} eventos
+                {selectedStep.defaultLogs(resource).length + (isSimulatedFailure && selectedStep.id === currentStep ? 1 : 0)} events
               </span>
             </div>
             <div className="max-h-56 space-y-1.5 overflow-y-auto p-4 font-mono text-xs text-zinc-300">
@@ -695,19 +695,19 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
               {isSimulatedFailure && selectedStep.id === currentStep && (
                 <div className="rounded border border-rose-800/80 bg-rose-950/40 p-2 font-bold text-rose-300">
                   <span className="text-zinc-500">[{logTimestamps[4] ?? "12:00:00"}]</span> [WARN] NicInUse / ReconcilePending:
-                  Interface associada a recurso em conflito. Verifique anotações de proteção no ApplicationSet.
+                  Interface associated with conflicting resource. Check protection annotations in ApplicationSet.
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Coluna da Direita (1 span): Links Úteis, SLA & Runbook */}
+        {/* Right Column (1 span): Quick Links, SLA & Runbook */}
         <div className="space-y-6">
-          {/* Links Rápidos e Acessos Diretos */}
+          {/* Direct Links and Access */}
           <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#161b22]">
             <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-              Links e Acessos Diretos
+              Direct Links & Access
             </h4>
             <div className="space-y-2">
               <a
@@ -720,7 +720,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
                   <svg className="h-4 w-4 text-zinc-500 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
                   </svg>
-                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Manifestos no GitHub</span>
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Manifests on GitHub</span>
                 </div>
                 <span className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200">↗</span>
               </a>
@@ -735,7 +735,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
                   <svg className="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
-                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Console do Argo CD</span>
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Argo CD Console</span>
                 </div>
                 <span className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200">↗</span>
               </a>
@@ -750,7 +750,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
                   <svg className="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
-                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Catálogo Backstage</span>
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Backstage Catalog</span>
                 </div>
                 <span className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200">↗</span>
               </a>
@@ -766,7 +766,7 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
                     <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                   </svg>
                   <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                    Console da Nuvem ({resource?.provider?.toUpperCase() || "CLOUD"})
+                    Cloud Console ({resource?.provider?.toUpperCase() || "CLOUD"})
                   </span>
                 </div>
                 <span className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200">↗</span>
@@ -774,43 +774,43 @@ export function Lifecycle({ stages, resource, onSelectStage, className = "" }: L
             </div>
           </div>
 
-          {/* SLA e Estimativa de Tempo */}
+          {/* SLA and Estimated Time */}
           <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#161b22]">
             <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-              Estimativa de Tempo (SLA)
+              Estimated Time (SLA)
             </h4>
             <div className="space-y-2 text-xs">
               <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                <span>Tempo Decorrido:</span>
+                <span>Elapsed Time:</span>
                 <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
                   {currentStep === 7 ? "4m 12s" : "2m 45s"}
                 </span>
               </div>
               <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                <span>Tempo Médio Total:</span>
+                <span>Average Total Time:</span>
                 <span className="font-mono text-zinc-800 dark:text-zinc-200">~ 5m 30s</span>
               </div>
               <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                <span>Nível de Automação:</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">100% Declarativo (Zero CLI)</span>
+                <span>Automation Level:</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">100% Declarative (Zero CLI)</span>
               </div>
             </div>
 
             <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3 text-[11px] leading-relaxed text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
-              ℹ️ Recursos de banco de dados e clusters gerenciados (ex. <strong>PostgreSQL</strong> e <strong>AKS</strong>) levam de 4 a 12 minutos na nuvem. Storage Accounts e VMs levam em média de 2 a 5 minutos.
+              ℹ️ Database resources and managed clusters (e.g. <strong>PostgreSQL</strong> and <strong>AKS</strong>) take 4 to 12 minutes in the cloud. Storage Accounts and VMs take 2 to 5 minutes on average.
             </div>
           </div>
 
-          {/* Runbook & Troubleshooting de Auto-recuperação */}
+          {/* Runbook & Self-healing Troubleshooting */}
           <div className="space-y-2 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-white p-5 shadow-sm dark:border-indigo-900/50 dark:bg-gradient-to-br dark:from-indigo-950/30 dark:to-[#161b22]">
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              Dúvidas ou Erros?
+              Questions or Errors?
             </div>
             <p className="text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
-              Consulte o <strong>Runbook de Troubleshooting da Plataforma</strong> com os casos catalogados de reconciliação e auto-recuperação (self-healing).
+              Consult the <strong>Platform Troubleshooting Runbook</strong> with cataloged cases for reconciliation and self-healing.
             </p>
             <div className="pt-1">
               <span className="inline-block rounded-md bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300">

@@ -16,7 +16,7 @@ describe("OnWatch Drawer Component", () => {
     await expect(screen.getByRole("complementary", "OnWatch and Resource Inspector")).toBeVisible();
 
     // Close drawer
-    await screen.getByRole("button", "Fechar OnWatch").tap();
+    await screen.getByRole("button", "Close OnWatch").tap();
     await expect(screen.getByRole("heading", "OnWatch Resources")).not.toBeVisible();
   });
 
@@ -27,7 +27,7 @@ describe("OnWatch Drawer Component", () => {
     await expect(table.getByText("db-payments-prod")).toBeVisible();
 
     // Pin the first resource using WatchButton in the table
-    const pinBtn = table.getByRole("button", "Acompanhar db-payments-prod");
+    const pinBtn = table.getByRole("button", "Watch db-payments-prod");
     await pinBtn.tap();
 
     // Open OnWatch drawer
@@ -42,12 +42,12 @@ describe("OnWatch Drawer Component", () => {
     await expect(drawer.getByRole("heading", "Status Conditions")).toBeVisible();
 
     // Clear all from drawer
-    const clearBtn = drawer.getByRole("button", "Limpar todos do OnWatch");
+    const clearBtn = drawer.getByRole("button", "Clear all OnWatch");
     await clearBtn.tap();
 
     // Verify empty state is restored
     await expect(
-      drawer.getByText("Nenhum recurso fixado no OnWatch. Clique no ícone de olho nos recursos para monitorá-los aqui.")
+      drawer.getByText("No resources pinned to OnWatch. Click the eye icon on resources to monitor them here.")
     ).toBeVisible();
   });
 });

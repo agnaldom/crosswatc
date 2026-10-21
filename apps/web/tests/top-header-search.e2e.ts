@@ -12,7 +12,7 @@ describe("TopHeader and GlobalSearch Component", () => {
     await expect(screen.getByRole("heading", "Crossplane Dashboard")).toBeVisible();
 
     // Global Search trigger button
-    const searchTrigger = screen.getByRole("button", "Buscar recursos");
+    const searchTrigger = screen.getByRole("button", "Search resources");
     await expect(searchTrigger).toBeVisible();
     await expect(screen.getByText("⌘K")).toBeVisible();
   });
@@ -22,12 +22,12 @@ describe("TopHeader and GlobalSearch Component", () => {
     await expect(screen.getByRole("textbox", "Search resources")).toBeVisible();
 
     // Open search dialog
-    await screen.getByRole("button", "Buscar recursos").tap();
-    const dialog = screen.getByRole("dialog", "Buscar recursos");
+    await screen.getByRole("button", "Search resources").tap();
+    const dialog = screen.getByRole("dialog", "Search resources");
     await expect(dialog).toBeVisible();
 
     // Type in combobox search input
-    const searchInput = screen.getByRole("combobox", "Buscar recurso por nome");
+    const searchInput = screen.getByRole("combobox", "Search resources by name");
     await expect(searchInput).toBeVisible();
     await searchInput.fill("db");
 
@@ -39,10 +39,10 @@ describe("TopHeader and GlobalSearch Component", () => {
     await app.open("/infrastructure");
     await expect(screen.getByRole("textbox", "Search resources")).toBeVisible();
 
-    await screen.getByRole("button", "Buscar recursos").tap();
-    await expect(screen.getByRole("dialog", "Buscar recursos")).toBeVisible();
+    await screen.getByRole("button", "Search resources").tap();
+    await expect(screen.getByRole("dialog", "Search resources")).toBeVisible();
 
     await browser.keyboard.press("Escape");
-    await expect(screen.getByRole("dialog", "Buscar recursos")).not.toBeVisible();
+    await expect(screen.getByRole("dialog", "Search resources")).not.toBeVisible();
   });
 });

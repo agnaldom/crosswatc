@@ -6,7 +6,7 @@ import { useWatchlist, type WatchedResource } from "@/lib/watchlist";
 export function WatchButton({ resource, size = "sm" }: { resource: WatchedResource; size?: "sm" | "md" }) {
   const { isWatched, toggle } = useWatchlist();
   const on = isWatched(resource.id);
-  const label = on ? `Deixar de acompanhar ${resource.name}` : `Acompanhar ${resource.name}`;
+  const label = on ? `Stop watching ${resource.name}` : `Watch ${resource.name}`;
   return (
     <button type="button" aria-pressed={on} aria-label={label} title={label}
       onClick={(e) => {

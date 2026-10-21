@@ -36,7 +36,7 @@ export function DynamicForm({ fields, values, submitLabel, onSubmit, busy }: {
             <label htmlFor={id} className="pt-1.5 text-sm font-medium">
               {f.title}
               {f.required && <span className="text-rose-600"> *</span>}
-              {!f.editable && <span className="ml-1 text-xs font-normal text-zinc-500">(somente leitura)</span>}
+              {!f.editable && <span className="ml-1 text-xs font-normal text-zinc-500">(read only)</span>}
             </label>
             <div>
               {f.type === "boolean" ? (
@@ -50,7 +50,7 @@ export function DynamicForm({ fields, values, submitLabel, onSubmit, busy }: {
                   type={f.type === "integer" || f.type === "number" ? "number" : "text"} {...register(f.key)} />
               )}
               {f.description && <p className="mt-1 text-xs text-zinc-500">{f.description}</p>}
-              {f.editable && !f.safeInPlace && <p className="mt-1 text-xs text-amber-700">Alterar este campo pode recriar o recurso.</p>}
+              {f.editable && !f.safeInPlace && <p className="mt-1 text-xs text-amber-700">Changing this field may replace the resource.</p>}
               {err && <p className="mt-1 text-xs text-rose-700" role="alert">{err}</p>}
             </div>
           </div>

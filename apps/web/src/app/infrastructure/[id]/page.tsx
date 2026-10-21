@@ -73,7 +73,7 @@ function ResourceContent({ id }: { id: string }) {
             <Link href={`/infrastructure/${r.id}/edit`}
               className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700">Edit Configuration</Link>
           ) : (
-            <button type="button" disabled title="Somente recursos operacionais podem ser editados"
+            <button type="button" disabled title="Only operational resources can be edited"
               className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-400">Edit Configuration</button>
           )}
           {gitopsUrl(r) && (
@@ -145,7 +145,7 @@ function Overview({ resource: r }: { resource: TrackedResource }) {
         </div>
       )}
       <div className="rounded-lg border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-medium text-zinc-500">Saúde</h2>
+        <h2 className="text-sm font-medium text-zinc-500">Health</h2>
         {health.isError && <ErrorState error={health.error} />}
         <dl className="mt-3 space-y-2 text-sm">
           {healthRows.map(([k, label]) => {
@@ -160,22 +160,22 @@ function Overview({ resource: r }: { resource: TrackedResource }) {
         </dl>
       </div>
       <div className="rounded-lg border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-medium text-zinc-500">Detalhes</h2>
+        <h2 className="text-sm font-medium text-zinc-500">Details</h2>
         <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-1.5 text-sm">
           <dt className="text-zinc-500">Owner</dt><dd>{r.owner}</dd>
-          <dt className="text-zinc-500">Região</dt><dd>{r.region ?? "—"}</dd>
+          <dt className="text-zinc-500">Region</dt><dd>{r.region ?? "—"}</dd>
           <dt className="text-zinc-500">Claim</dt><dd className="font-mono text-xs">{r.claimRef.namespace}/{r.claimRef.name}</dd>
           <dt className="text-zinc-500">Composition</dt><dd className="font-mono text-xs">{r.composition?.name ?? "—"}</dd>
-          <dt className="text-zinc-500">Repositório</dt><dd className="font-mono text-xs">{r.repository || "—"}</dd>
+          <dt className="text-zinc-500">Repository</dt><dd className="font-mono text-xs">{r.repository || "—"}</dd>
           <dt className="text-zinc-500">Path</dt><dd className="break-all font-mono text-xs">{r.gitPath || "—"}</dd>
           <dt className="text-zinc-500">Correlation</dt><dd className="break-all font-mono text-xs">{r.correlationId}</dd>
         </dl>
       </div>
       {["OPERATIONAL", "DEGRADED", "FAILED"].includes(r.resourceState) && (
         <div className="rounded-lg border border-rose-200 bg-white p-4 md:col-span-2">
-          <h2 className="text-sm font-medium text-rose-800">Zona de perigo</h2>
+          <h2 className="text-sm font-medium text-rose-800">Danger Zone</h2>
           <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-            <p className="text-zinc-600">Remover este recurso abre um Pull Request que apaga a infraestrutura após aprovação.</p>
+            <p className="text-zinc-600">Removing this resource opens a Pull Request that deletes the infrastructure after approval.</p>
             <Link href={`/infrastructure/${r.id}/decommission`}
               className="shrink-0 rounded-md border border-rose-300 px-3 py-1.5 font-medium text-rose-700 hover:bg-rose-50">Decommission</Link>
           </div>
@@ -192,10 +192,10 @@ function TopologyTab({ id, onEvents, onManifest }: { id: string; onEvents: (filt
   return (
     <TopologyView topology={q.data} nodeActions={(n) => (
       <button type="button" onClick={() => onEvents(`${n.kind}/${n.name}`)}
-        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-50">Ver eventos do cluster</button>
+        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-50">View cluster events</button>
     )} nodeExtraActions={(n) => n.status !== "missing" && (
       <button type="button" onClick={() => onManifest(n.id)}
-        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-50">Ver manifest</button>
+        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-50">View manifest</button>
     )} />
   );
 }
@@ -205,7 +205,7 @@ function Changes({ id }: { id: string }) {
   const [open, setOpen] = useState<number | null>(null);
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
-  if (!q.data.items.length) return <Empty>Nenhuma mudança registrada.</Empty>;
+  if (!q.data.items.length) return <Empty>No changes recorded.</Empty>;
   return (
     <ul className="space-y-3">
       {q.data.items.map((rv) => (
@@ -225,15 +225,15 @@ function Changes({ id }: { id: string }) {
 function CancelRevision({ id, rev }: { id: string; rev: number }) {
   const qc = useQueryClient();
   const cancel = useMutation({
-    mutationFn: () => api.cancelRevision(id, rev, "Cancelado pelo solicitante"),
+    mutationFn: () => api.cancelRevision(id, rev, "Cancelled by requester"),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["revisions", id] }),
   });
   return (
     <div className="border-t border-zinc-100 px-4 py-2">
       <button type="button" disabled={cancel.isPending}
-        onClick={() => window.confirm(`Cancelar a revision ${rev} e fechar o Pull Request?`) && cancel.mutate()}
+        onClick={() => window.confirm(`Cancel revision ${rev} and close Pull Request?`) && cancel.mutate()}
         className="text-sm text-rose-700 hover:underline disabled:opacity-50">
-        {cancel.isPending ? "Cancelando…" : "Cancelar revision"}
+        {cancel.isPending ? "Cancelling…" : "Cancel revision"}
       </button>
       {cancel.isError && <ErrorState error={cancel.error} />}
     </div>
@@ -256,8 +256,8 @@ function RevisionSummary({ rv }: { rv: Revision }) {
         </p>
       )}
       <p className="mt-1 text-xs text-zinc-500">
-        {rv.startedAt && `Início ${new Date(rv.startedAt).toLocaleString("pt-BR")}`}
-        {rv.completedAt && ` · Fim ${new Date(rv.completedAt).toLocaleString("pt-BR")}`}
+        {rv.startedAt && `Started ${new Date(rv.startedAt).toLocaleString("en-US")}`}
+        {rv.completedAt && ` · Finished ${new Date(rv.completedAt).toLocaleString("en-US")}`}
       </p>
     </>
   );
@@ -271,14 +271,14 @@ function RevisionHistory({ id, rev }: { id: string; rev: number }) {
   const d = q.data;
   return (
     <div className="space-y-4 border-t border-zinc-100 p-4">
-      {d.prUrl && <a href={d.prUrl} target="_blank" rel="noreferrer" className="underline">Abrir Pull Request #{d.prNumber}</a>}
+      {d.prUrl && <a href={d.prUrl} target="_blank" rel="noreferrer" className="underline">Open Pull Request #{d.prNumber}</a>}
       {d.operations.map((o) => (
         <p key={o.id} className="text-xs text-zinc-600">
-          Operação {o.type} · <Badge tone={o.status === "SUCCEEDED" ? "ok" : o.status === "FAILED" ? "error" : "progress"}>{o.status}</Badge>
-          {" "}· solicitada por <span className="font-medium">{o.requestedBy}</span> em {new Date(o.requestedAt).toLocaleString("pt-BR")}
+          Operation {o.type} · <Badge tone={o.status === "SUCCEEDED" ? "ok" : o.status === "FAILED" ? "error" : "progress"}>{o.status}</Badge>
+          {" "}· requested by <span className="font-medium">{o.requestedBy}</span> on {new Date(o.requestedAt).toLocaleString("en-US")}
         </p>
       ))}
-      {d.events.length ? <Timeline events={[...d.events].reverse()} live={false} /> : <Empty>Nenhum evento nesta revisão.</Empty>}
+      {d.events.length ? <Timeline events={[...d.events].reverse()} live={false} /> : <Empty>No events in this revision.</Empty>}
     </div>
   );
 }
@@ -288,31 +288,31 @@ function Events({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["events", id], queryFn: () => api.events(id) });
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
-  if (!q.data.items.length) return <Empty>Nenhum evento.</Empty>;
+  if (!q.data.items.length) return <Empty>No events.</Empty>;
   return <Timeline events={q.data.items} />;
 }
 
 const auditLabel: Record<string, string> = {
-  "change.requested": "Mudança solicitada",
-  "change.failed": "Falha ao abrir PR",
-  "revision.cancelled": "Revision cancelada",
-  "revision.superseded": "Revision substituída",
+  "change.requested": "Change requested",
+  "change.failed": "Failed to open PR",
+  "revision.cancelled": "Revision cancelled",
+  "revision.superseded": "Revision superseded",
 };
 
 function Audit({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["audit", id], queryFn: () => api.audit(id) });
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
-  if (!q.data.items.length) return <Empty>Nenhuma ação registrada.</Empty>;
+  if (!q.data.items.length) return <Empty>No actions recorded.</Empty>;
   return (
     <table className="w-full overflow-hidden rounded-lg border border-zinc-200 bg-white text-left text-sm">
       <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
-        <tr><th className="px-3 py-2">Quando</th><th className="px-3 py-2">Quem</th><th className="px-3 py-2">O quê</th><th className="px-3 py-2">Antes → Depois</th><th className="px-3 py-2">PR</th></tr>
+        <tr><th className="px-3 py-2">When</th><th className="px-3 py-2">Who</th><th className="px-3 py-2">What</th><th className="px-3 py-2">Before → After</th><th className="px-3 py-2">PR</th></tr>
       </thead>
       <tbody className="divide-y divide-zinc-100">
         {q.data.items.map((a) => (
           <tr key={a.id} className="align-top">
-            <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-500">{new Date(a.createdAt).toLocaleString("pt-BR")}</td>
+            <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-500">{new Date(a.createdAt).toLocaleString("en-US")}</td>
             <td className="px-3 py-2">{a.actor}</td>
             <td className="px-3 py-2">{auditLabel[a.action] ?? a.action}</td>
             <td className="px-3 py-2 font-mono text-xs">
@@ -320,7 +320,7 @@ function Audit({ id }: { id: string }) {
                 <div key={k}>{k}: {a.before?.[k] !== undefined ? `${String(a.before[k])} → ` : ""}{String(v)}</div>
               ))}
             </td>
-            <td className="px-3 py-2">{a.prUrl && <a href={a.prUrl} target="_blank" rel="noreferrer" className="underline">abrir</a>}</td>
+            <td className="px-3 py-2">{a.prUrl && <a href={a.prUrl} target="_blank" rel="noreferrer" className="underline">open</a>}</td>
           </tr>
         ))}
       </tbody>

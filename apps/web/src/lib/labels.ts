@@ -48,9 +48,9 @@ export const stageTone: Record<StageStatus, Tone> = {
 };
 
 export const actionOwnerLabel = {
-  requester: "Solicitante",
-  approver: "Aprovador",
-  platform: "Plataforma",
+  requester: "Requester",
+  approver: "Approver",
+  platform: "Platform",
   squad: "Squad",
 } as const;
 

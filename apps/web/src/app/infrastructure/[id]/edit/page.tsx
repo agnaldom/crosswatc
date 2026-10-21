@@ -37,15 +37,15 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
       <Link href={`/infrastructure/${id}`} className="text-sm text-zinc-500 hover:underline">← {resource.data.name}</Link>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight">Edit Configuration</h1>
       <p className="mt-1 text-sm text-zinc-600">
-        Somente campos autorizados são editáveis. Toda mudança vira um Pull Request.
+        Only authorized fields are editable. Every change creates a Pull Request.
       </p>
       {!editable && <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">{reason}</p>}
       <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6">
         {schema.fields.length === 0 ? (
-          <Empty>Este tipo de recurso não expõe parâmetros.</Empty>
+          <Empty>This resource type does not expose parameters.</Empty>
         ) : (
           <DynamicForm fields={editable ? schema.fields : schema.fields.map((f) => ({ ...f, editable: false }))}
-            values={values} submitLabel="Revisar mudanças"
+            values={values} submitLabel="Review changes"
             busy={preview.isPending}
             onSubmit={(v) => {
               const c = changedValues(schema.fields, values, v);
@@ -55,7 +55,7 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
         )}
       </div>
       {changes && Object.keys(changes).length === 0 && (
-        <p className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600">Nenhuma alteração.</p>
+        <p className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600">No changes.</p>
       )}
       {preview.isError && <div className="mt-6"><ErrorState error={preview.error} /></div>}
       {preview.data && changes && Object.keys(changes).length > 0 && (
@@ -64,30 +64,30 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
           <PreviewPanel preview={preview.data} />
           {preview.data.valid && !submit.data && (
             <div className="mt-6 space-y-3">
-              <label htmlFor="justification" className="block text-sm font-medium">Justificativa *</label>
+              <label htmlFor="justification" className="block text-sm font-medium">Justification *</label>
               <textarea id="justification" rows={3} value={justification} onChange={(e) => setJustification(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Por que esta mudança é necessária?" />
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Why is this change needed?" />
               <button type="button" disabled={!justification.trim() || submit.isPending} onClick={() => submit.mutate(false)}
                 className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50">
-                {submit.isPending ? "Abrindo Pull Request…" : "Confirmar e abrir Pull Request"}
+                {submit.isPending ? "Opening Pull Request…" : "Confirm and open Pull Request"}
               </button>
               {submit.isError && <ErrorState error={submit.error} />}
               {submit.error instanceof ApiError && submit.error.status === 409 && submit.error.message.startsWith("Revision already open") && (
                 <button type="button" onClick={() => submit.mutate(true)} className="text-sm text-amber-800 underline">
-                  Substituir a revision aberta (fecha o Pull Request anterior)
+                  Supersede the open revision (closes previous Pull Request)
                 </button>
               )}
             </div>
           )}
           {submit.data && (
             <div className="mt-6 rounded-md bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
-              <p className="font-medium">Revision {submit.data.rev} criada.</p>
+              <p className="font-medium">Revision {submit.data.rev} created.</p>
               <p className="mt-1">
-                Pull Request <a className="underline" href={submit.data.prUrl} target="_blank" rel="noreferrer">#{submit.data.prNumber}</a> aberto.
+                Pull Request <a className="underline" href={submit.data.prUrl} target="_blank" rel="noreferrer">#{submit.data.prNumber}</a> opened.
                 Correlation ID <span className="font-mono text-xs">{submit.data.correlationId}</span>.
               </p>
               <button type="button" onClick={() => router.push(`/infrastructure/${id}`)} className="mt-3 underline">
-                Acompanhar o lifecycle
+                Track lifecycle
               </button>
             </div>
           )}

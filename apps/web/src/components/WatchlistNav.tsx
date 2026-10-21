@@ -27,7 +27,7 @@ export function WatchlistNav() {
           const gone = states[i]?.isError;
           return (
             <Link key={w.id} href={href} aria-current={pathname === href ? "page" : undefined}
-              title={`${w.kind} · ${r ? resourceStateLabel[r.resourceState] : gone ? "indisponível" : "carregando"}`}
+              title={`${w.kind} · ${r ? resourceStateLabel[r.resourceState] : gone ? "unavailable" : "loading"}`}
               className={`flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-100 ${pathname === href ? "bg-zinc-100 font-medium" : "text-zinc-700"} ${gone ? "opacity-50" : ""}`}>
               <span className={`h-2 w-2 shrink-0 rounded-full ${toneDot[tone]}`} aria-hidden />
               <span className="truncate">{w.name}</span>

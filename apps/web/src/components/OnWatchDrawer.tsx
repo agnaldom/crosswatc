@@ -134,7 +134,7 @@ export function OnWatchDrawer({
               <button
                 type="button"
                 onClick={clearAll}
-                title="Limpar todos do OnWatch"
+                title="Clear all OnWatch"
                 className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-rose-600 dark:hover:bg-zinc-800"
               >
                 {/* Trash Icon */}
@@ -146,7 +146,7 @@ export function OnWatchDrawer({
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              aria-label="Fechar OnWatch"
+              aria-label="Close OnWatch"
               className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
             >
               ✕
@@ -160,7 +160,7 @@ export function OnWatchDrawer({
           <div className="space-y-2">
             {list.length === 0 ? (
               <p className="rounded-md border border-dashed border-zinc-200 p-4 text-center text-xs text-zinc-400 dark:border-zinc-800">
-                Nenhum recurso fixado no OnWatch. Clique no ícone de olho nos recursos para monitorá-los aqui.
+                No resources pinned to OnWatch. Click the eye icon on resources to monitor them here.
               </p>
             ) : (
               list.map((w: WatchedResource, idx: number) => {
@@ -206,7 +206,7 @@ export function OnWatchDrawer({
                         e.stopPropagation();
                         remove(w.id);
                       }}
-                      title="Remover do OnWatch"
+                      title="Remove from OnWatch"
                       className="absolute right-2 top-2 p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400"
                     >
                       <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">

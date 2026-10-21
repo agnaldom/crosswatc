@@ -2,7 +2,7 @@ import type { Condition } from "@/lib/conditions";
 
 // One card per status.condition, as in Crossview's "Status Conditions" panel.
 export function ConditionCards({ conditions, compact = false }: { conditions?: Condition[]; compact?: boolean }) {
-  if (!conditions?.length) return <p className="text-xs text-zinc-500">Sem condições reportadas.</p>;
+  if (!conditions?.length) return <p className="text-xs text-zinc-500">No conditions reported.</p>;
   return (
     <div className="space-y-2">
       {conditions.map((c) => {
@@ -22,7 +22,7 @@ export function ConditionCards({ conditions, compact = false }: { conditions?: C
               </p>
             )}
             {c.lastTransitionTime && (
-              <p className="mt-1 text-[11px] text-zinc-500">Última transição: {new Date(c.lastTransitionTime).toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[11px] text-zinc-500">Last transition: {new Date(c.lastTransitionTime).toLocaleString("en-US")}</p>
             )}
           </div>
         );
