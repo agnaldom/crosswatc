@@ -84,11 +84,17 @@ export function Sidebar() {
             title="Manage Kubernetes Contexts"
             className="mt-1.5 flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="truncate">{currentContext}</span>
+            <div className="flex items-center gap-2 truncate">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <div className="min-w-0">
+                <span className="block truncate font-mono text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">{currentContext}</span>
+                <span className="block text-[9px] text-zinc-400 dark:text-zinc-500 leading-none">Live Connected</span>
+              </div>
             </div>
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-zinc-400">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-zinc-400 shrink-0 ml-1">
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
           </Link>
