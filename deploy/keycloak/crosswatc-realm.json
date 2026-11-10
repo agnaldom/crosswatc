@@ -1,0 +1,96 @@
+{
+  "realm": "crosswatc",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      {
+        "name": "platform-admin"
+      },
+      {
+        "name": "platform-sre"
+      },
+      {
+        "name": "squad-payments"
+      },
+      {
+        "name": "squad-cards"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "crosswatc-api",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "crosswatc-web",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${CROSSWATC_OIDC_CLIENT_SECRET}",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/api/v1/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000",
+        "backchannel.logout.url": "http://api:8080/api/v1/auth/backchannel-logout",
+        "backchannel.logout.session.required": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "crosswatc-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "roles",
+        "web-origins",
+        "basic",
+        "acr"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "crosswatc-dev",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Local",
+      "lastName": "Developer",
+      "email": "dev@crosswatc.local",
+      "realmRoles": [
+        "platform-admin",
+        "platform-sre",
+        "squad-payments",
+        "squad-cards"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${CROSSWATC_LOCAL_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

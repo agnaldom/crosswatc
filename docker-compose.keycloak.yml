@@ -1,0 +1,50 @@
+# Local Keycloak sandbox. Production uses an externally managed HTTPS issuer.
+# Run `python3 deploy/keycloak/setup.py` first.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: ["start-dev", "--import-realm"]
+    env_file: [.env.keycloak]
+    environment:
+      KC_HTTP_PORT: "18080"
+      KC_HOSTNAME: http://keycloak.localhost:18080
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18080:18080"
+    volumes:
+      - ./deploy/keycloak/crosswatc-realm.json:/opt/keycloak/data/import/crosswatc-realm.json:ro
+      - keycloak_data:/opt/keycloak/data
+    networks:
+      default:
+        aliases: [keycloak.localhost]
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3; IFS= read -r status <&3; [[ \"$$status\" == *'200'* ]]"]
+      interval: 5s
+      timeout: 3s
+      start_period: 60s
+      retries: 30
+
+  api:
+    env_file: [.env.keycloak]
+    environment:
+      CROSSWATC_AUTH_MODE: oidc
+      CROSSWATC_OIDC_ISSUER: http://keycloak.localhost:18080/realms/crosswatc
+      CROSSWATC_OIDC_AUDIENCE: crosswatc-api
+      CROSSWATC_OIDC_CLIENT_ID: crosswatc-web
+      CROSSWATC_OIDC_ROLES_CLIENT_ID: crosswatc-api
+      CROSSWATC_PUBLIC_URL: http://localhost:3000
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  web:
+    environment:
+      CROSSWATC_AUTH_MODE: oidc
+      CROSSWATC_DEV_USER: ""
+      CROSSWATC_DEV_ADMIN: "false"
+      CROSSWATC_DEV_SRE: "false"
+    ports: !override
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  keycloak_data:
